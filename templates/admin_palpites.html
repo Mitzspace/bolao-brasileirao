@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block titulo %}Lançar Palpites — Admin{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h1>Lançar Palpites (Administrador)</h1>
+            <p class="muted">Como os participantes ainda não acessam o sistema, você pode registrar os palpites de cada um aqui.</p>
+        </div>
+        {% if rodada_sel %}
+        <div>
+            <a class="button small secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada_sel.id) }}">
+                Ver Grade de Todos
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Seleção de Participante e Rodada -->
+<section class="panel selector-panel">
+    <p class="campeonato-titulo">Selecione o Participante e a Rodada</p>
+    <form method="GET" action="{{ url_for('admin.gerenciar_palpites') }}">
+        <div class="selector-grid">
+            <div class="form-row selector-field">
+                <label>Participante *</label>
+                <select name="participante_id" required onchange="this.form.submit()">
+                    <option value="">Selecione o Participante</option>
+                    {% for p in participantes %}
+                    <option value="{{ p.id }}" {% if participante_id == p.id %}selected{% endif %}>
+                        {{ p.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-row selector-field">
+                <label>Campeonato &amp; Rodada *</label>
+                <select name="rodada_id" required onchange="this.form.submit()">
+                    <option value="">Selecione a Rodada</option>
+                    {% for c in campeonatos %}
+                        <optgroup label="{{ c.nome }} ({{ c.ano }})">
+                            {% for r in c.rodadas %}
+                            <option value="{{ r.id }}" {% if rodada_id == r.id %}selected{% endif %}>
+                                {{ r.nome }} ({{ r.jogos | length }} partidas)
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </form>
+</section>
+
+{% if participante_sel and rodada_sel %}
+<!-- Cabeçalho de Confirmação -->
+<section class="panel" style="border-left: 4px solid var(--vermelho); margin-bottom: 0.75rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+            <h2>Palpites de {{ participante_sel.nome }}</h2>
+            <p class="muted">{{ rodada_sel.campeonato.nome }} — {{ rodada_sel.nome }}</p>
+        </div>
+        <span class="tag {{ 'badge-aberta' if rodada_sel.aberta else 'badge-fechada' }}">
+            {{ 'Rodada Aberta' if rodada_sel.aberta else 'Rodada Encerrada' }}
+        </span>
+    </div>
+</section>
+
+<!-- Formulário em Tabela Estilo Planilha Compacta -->
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="participante_id" value="{{ participante_sel.id }}">
+    <input type="hidden" name="rodada_id" value="{{ rodada_sel.id }}">
+
+    <section class="panel table-scroll" style="padding: 0; margin-bottom: 1rem;">
+        <table class="table palpites-table">
+            <thead>
+                <tr>
+                    <th style="width: 170px;">Data &amp; Horário</th>
+                    <th style="text-align: right; width: 30%;">Mandante</th>
+                    <th style="text-align: center; width: 190px;">Palpite</th>
+                    <th style="text-align: left; width: 30%;">Visitante</th>
+                    <th style="text-align: center; width: 120px;">Placar Real</th>
+                    <th style="width: 220px;">1º Gol (Bônus)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jogo in rodada_sel.jogos %}
+                {% set palpite = palpites_map.get(jogo.id) %}
+                <tr>
+                    <!-- Data/Hora -->
+                    <td style="font-size: 0.78rem; color: var(--cinza-muted); white-space: nowrap;">
+                        {{ jogo.data_formatada }}
+                        {% if jogo.especial %}
+                            <div style="color: var(--dourado); font-weight: 800; font-size: 0.7rem; margin-top: 2px;">
+                                Clássico
+                            </div>
+                        {% endif %}
+                    </td>
+
+                    <!-- Mandante -->
+                    <td style="text-align: right; font-weight: 800; color: #fff; font-size: 0.95rem;">
+                        {{ jogo.time_casa }}
+                    </td>
+
+                    <!-- Palpite Inputs -->
+                    <td class="score-cell">
+                        <div class="score-control">
+                            <input
+                                class="score-input"
+                                type="number" name="casa_{{ jogo.id }}" min="0"
+                                value="{{ palpite.gols_casa if palpite and palpite.gols_casa is not none else '' }}"
+                                placeholder="0"
+                            >
+                            <span class="score-sep">×</span>
+                            <input
+                                class="score-input"
+                                type="number" name="fora_{{ jogo.id }}" min="0"
+                                value="{{ palpite.gols_fora if palpite and palpite.gols_fora is not none else '' }}"
+                                placeholder="0"
+                            >
+                        </div>
+                    </td>
+
+                    <!-- Visitante -->
+                    <td style="text-align: left; font-weight: 800; color: #fff; font-size: 0.95rem;">
+                        {{ jogo.time_fora }}
+                    </td>
+
+                    <!-- Placar Real -->
+                    <td style="text-align: center; white-space: nowrap;">
+                        {% if jogo.resultado %}
+                            <span class="real-score">
+                                {{ jogo.resultado.gols_casa_real }} × {{ jogo.resultado.gols_fora_real }}
+                            </span>
+                        {% else %}
+                            <span style="color: var(--cinza-muted); font-size: 0.8rem;">—</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Primeiro Gol -->
+                    <td>
+                        {% if jogo.especial %}
+                            <input
+                                class="bonus-input"
+                                type="text" name="primeiro_{{ jogo.id }}"
+                                value="{{ palpite.primeiro_gol if palpite and palpite.primeiro_gol else '' }}"
+                                placeholder="Jogador"
+                            >
+                        {% else %}
+                            <span style="color: var(--cinza-muted); font-size: 0.75rem;">Não é clássico</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="muted" style="text-align: center; padding: 1.5rem;">
+                        Esta rodada não possui jogos cadastrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if rodada_sel.jogos %}
+    <section class="panel" style="text-align:center; padding: 1.25rem;">
+        <button type="submit" class="button primary" style="padding: 0.85rem 3rem; font-size: 1rem;">
+            Salvar Todos os Palpites de {{ participante_sel.nome }}
+        </button>
+    </section>
+    {% endif %}
+</form>
+{% elif participante_id or rodada_id %}
+<section class="panel">
+    <p class="muted">Selecione tanto o participante quanto a rodada para abrir a grade de palpites.</p>
+</section>
+{% endif %}
+
+{% endblock %}

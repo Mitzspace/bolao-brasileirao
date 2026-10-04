@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}Bolão do Brasileirão{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <h1>Bolão do Brasileirão 2025</h1>
+    {% if current_user.is_authenticated %}
+        <p class="muted">Olá, <strong>{{ current_user.nome }}</strong>. Acompanhe os jogos, veja o ranking ou confira os palpites.</p>
+        <div class="actions-group" style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <a class="button" href="{{ url_for('participante.listar_jogos') }}">Ver Jogos &amp; Rodadas</a>
+            <a class="button secondary" href="{{ url_for('participante.ranking') }}">Ver Ranking Geral</a>
+            <a class="button secondary" href="{{ url_for('participante.meus_palpites') }}">Meus Palpites</a>
+        </div>
+    {% else %}
+        <p class="muted">Acompanhe os jogos, a classificação e a pontuação dos participantes.</p>
+        <div class="actions-group" style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <a class="button" href="{{ url_for('participante.listar_jogos') }}">Ver Jogos &amp; Rodadas</a>
+            <a class="button secondary" href="{{ url_for('participante.ranking') }}">Ver Ranking Geral</a>
+            <a class="button secondary" href="{{ url_for('auth.login') }}">Entrar na Conta</a>
+        </div>
+    {% endif %}
+</section>
+
+{% if campeonatos %}
+    {% for camp in campeonatos %}
+    <section class="panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <p class="campeonato-titulo" style="margin:0;">{{ camp.ano }}</p>
+                <h2>{{ camp.nome }}</h2>
+            </div>
+            <a class="button small secondary" href="{{ url_for('participante.listar_jogos') }}">
+                Ver Todas as 38 Rodadas →
+            </a>
+        </div>
+
+        <!-- Rodadas em grade compacta -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem;">
+            {% for rodada in camp.rodadas[:12] %}
+            <div class="rodada-card" style="padding: 0.85rem 1rem;">
+                <div>
+                    <div class="nome" style="font-size: 0.95rem;">{{ rodada.nome }}</div>
+                    <div class="sub" style="font-size: 0.75rem;">
+                        {{ rodada.jogos | length }} partidas
+                        · <span style="color: {{ '#2ecc71' if rodada.aberta else 'var(--cinza-muted)' }};">
+                            {{ 'Aberta' if rodada.aberta else 'Encerrada' }}
+                        </span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.35rem;">
+                    <a class="button small secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada.id) }}" title="Ver todos os palpites">
+                        Palpites
+                    </a>
+                    <a class="button small" href="{{ url_for('participante.listar_jogos', rodada_id=rodada.id) }}" title="Ver jogos da rodada">
+                        Jogos
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if camp.rodadas | length > 12 %}
+        <div style="text-align: center; margin-top: 1rem;">
+            <a class="button small secondary" href="{{ url_for('participante.listar_jogos') }}">
+                + Ver as outras {{ (camp.rodadas | length) - 12 }} rodadas
+            </a>
+        </div>
+        {% endif %}
+    </section>
+    {% endfor %}
+{% else %}
+    <section class="panel">
+        <p class="muted">Nenhuma rodada cadastrada.</p>
+    </section>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block titulo %}Meus palpites{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <h1>Meus palpites</h1>
+    <p class="muted">Participante: <strong>{{ current_user.nome }}</strong> ({{ current_user.email }})</p>
+</section>
+
+{% set rodada_atual = namespace(valor=None, rodada_id=None) %}
+
+{% for item in itens %}
+{% set palpite = item.palpite %}
+{% set jogo = palpite.jogo %}
+{% set rodada = jogo.rodada %}
+{% set titulo = rodada.campeonato.nome ~ " · " ~ rodada.nome %}
+
+{% if rodada_atual.valor != titulo %}
+    {% set rodada_atual.valor = titulo %}
+    {% set rodada_atual.rodada_id = rodada.id %}
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2rem; margin-bottom:0.6rem; flex-wrap:wrap; gap:0.5rem;">
+        <p class="campeonato-titulo" style="margin:0;">{{ titulo }}</p>
+        <a class="button small secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada.id) }}" style="font-size:0.75rem;">
+            Ver Grade de Todos
+        </a>
+    </div>
+{% endif %}
+
+<section class="panel" style="padding: 0.75rem 1.25rem; margin-bottom: 0.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+            <span style="font-size: 0.75rem; color: var(--cinza-muted); display: block; margin-bottom: 2px;">
+                {{ jogo.data_formatada }}
+                {% if jogo.especial %}<strong style="color: var(--dourado-claro); margin-left: 4px;">Clássico</strong>{% endif %}
+            </span>
+            <span class="match-name" style="font-size: 0.95rem;">
+                {{ jogo.time_casa }}
+                <strong style="color: var(--branco); font-size: 1.1rem; margin: 0 4px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--azul-borda);">
+                    {{ palpite.gols_casa }} × {{ palpite.gols_fora }}
+                </strong>
+                {{ jogo.time_fora }}
+            </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+            {% if jogo.resultado %}
+                <span style="font-size: 0.8rem; color: var(--cinza-claro);">
+                    Oficial: <strong style="color: #2ecc71;">{{ jogo.resultado.gols_casa_real }}×{{ jogo.resultado.gols_fora_real }}</strong>
+                </span>
+            {% endif %}
+
+            <div class="match-meta">
+                {% if item.pontos is not none %}
+                    {% if item.pontos >= 3 %}
+                        <span class="tag verde" style="font-weight: 700;">+{{ item.pontos }} pts</span>
+                    {% elif item.pontos > 0 %}
+                        <span class="tag" style="background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid #3498db; font-weight: 700;">+{{ item.pontos }} pt</span>
+                    {% else %}
+                        <span class="tag cinza">0 pts</span>
+                    {% endif %}
+                {% else %}
+                    <span class="muted" style="font-size: 0.8rem;">Aguardando</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if jogo.especial and palpite.primeiro_gol %}
+        <p class="muted" style="margin-top:0.3rem; font-size:0.78rem;">
+            Palpite 1º gol: <strong style="color: var(--dourado);">{{ palpite.primeiro_gol }}</strong>
+            {% if jogo.resultado and jogo.resultado.primeiro_gol_real %}
+                · Real: <strong>{{ jogo.resultado.primeiro_gol_real }}</strong>
+            {% endif %}
+        </p>
+    {% endif %}
+</section>
+
+{% else %}
+<section class="panel">
+    <p class="muted">Você ainda não enviou palpites.</p>
+</section>
+{% endfor %}
+
+{% endblock %}

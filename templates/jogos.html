@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block titulo %}Jogos &amp; Rodadas{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <p class="campeonato-titulo">{{ camp_atual.nome if camp_atual else 'Campeonato' }} · {{ camp_atual.ano if camp_atual else '2025' }}</p>
+            <h1>Tabela de Jogos &amp; Rodadas</h1>
+            <p class="muted">Acompanhe todos os confrontos, datas, horários e placares oficiais do campeonato.</p>
+        </div>
+        {% if rodada_atual %}
+        <div>
+            <a class="button" href="{{ url_for('participante.ver_grade_palpites', id=rodada_atual.id) }}" style="padding: 0.65rem 1.25rem;">
+                Ver Grade de Palpites desta Rodada
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% if camp_atual and camp_atual.rodadas %}
+<!-- Navegação por Rodadas estilo abas compactas -->
+<section class="panel" style="padding: 0.85rem 1rem;">
+    <p class="campeonato-titulo" style="margin-bottom:0.5rem;">Selecione a Rodada (38 Rodadas)</p>
+    <div class="rodadas-scroll scroll-x" data-scroll-key="rodadas-jogos-{{ camp_atual.id }}">
+        {% for r in camp_atual.rodadas %}
+        <a href="{{ url_for('participante.listar_jogos', rodada_id=r.id) }}"
+           class="button small {% if rodada_atual and rodada_atual.id == r.id %}primary{% else %}secondary{% endif %}"
+           style="white-space: nowrap; font-size: 0.78rem; padding: 0.35rem 0.7rem;">
+            {{ r.nome }}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+
+{% if rodada_atual %}
+<!-- Cabeçalho da Rodada Selecionada -->
+<section class="panel" style="border-left: 4px solid var(--vermelho); margin-bottom: 0.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h2>{{ rodada_atual.nome }}</h2>
+            <div style="margin-top: 0.25rem;">
+                <span class="tag {{ 'badge-aberta' if rodada_atual.aberta else 'badge-fechada' }}">
+                    {{ 'Aberta para Palpites' if rodada_atual.aberta else 'Partidas Realizadas' }}
+                </span>
+                <span class="muted" style="margin-left: 0.5rem; font-size: 0.82rem;">
+                    {{ jogos | length }} partidas
+                </span>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="button small secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada_atual.id) }}">
+                Grade de Palpites
+            </a>
+
+            {% if rodada_atual.aberta and current_user.is_authenticated %}
+            <a class="button small" href="{{ url_for('participante.visualizar_rodada', id=rodada_atual.id) }}">
+                Meus Palpites
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Visualização Desktop: Tabela Estilo Planilha -->
+<section class="panel desktop-only table-scroll" style="padding: 0;">
+    <table class="table" style="min-width: 780px;">
+        <thead>
+            <tr>
+                <th style="width: 170px;">Data &amp; Horário</th>
+                <th style="text-align: right; width: 35%;">Mandante</th>
+                <th style="text-align: center; width: 140px;">Placar Oficial</th>
+                <th style="text-align: left; width: 35%;">Visitante</th>
+                <th style="text-align: center; width: 100px;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for jogo in jogos %}
+            <tr>
+                <!-- Data e Hora -->
+                <td style="color: var(--cinza-muted); font-size: 0.8rem; white-space: nowrap;">
+                    {{ jogo.data_formatada }}
+                    {% if jogo.especial %}
+                        <div style="color: var(--dourado); font-weight: 800; font-size: 0.72rem; margin-top: 2px;">
+                            Clássico
+                        </div>
+                    {% endif %}
+                </td>
+
+                <!-- Mandante -->
+                <td style="text-align: right; font-weight: 800; font-size: 1rem; color: #fff;">
+                    {{ jogo.time_casa }}
+                </td>
+
+                <!-- Placar Central -->
+                <td style="text-align: center; white-space: nowrap;">
+                    {% if jogo.resultado %}
+                        <span style="font-size: 1.25rem; font-weight: 900; color: #2ecc71; background: rgba(46, 204, 113, 0.15); padding: 2px 12px; border-radius: 6px; border: 1px solid rgba(46, 204, 113, 0.3);">
+                            {{ jogo.resultado.gols_casa_real }} × {{ jogo.resultado.gols_fora_real }}
+                        </span>
+                        {% if jogo.especial and jogo.resultado.primeiro_gol_real %}
+                            <div style="font-size: 0.7rem; color: var(--dourado); margin-top: 3px;">
+                                1º gol: {{ jogo.resultado.primeiro_gol_real }}
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <span style="font-size: 1.1rem; font-weight: 700; color: var(--cinza-muted); background: rgba(255,255,255,0.03); padding: 2px 12px; border-radius: 4px;">
+                            ×
+                        </span>
+                    {% endif %}
+                </td>
+
+                <!-- Visitante -->
+                <td style="text-align: left; font-weight: 800; font-size: 1rem; color: #fff;">
+                    {{ jogo.time_fora }}
+                </td>
+
+                <!-- Status -->
+                <td style="text-align: center;">
+                    {% if jogo.encerrado %}
+                        <span class="tag verde" style="font-size: 0.7rem;">Finalizado</span>
+                    {% else %}
+                        <span class="tag cinza" style="font-size: 0.7rem;">Em Breve</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="muted" style="text-align: center; padding: 1.5rem;">
+                    Nenhum jogo cadastrado nesta rodada.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<!-- Visualização Mobile: Cards Otimizados para Celular -->
+<div class="mobile-only">
+    {% for jogo in jogos %}
+    <div class="jogo-card-mobile">
+        <div class="jogo-card-header">
+            <span class="muted" style="font-size: 0.75rem;">{{ jogo.data_formatada }}</span>
+            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                {% if jogo.especial %}
+                    <span class="tag" style="background: rgba(241, 196, 15, 0.2); color: var(--dourado); border: 1px solid var(--dourado); font-size: 0.65rem;">Clássico</span>
+                {% endif %}
+                {% if jogo.encerrado %}
+                    <span class="tag verde" style="font-size: 0.65rem;">Finalizado</span>
+                {% else %}
+                    <span class="tag cinza" style="font-size: 0.65rem;">Em Breve</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="jogo-card-confronto">
+            <div class="time-col mandante">
+                <span class="time-nome">{{ jogo.time_casa }}</span>
+            </div>
+            <div class="placar-col">
+                {% if jogo.resultado %}
+                    <span class="placar-badge">
+                        {{ jogo.resultado.gols_casa_real }} × {{ jogo.resultado.gols_fora_real }}
+                    </span>
+                {% else %}
+                    <span class="placar-vazio">×</span>
+                {% endif %}
+            </div>
+            <div class="time-col visitante">
+                <span class="time-nome">{{ jogo.time_fora }}</span>
+            </div>
+        </div>
+
+        {% if jogo.especial and jogo.resultado and jogo.resultado.primeiro_gol_real %}
+        <div class="jogo-card-footer" style="margin-top: 0.4rem; padding-top: 0.35rem; border-top: 1px dashed var(--vermelho-borda); font-size: 0.72rem; color: var(--dourado); text-align: center;">
+            1º gol do clássico: <strong>{{ jogo.resultado.primeiro_gol_real }}</strong>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <section class="panel">
+        <p class="muted" style="text-align: center;">Nenhum jogo cadastrado nesta rodada.</p>
+    </section>
+    {% endfor %}
+</div>
+
+{% endif %}
+
+{% else %}
+<section class="panel">
+    <p class="muted">Nenhum campeonato cadastrado no momento.</p>
+</section>
+{% endif %}
+
+{% endblock %}

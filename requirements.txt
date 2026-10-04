@@ -1,0 +1,12 @@
+flask
+flask-sqlalchemy
+flask-login
+flask-wtf
+flask-limiter
+werkzeug
+python-dotenv
+openpyxl
+gunicorn
+pyngrok
+pytest
+pytest-flask

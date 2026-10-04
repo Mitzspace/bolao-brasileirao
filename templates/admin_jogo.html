@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Novo Jogo{% endblock %}
+{% block conteudo %}
+<section class="panel panel-hero"><h1>Novo Jogo</h1></section>
+<section class="panel" style="max-width:600px;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+            <label>Rodada</label>
+            <select name="rodada_id" required>
+                {% for r in rodadas %}
+                <option value="{{ r.id }}">{{ r.campeonato.nome }} — {{ r.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-grid">
+            <div class="form-row"><label>Time da casa</label><input type="text" name="time_casa" required></div>
+            <div class="form-row"><label>Time visitante</label><input type="text" name="time_fora" required></div>
+        </div>
+        <div class="form-row"><label>Data e hora</label><input type="datetime-local" name="data"></div>
+        <div class="form-row"><label><input type="checkbox" name="especial"> Jogo especial</label></div>
+        <button type="submit">Salvar jogo</button>
+    </form>
+</section>
+{% endblock %}

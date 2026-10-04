@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block titulo %}Campeonatos &amp; Rodadas{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h1>Gerenciador de Campeonatos</h1>
+            <p class="muted">Visualize e gerencie campeonatos, rodadas e permissões do bolão.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a class="button" href="{{ url_for('admin.cadastrar_campeonato') }}">+ Novo campeonato</a>
+            <a class="button secondary" href="{{ url_for('admin.sync') }}">Sincronizar API</a>
+            <a class="button secondary" href="{{ url_for('admin.importar_planilha') }}">Importar Planilha</a>
+        </div>
+    </div>
+</section>
+
+{% for camp in campeonatos %}
+<section class="panel table-scroll" style="padding: 0; margin-bottom: 2rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding: 1.25rem 1.5rem; border-bottom: 2px solid var(--vermelho); background: #1f0b0e; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <p class="campeonato-titulo" style="margin:0;">TEMPORADA {{ camp.ano }}</p>
+            <h2 style="font-size: 1.4rem;">{{ camp.nome }}</h2>
+            <span class="muted" style="font-size: 0.8rem;">{{ camp.rodadas | length }} rodadas cadastradas</span>
+        </div>
+        <div class="actions-row">
+            <a class="button small secondary" href="{{ url_for('admin.editar_campeonato', id=camp.id) }}">Editar Campeonato</a>
+            <form method="POST" action="{{ url_for('admin.excluir_campeonato', id=camp.id) }}"
+                  onsubmit="return confirm('ATENÇÃO: Deseja realmente excluir o campeonato \'{{ camp.nome }}\' e TODAS as suas rodadas, jogos, resultados e palpites? Essa ação não pode ser desfeita.');">
+                <button type="submit" class="button small danger-btn">Excluir Campeonato</button>
+            </form>
+        </div>
+    </div>
+
+    {% if camp.rodadas %}
+    <table class="table" style="min-width: 700px;">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Nome da Rodada</th>
+                <th style="text-align: center; width: 15%;">Jogos</th>
+                <th style="text-align: center; width: 20%;">Status</th>
+                <th style="text-align: right; padding-right: 1.5rem; width: 40%;">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rodada in camp.rodadas %}
+            <tr>
+                <td style="font-weight: 800; font-size: 0.95rem; color: #fff;">
+                    {{ rodada.nome }}
+                </td>
+                <td style="text-align: center; color: var(--cinza-claro);">
+                    {{ rodada.jogos | length }} partida(s)
+                </td>
+                <td style="text-align: center;">
+                    <span class="tag {{ 'badge-aberta' if rodada.aberta else 'badge-fechada' }}" style="font-size: 0.7rem;">
+                        {{ 'Aberta' if rodada.aberta else 'Encerrada' }}
+                    </span>
+                </td>
+                <td style="text-align: right; padding-right: 1.5rem;">
+                    <div style="display:inline-flex; gap:0.35rem; align-items:center;">
+                        <a class="button small secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada.id) }}" title="Ver grade de palpites">
+                            Grade
+                        </a>
+                        <a class="button small" href="{{ url_for('admin.gerenciar_palpites', rodada_id=rodada.id) }}" title="Lançar palpites dos participantes">
+                            Palpitar
+                        </a>
+                        <form method="POST" action="{{ url_for('admin.toggle_rodada', id=rodada.id) }}" style="display:inline;">
+                            <button type="submit" class="button small secondary" style="font-size: 0.72rem;">
+                                {{ 'Fechar' if rodada.aberta else 'Abrir' }}
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin.excluir_rodada', id=rodada.id) }}" style="display:inline;"
+                              onsubmit="return confirm('Deseja excluir a \'{{ rodada.nome }}\' e todos os seus jogos?');">
+                            <button type="submit" class="button small danger-btn">Excluir</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="muted" style="padding: 1.5rem;">Nenhuma rodada cadastrada neste campeonato.</p>
+    {% endif %}
+</section>
+{% else %}
+<section class="panel">
+    <p class="muted">Nenhum campeonato cadastrado ainda.</p>
+</section>
+{% endfor %}
+
+{% endblock %}

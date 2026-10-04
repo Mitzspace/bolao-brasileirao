@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block titulo %}{{ rodada.nome }}{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <p class="campeonato-titulo">{{ rodada.campeonato.nome }} · {{ rodada.campeonato.ano }}</p>
+            <h1>{{ rodada.nome }}</h1>
+            <p class="muted">Preencha os placares que você espera para cada partida.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a class="button small secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada.id) }}">
+                Ver Todos os Palpites
+            </a>
+            <a class="button small secondary" href="{{ url_for('participante.listar_jogos', rodada_id=rodada.id) }}">
+                Ver Jogos
+            </a>
+        </div>
+    </div>
+</section>
+
+<form method="POST" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+{% for jogo in rodada.jogos %}
+{% set palpite = palpites.get(jogo.id) %}
+{% set bloqueado = jogos_bloqueados.get(jogo.id) %}
+
+<section class="panel" style="padding: 1rem 1.25rem;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.8rem; flex-wrap: wrap; gap: 0.35rem;">
+        <span style="font-weight: 700; color: var(--cinza-claro);">
+            {{ jogo.data_formatada }}
+        </span>
+
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+            {% if jogo.especial %}<span class="tag" style="background: rgba(241, 196, 15, 0.2); color: var(--dourado); border: 1px solid var(--dourado);">Clássico</span>{% endif %}
+            {% if bloqueado %}<span class="danger" style="font-size:0.75rem;">Encerrado</span>{% endif %}
+            {% if jogo.resultado %}
+                <span class="tag verde" style="font-size:0.75rem;">
+                    Placar: {{ jogo.resultado.gols_casa_real }}×{{ jogo.resultado.gols_fora_real }}
+                </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="match" style="margin-bottom: 0.5rem;">
+        <div class="match-time right" style="font-size: 1rem;">{{ jogo.time_casa }}</div>
+
+        <input
+            class="score-input"
+            type="number" name="casa_{{ jogo.id }}" min="0"
+            value="{{ palpite.gols_casa if palpite and palpite.gols_casa is not none else '' }}"
+            required {% if bloqueado %}disabled{% endif %}
+            style="width: 58px; font-size: 1.2rem; padding: 0.35rem;"
+            placeholder="0"
+        >
+
+        <div class="match-sep">×</div>
+
+        <input
+            class="score-input"
+            type="number" name="fora_{{ jogo.id }}" min="0"
+            value="{{ palpite.gols_fora if palpite and palpite.gols_fora is not none else '' }}"
+            required {% if bloqueado %}disabled{% endif %}
+            style="width: 58px; font-size: 1.2rem; padding: 0.35rem;"
+            placeholder="0"
+        >
+
+        <div class="match-time" style="font-size: 1rem;">{{ jogo.time_fora }}</div>
+    </div>
+
+    {% if jogo.especial and not bloqueado %}
+    <div class="form-row" style="margin-top: 0.5rem; max-width: 320px;">
+        <label style="font-size: 0.75rem;">Primeiro gol (Bônus +2 pts)</label>
+        <input
+            class="bonus-input"
+            type="text" name="primeiro_{{ jogo.id }}"
+            value="{{ palpite.primeiro_gol if palpite and palpite.primeiro_gol else '' }}"
+            placeholder="Nome do jogador"
+            style="padding: 0.4rem 0.75rem; font-size: 0.85rem;"
+        >
+    </div>
+    {% endif %}
+
+</section>
+{% endfor %}
+
+<section class="panel" style="text-align:center; padding: 1.25rem;">
+    <button type="submit" class="button" style="padding: 0.8rem 2.5rem; font-size: 1rem;">
+        Enviar Palpites
+    </button>
+</section>
+
+</form>
+{% endblock %}

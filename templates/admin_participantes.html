@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block titulo %}Participantes do Bolão{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h1>Gerenciar Participantes</h1>
+            <p class="muted">Lista de todos os participantes cadastrados e gerenciamento de acessos.</p>
+        </div>
+        <div>
+            <a class="button secondary" href="{{ url_for('participante.ranking') }}">
+                Classificação Geral
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Cadastro rápido de participante pelo Admin -->
+<section class="panel">
+    <p class="campeonato-titulo">+ Cadastrar Novo Participante</p>
+    <form method="POST" action="{{ url_for('admin.cadastrar_participante') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-row">
+                <label>Nome completo *</label>
+                <input type="text" name="nome" placeholder="Ex: Carlos Silva" required>
+            </div>
+            <div class="form-row">
+                <label>E-mail *</label>
+                <input type="email" name="email" placeholder="carlos@bolao.local" required>
+            </div>
+            <div class="form-row">
+                <label>Senha inicial <span class="muted">(padrão: 123456)</span></label>
+                <input type="password" name="senha" placeholder="123456">
+            </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-top:0.5rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; cursor:pointer;">
+                <input type="checkbox" name="admin" style="width:auto;"> Conceder permissão de Administrador
+            </label>
+            <button type="submit" class="button small">Cadastrar Participante</button>
+        </div>
+    </form>
+</section>
+
+<section class="panel">
+    <p class="campeonato-titulo">Unificar Participantes Duplicados</p>
+    <form method="POST" action="{{ url_for('admin.mesclar_participantes') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-row">
+                <label>Participante duplicado</label>
+                <select name="origem_id" required>
+                    <option value="">Selecione quem será removido</option>
+                    {% for p in participantes %}
+                    <option value="{{ p.id }}">{{ p.nome }} — {{ p.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row">
+                <label>Participante principal</label>
+                <select name="destino_id" required>
+                    <option value="">Selecione quem ficará ativo</option>
+                    {% for p in participantes %}
+                    <option value="{{ p.id }}">{{ p.nome }} — {{ p.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="button danger-btn" onclick="return confirm('Deseja unificar estes participantes? Os palpites únicos serão movidos para o participante principal e o duplicado será removido.');">
+                Unificar Participantes
+            </button>
+        </div>
+    </form>
+</section>
+
+<!-- Tabela Estilo Planilha dos Participantes -->
+<section class="panel table-scroll" style="padding: 0;">
+    <div style="padding: 1rem 1.25rem; border-bottom: 2px solid var(--vermelho); background: #1e090c; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight: 800; font-size: 0.95rem; color: #fff;">
+            PARTICIPANTES ATIVOS ({{ participantes | length }})
+        </span>
+    </div>
+    <table class="table participantes-table">
+        <thead>
+            <tr>
+                <th style="width: 50px; text-align: center;">#</th>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th style="text-align: center; width: 100px;">Palpites</th>
+                <th style="text-align: center; width: 120px;">Perfil</th>
+                <th style="text-align: right; padding-right: 1.5rem; width: 330px;">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in participantes %}
+            <tr {% if current_user.id == p.id %}class="me"{% endif %}>
+                <td style="text-align: center; color: var(--cinza-muted); font-size: 0.8rem;">
+                    {{ loop.index }}
+                </td>
+                <td>
+                    <strong style="color: #fff; font-size: 0.95rem;">{{ p.nome }}</strong>
+                    {% if p.id == current_user.id %}
+                        <span class="tag" style="background: var(--vermelho); font-size: 0.65rem; margin-left: 4px;">você</span>
+                    {% endif %}
+                </td>
+                <td class="muted" style="font-size: 0.82rem;">
+                    {{ p.email }}
+                </td>
+                <td style="text-align: center; color: var(--cinza-claro); font-weight: 700;">
+                    {{ p.palpites | length }}
+                </td>
+                <td style="text-align: center;">
+                    {% if p.admin %}
+                        <span class="tag" style="background: var(--vermelho-vivo); font-size: 0.7rem;">Admin</span>
+                    {% else %}
+                        <span class="tag cinza" style="font-size: 0.7rem;">Participante</span>
+                    {% endif %}
+                </td>
+                <td class="actions-cell" style="text-align: right; padding-right: 1.5rem;">
+                    <div class="actions-row">
+                        <a class="button small secondary" href="{{ url_for('admin.gerenciar_palpites', participante_id=p.id) }}">
+                            Palpites
+                        </a>
+                        <a class="button small secondary" href="{{ url_for('admin.editar_participante', id=p.id) }}">
+                            Editar
+                        </a>
+
+                        {% if p.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('admin.toggle_admin', id=p.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button small secondary" style="font-size: 0.72rem;">
+                                {% if p.admin %}Rebaixar{% else %}Admin{% endif %}
+                            </button>
+                        </form>
+
+                        <form method="POST" action="{{ url_for('admin.excluir_participante', id=p.id) }}" style="display:inline;"
+                              onsubmit="return confirm('Deseja excluir o participante \'{{ p.nome }}\' e todos os seus palpites?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button small danger-btn">Excluir</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+{% endblock %}

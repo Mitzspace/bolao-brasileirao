@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}Admin Dashboard{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <h1>Painel de Administração</h1>
+    <p class="muted">Gerencie campeonatos, rodadas, participantes e palpites do bolão.</p>
+</section>
+
+<section class="panel">
+    <p class="campeonato-titulo">Resumo Geral</p>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="num">{{ campeonatos }}</div>
+            <div class="label">Campeonatos</div>
+        </div>
+        <div class="stat-card">
+            <div class="num">{{ rodadas }}</div>
+            <div class="label">Rodadas</div>
+        </div>
+        <div class="stat-card">
+            <div class="num">{{ jogos }}</div>
+            <div class="label">Jogos</div>
+        </div>
+        <div class="stat-card">
+            <div class="num">{{ participantes }}</div>
+            <div class="label">Participantes</div>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <p class="campeonato-titulo">Ações Principais</p>
+    <div class="grid">
+        <a class="card" href="{{ url_for('admin.gerenciar_palpites') }}" style="border-left: 4px solid var(--dourado);">
+            <h2>Lançar Palpites</h2>
+            <p>Registrar palpites em nome dos participantes da rodada.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.sync') }}" style="border-left: 4px solid var(--verde);">
+            <h2>Sync via API</h2>
+            <p>Importar campeonato completo ou rodadas com datas e resultados oficiais.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.importar_planilha') }}" style="border-left: 4px solid #3498db;">
+            <h2>Importar Planilha</h2>
+            <p>Subir arquivo .xlsx com participantes, jogos e palpites existentes.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.listar_participantes') }}">
+            <h2>Participantes</h2>
+            <p>Cadastrar, gerenciar perfis e excluir participantes.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.listar_campeonatos') }}">
+            <h2>Campeonatos &amp; Rodadas</h2>
+            <p>Visualizar, abrir/fechar rodadas e excluir campeonatos.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.cadastrar_resultados') }}">
+            <h2>Resultados Manuais</h2>
+            <p>Lançar ou editar placares finais e encerrar jogos.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.cadastrar_campeonato') }}">
+            <h2>+ Novo Campeonato</h2>
+            <p>Cadastrar manualmente um novo torneio.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('admin.cadastrar_jogo') }}">
+            <h2>Novo Jogo</h2>
+            <p>Adicionar jogo avulso a uma rodada.</p>
+        </a>
+    </div>
+</section>
+
+{% endblock %}

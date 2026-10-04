@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block titulo %}Grade de Palpites — {{ rodada.nome }}{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <p class="campeonato-titulo">{{ rodada.campeonato.nome }} · {{ rodada.campeonato.ano }}</p>
+            <h1>Grade de Palpites — {{ rodada.nome }}</h1>
+            <p class="muted">Acompanhe todos os palpites, acertos e pontuações da rodada lado a lado.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="button small secondary" href="{{ url_for('participante.listar_jogos', rodada_id=rodada.id) }}">
+                Ver Jogos desta Rodada
+            </a>
+            <a class="button small secondary" href="{{ url_for('participante.ranking') }}">
+                Classificação Geral
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Barra rápida para alternar entre rodadas -->
+<section class="panel" style="padding: 0.75rem 1rem;">
+    <div class="rodadas-scroll scroll-x" data-scroll-key="rodadas-grade-{{ rodada.campeonato.id }}">
+        {% for r in rodada.campeonato.rodadas %}
+        <a href="{{ url_for('participante.ver_grade_palpites', id=r.id) }}"
+           class="button small {% if r.id == rodada.id %}primary{% else %}secondary{% endif %}"
+           style="white-space: nowrap; font-size: 0.75rem; padding: 0.3rem 0.65rem;">
+            {{ r.nome }}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Legenda compacta -->
+<section class="panel" style="padding: 0.65rem 1.25rem;">
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.8rem; align-items: center;">
+        <span style="font-weight: 800; color: var(--vermelho-vivo);">LEGENDA:</span>
+        <span style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="background: rgba(46, 204, 113, 0.25); color: #2ecc71; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid #2ecc71;">
+                +3 / +5
+            </span>
+            <span>Cravada (placar exato)</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="background: rgba(52, 152, 219, 0.25); color: #3498db; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid #3498db;">
+                +1 / +3
+            </span>
+            <span>Vencedor / Empate</span>
+        </span>
+        <span style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="background: rgba(255, 255, 255, 0.05); color: var(--cinza-muted); padding: 2px 6px; border-radius: 4px;">
+                0
+            </span>
+            <span>Errou placar</span>
+        </span>
+    </div>
+</section>
+
+<!-- Tabela Estilo Planilha Completa da Rodada -->
+<section class="panel table-scroll" style="padding: 0;">
+    <div class="mobile-scroll-hint" style="display: none; padding: 0.5rem 1rem; font-size: 0.72rem; color: var(--cinza-muted); background: #1a080b; border-bottom: 1px solid var(--vermelho-borda);">
+        Deslize para a direita para ver os palpites de todos os participantes →
+    </div>
+    <table class="table" style="font-size: 0.85rem; border-collapse: collapse; width: 100%; min-width: 1200px;">
+        <thead>
+            <tr style="background: #1e090c; border-bottom: 2.5px solid var(--vermelho);">
+                <th style="padding: 0.75rem 1rem; position: sticky; left: 0; background: #1e090c; z-index: 3; min-width: 260px; border-right: 1px solid var(--vermelho-borda);">
+                    Partida &amp; Placar Oficial
+                </th>
+                {% for p in participantes %}
+                <th style="text-align: center; padding: 0.6rem 0.65rem; min-width: 80px; white-space: nowrap; {% if current_user.is_authenticated and p.id == current_user.id %}background: rgba(231, 76, 60, 0.2); color: #fff; font-weight: 900;{% endif %}">
+                    {{ p.nome }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in matriz %}
+            {% set jogo = linha.jogo %}
+            {% set res = linha.resultado %}
+            <tr style="border-bottom: 1px solid var(--vermelho-borda);">
+                <!-- Coluna do Jogo (Fixa à esquerda) -->
+                <td style="padding: 0.65rem 1rem; position: sticky; left: 0; background: #180b0e; z-index: 2; border-right: 1px solid var(--vermelho-borda);">
+                    <div style="font-size: 0.72rem; color: var(--cinza-muted); margin-bottom: 2px;">
+                        {{ jogo.data_formatada }}
+                        {% if jogo.especial %}
+                            <span style="color: var(--dourado); font-weight: 800; margin-left: 4px;">Clássico</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                        <span style="color: #fff;">{{ jogo.time_casa }} × {{ jogo.time_fora }}</span>
+                        {% if res %}
+                            <span style="font-weight: 900; color: #2ecc71; background: rgba(46, 204, 113, 0.15); padding: 1px 7px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(46, 204, 113, 0.3); white-space: nowrap;">
+                                {{ res.gols_casa_real }} × {{ res.gols_fora_real }}
+                            </span>
+                        {% else %}
+                            <span style="font-size: 0.75rem; color: var(--cinza-muted);">—</span>
+                        {% endif %}
+                    </div>
+                </td>
+
+                <!-- Colunas dos Participantes -->
+                {% for p in participantes %}
+                {% set item = linha.palpites.get(p.id) %}
+                {% set pal = item.palpite if item else None %}
+                {% set pts = item.pontos if item else None %}
+                
+                <td style="text-align: center; padding: 0.5rem 0.35rem; border-right: 1px solid rgba(255,255,255,0.03); {% if current_user.is_authenticated and p.id == current_user.id %}background: rgba(231, 76, 60, 0.08);{% endif %}">
+                    {% if pal %}
+                        <div style="font-weight: 800; font-size: 0.92rem; color: #fff;">
+                            {{ pal.gols_casa }}×{{ pal.gols_fora }}
+                        </div>
+                        
+                        {% if pts is not none %}
+                            {% if item.cravada %}
+                                <span style="font-size: 0.72rem; font-weight: 800; color: #2ecc71; background: rgba(46, 204, 113, 0.2); padding: 1px 5px; border-radius: 3px; display: inline-block; margin-top: 2px;">
+                                    +{{ pts }}
+                                </span>
+                            {% elif item.vencedor %}
+                                <span style="font-size: 0.72rem; font-weight: 800; color: #3498db; background: rgba(52, 152, 219, 0.2); padding: 1px 5px; border-radius: 3px; display: inline-block; margin-top: 2px;">
+                                    +{{ pts }}
+                                </span>
+                            {% else %}
+                                <span style="font-size: 0.72rem; color: var(--cinza-muted); display: inline-block; margin-top: 2px;">
+                                    0
+                                </span>
+                            {% endif %}
+                        {% endif %}
+                    {% else %}
+                        <span style="color: var(--cinza-muted); font-size: 0.8rem;">—</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+
+            <!-- Linha de Bônus da Rodada (se houver) -->
+            {% set tem_algum_bonus = rodada.bonus_list | length > 0 %}
+            {% if tem_algum_bonus %}
+            <tr style="background: #231015; border-top: 1px dashed var(--dourado);">
+                <td style="padding: 0.6rem 1rem; position: sticky; left: 0; background: #231015; z-index: 2; border-right: 1px solid var(--vermelho-borda); color: var(--dourado); font-size: 0.8rem; font-weight: 700;">
+                    BÔNUS (1º GOL)
+                </td>
+                {% for p in participantes %}
+                {% set b_pts = bonus_map.get(p.id, 0) if bonus_map else 0 %}
+                <td style="text-align: center; padding: 0.6rem 0.35rem; color: {{ 'var(--dourado)' if b_pts > 0 else 'var(--cinza-muted)' }}; font-weight: {{ 'bold' if b_pts > 0 else 'normal' }}; font-size: 0.85rem;">
+                    {{ '+' ~ b_pts if b_pts > 0 else '0' }}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endif %}
+
+            <!-- Linha de Totalização da Rodada -->
+            <tr style="background: #1a080b; font-weight: 900; border-top: 2.5px solid var(--vermelho);">
+                <td style="padding: 0.85rem 1rem; position: sticky; left: 0; background: #1a080b; z-index: 3; border-right: 1px solid var(--vermelho-borda); color: var(--vermelho-vivo); font-size: 0.95rem;">
+                    TOTAL DA RODADA
+                </td>
+                {% for p in participantes %}
+                {% set tot = totais.get(p.id) %}
+                <td style="text-align: center; padding: 0.8rem 0.4rem; {% if current_user.is_authenticated and p.id == current_user.id %}background: rgba(231, 76, 60, 0.2);{% endif %}">
+                    <div style="font-size: 1.05rem; color: var(--vermelho-vivo);">
+                        {{ tot.pontos if tot else 0 }} pts
+                    </div>
+                    {% if tot and tot.cravadas > 0 %}
+                    <div style="font-size: 0.7rem; color: #2ecc71; font-weight: normal;">
+                        {{ tot.cravadas }} cravada(s)
+                    </div>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+{% endblock %}

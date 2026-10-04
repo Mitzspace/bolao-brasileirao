@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Importar jogos{% endblock %}
+{% block conteudo %}
+<section class="panel panel-hero">
+    <h1>Importar jogos</h1>
+    <p class="muted">Vincule partidas da API a um campeonato local.</p>
+</section>
+<section class="panel">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-row">
+                <label>Campeonato local</label>
+                <select name="campeonato_id" required>
+                    {% for c in campeonatos %}
+                    <option value="{{ c.id }}">{{ c.nome }} — {{ c.ano }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row">
+                <label>Nome da rodada local</label>
+                <input type="text" name="nome_rodada" value="Jogos importados" required>
+            </div>
+        </div>
+        <div class="form-grid">
+            <div class="form-row"><label>Competição API</label><input type="text" name="competicao" value="WC" required></div>
+            <div class="form-row"><label>Temporada</label><input type="number" name="temporada" value="2026"></div>
+            <div class="form-row"><label>Rodada API</label><input type="number" name="rodada_api"></div>
+        </div>
+        <div class="form-grid">
+            <div class="form-row"><label>Data início</label><input type="date" name="data_inicio"></div>
+            <div class="form-row"><label>Data fim</label><input type="date" name="data_fim"></div>
+            <div class="form-row"><label>Token football-data.org</label><input type="password" name="token"></div>
+        </div>
+        <button type="submit">Importar jogos</button>
+    </form>
+</section>
+{% endblock %}

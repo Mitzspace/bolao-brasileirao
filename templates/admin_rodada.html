@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Nova Rodada{% endblock %}
+{% block conteudo %}
+<section class="panel panel-hero"><h1>Nova Rodada</h1></section>
+<section class="panel" style="max-width:480px;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+            <label>Campeonato</label>
+            <select name="campeonato_id" required>
+                {% for c in campeonatos %}
+                <option value="{{ c.id }}">{{ c.nome }} — {{ c.ano }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-row"><label>Nome da rodada</label><input type="text" name="nome" required></div>
+        <div class="form-row">
+            <label><input type="checkbox" name="aberta" checked> Rodada aberta</label>
+        </div>
+        <button type="submit">Salvar</button>
+    </form>
+</section>
+{% endblock %}

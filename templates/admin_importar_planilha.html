@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}Importar Planilha Excel{% endblock %}
+
+{% block conteudo %}
+
+<section class="panel panel-hero">
+    <h1>Importar Planilha do Bolão</h1>
+    <p class="muted">Carregue sua planilha (.xlsx) para cadastrar automaticamente participantes, rodadas, jogos com placares reais e palpites.</p>
+</section>
+
+<form method="POST" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Destino: Campeonato -->
+    <section class="panel">
+        <p class="campeonato-titulo">1. Campeonato de Destino</p>
+        
+        <div class="form-row">
+            <label>Vincular a um Campeonato Existente</label>
+            <select name="campeonato_id">
+                <option value="">— Ou crie um novo abaixo —</option>
+                {% for c in campeonatos %}
+                <option value="{{ c.id }}">{{ c.nome }} ({{ c.ano }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="margin: 1rem 0; text-align: center; color: var(--cinza-muted); font-size: 0.85rem;">
+            ── OU CRIE UM NOVO CAMPEONATO ──
+        </div>
+
+        <div class="form-grid">
+            <div class="form-row">
+                <label>Nome do Novo Campeonato</label>
+                <input type="text" name="novo_campeonato_nome" placeholder="Ex: Brasileirão Série A">
+            </div>
+            <div class="form-row">
+                <label>Ano</label>
+                <input type="number" name="novo_campeonato_ano" value="2025">
+            </div>
+        </div>
+    </section>
+
+    <!-- Origem do Arquivo -->
+    <section class="panel">
+        <p class="campeonato-titulo">2. Arquivo da Planilha (.xlsx)</p>
+
+        <div class="form-row">
+            <label>Enviar arquivo do seu computador</label>
+            <input type="file" name="arquivo" accept=".xlsx, .xls">
+        </div>
+
+        {% if planilhas_locais %}
+        <div style="margin: 1rem 0; text-align: center; color: var(--cinza-muted); font-size: 0.85rem;">
+            ── OU SELECIONE UMA PLANILHA ENCONTRADA NA SUA PASTA ──
+        </div>
+
+        <div class="form-row">
+            <label>Planilhas disponíveis na sua pasta de Downloads</label>
+            <select name="planilha_local">
+                <option value="">— Selecione uma planilha local —</option>
+                {% for p in planilhas_locais %}
+                <option value="{{ p }}">{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <p class="campeonato-titulo">Como a planilha é processada</p>
+        <ul style="line-height: 1.8; color: var(--cinza-claro); font-size: 0.9rem; padding-left: 1.25rem;">
+            <li>Lê todas as abas que contêm <strong>"Rodada"</strong> no nome (ex: <em>1ª Rodada</em>, <em>2ª Rodada</em>...).</li>
+            <li>Identifica os participantes no cabeçalho e já cria as contas para eles.</li>
+            <li>Identifica os jogos e se houver resultado real cadastrado, já salva e encerra o jogo.</li>
+            <li>Jogos marcados com asterisco (*) são configurados automaticamente como <strong>clássicos / especiais</strong>.</li>
+            <li>Cadastra todos os palpites existentes de cada participante.</li>
+        </ul>
+
+        <div style="margin-top: 1.5rem; text-align: center;">
+            <button type="submit" class="button" style="padding: 0.8rem 2.5rem; font-size: 1rem;">
+                Processar e Importar Planilha
+            </button>
+        </div>
+    </section>
+
+</form>
+
+{% endblock %}
