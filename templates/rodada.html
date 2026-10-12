@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% from 'partials/escudo.html' import escudo %}
+{% block titulo %}{{ rodada.nome }} — Palpites{% endblock %}
+
+{% block conteudo %}
+<div class="space-y-6">
+
+    <!-- Topo da Rodada / Hero Header -->
+    <section class="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span>{{ rodada.campeonato.nome }}</span>
+                    <span>•</span>
+                    <span>{{ rodada.campeonato.ano }}</span>
+                </div>
+                <h1 class="mt-1 font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-foreground">
+                    {{ rodada.nome }}
+                </h1>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Preencha seus palpites antes do início de cada partida.
+                </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="{{ url_for('participante.ver_grade_palpites', id=rodada.id) }}"
+                   class="inline-flex items-center justify-center rounded-xl border border-border bg-secondary/80 px-3.5 py-2 text-xs sm:text-sm font-semibold text-foreground transition hover:bg-secondary hover:border-primary/40">
+                    Grade de Palpites
+                </a>
+                <a href="{{ url_for('participante.listar_jogos', rodada_id=rodada.id) }}"
+                   class="inline-flex items-center justify-center rounded-xl border border-border bg-secondary/80 px-3.5 py-2 text-xs sm:text-sm font-semibold text-foreground transition hover:bg-secondary hover:border-primary/40">
+                    Ver Jogos
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Formulário dos Palpites -->
+    <form method="POST" class="space-y-4">
+        {% if bolao_atual %}<input type="hidden" name="bolao_id" value="{{ bolao_atual.id }}">{% endif %}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="space-y-3">
+            {% for jogo in rodada.jogos %}
+            {% set palpite = palpites.get(jogo.id) %}
+            {% set bloqueado = jogos_bloqueados.get(jogo.id) %}
+
+            <article class="rounded-2xl border transition-all duration-150 p-4 sm:p-5 {% if jogo.especial %}border-accent/40 bg-card/95{% else %}border-border bg-card{% endif %} hover:border-border/80 shadow-sm">
+
+                <!-- Barra Superior do Card (Data, Badges e Status) -->
+                <div class="mb-3.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span class="flex items-center gap-1.5 font-medium text-foreground/80">
+                        <svg class="h-3.5 w-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                            <polyline points="12 6 12 12 16 14" stroke-width="2"/>
+                        </svg>
+                        {{ jogo.data_formatada }}
+                    </span>
+
+                    <div class="flex items-center gap-2 flex-wrap">
+                        {% if jogo.especial %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2.5 py-0.5 text-[11px] font-bold text-accent border border-accent/30">
+                                <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                                Clássico
+                            </span>
+                        {% endif %}
+
+                        {% if bloqueado %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2.5 py-0.5 text-[11px] font-semibold text-destructive border border-destructive/25">
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                Bloqueado
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold text-primary border border-primary/25">
+                                Aberto
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Confronto: Mandante x Visitante e Inputs de Placar -->
+                <div class="flex items-center justify-between gap-2 sm:gap-4 my-2">
+                    <!-- Mandante -->
+                    <div class="flex-1 text-right min-w-0 pr-1">
+                        <span class="font-display text-base sm:text-xl font-bold tracking-tight text-foreground block truncate" title="{{ jogo.time_casa }}">
+                            {{ escudo(jogo.time_casa, campeonato_id=jogo.rodada.campeonato_id) }} {{ jogo.time_casa }}
+                        </span>
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:block">
+                            Mandante
+                        </span>
+                    </div>
+
+                    <!-- Bloco Central do Placar -->
+                    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <input
+                            type="number"
+                            name="casa_{{ jogo.id }}"
+                            min="0"
+                            max="99"
+                            value="{{ palpite.gols_casa if palpite and palpite.gols_casa is not none else '' }}"
+                            placeholder="-"
+                            aria-label="Gols do {{ jogo.time_casa }}"
+                            required
+                            {% if bloqueado %}disabled{% endif %}
+                            class="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border border-input bg-secondary/80 text-center font-display text-xl sm:text-2xl font-bold text-foreground transition focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed">
+
+                        <span class="font-display text-xl font-bold text-muted-foreground/60 select-none px-0.5">
+                            ×
+                        </span>
+
+                        <input
+                            type="number"
+                            name="fora_{{ jogo.id }}"
+                            min="0"
+                            max="99"
+                            value="{{ palpite.gols_fora if palpite and palpite.gols_fora is not none else '' }}"
+                            placeholder="-"
+                            aria-label="Gols do {{ jogo.time_fora }}"
+                            required
+                            {% if bloqueado %}disabled{% endif %}
+                            class="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border border-input bg-secondary/80 text-center font-display text-xl sm:text-2xl font-bold text-foreground transition focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed">
+                    </div>
+
+                    <!-- Visitante -->
+                    <div class="flex-1 text-left min-w-0 pl-1">
+                        <span class="font-display text-base sm:text-xl font-bold tracking-tight text-foreground block truncate" title="{{ jogo.time_fora }}">
+                            {{ escudo(jogo.time_fora, campeonato_id=jogo.rodada.campeonato_id) }} {{ jogo.time_fora }}
+                        </span>
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:block">
+                            Visitante
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Campo Bônus para Clássicos -->
+                {% if jogo.especial and not bloqueado %}
+                <div class="mt-4 pt-3 border-t border-border/60">
+                    <label class="block text-xs font-semibold text-accent mb-1.5 flex items-center gap-1.5">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Primeiro gol (Bônus +{{ regras_pontuacao.primeiro_gol }} pts):
+                    </label>
+                    <input
+                        type="text"
+                        name="primeiro_{{ jogo.id }}"
+                        value="{{ palpite.primeiro_gol if palpite and palpite.primeiro_gol else '' }}"
+                        placeholder="Nome do jogador autor do 1º gol"
+                        class="w-full sm:max-w-xs h-10 px-3 rounded-xl border border-input bg-secondary/60 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30">
+                </div>
+                {% endif %}
+
+                <!-- Placar Oficial & Pontuação (quando encerrado ou com resultado) -->
+                {% if jogo.resultado or (palpite and palpite.pontos is not none) %}
+                <div class="mt-3.5 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs">
+                    <span class="text-muted-foreground">
+                        {% if jogo.resultado %}
+                            Placar oficial: <strong class="text-foreground font-semibold">{{ jogo.resultado.gols_casa_real }} × {{ jogo.resultado.gols_fora_real }}</strong>
+                        {% else %}
+                            Aguardando resultado oficial
+                        {% endif %}
+                    </span>
+
+                    {% if palpite and palpite.pontos is not none %}
+                        <span class="font-display text-sm font-bold text-primary">
+                            +{{ palpite.pontos }} pts
+                        </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+            </article>
+            {% endfor %}
+        </div>
+
+        <!-- Botão Flutuante/Fixo de Envio -->
+        <div class="sticky bottom-4 z-20 pt-2">
+            <div class="rounded-2xl border border-border/80 bg-card/90 p-3 backdrop-blur shadow-xl flex items-center justify-between gap-4">
+                <span class="text-xs text-muted-foreground hidden sm:block">
+                    Confira todos os placares antes de enviar.
+                </span>
+                <button
+                    type="submit"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3 text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Salvar Palpites
+                </button>
+            </div>
+        </div>
+
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% macro escudo(nome, api_id=none, crest=none, campeonato_id=none) -%}
+{% set dados = escudo_time(nome, api_id, crest, campeonato_id) %}
+<span class="escudo-time" aria-hidden="true">
+{% for fonte in dados.fontes %}<img src="{{ fonte }}" alt="" width="28" height="28" loading="lazy" {% if not loop.first %}hidden{% endif %} onerror="this.hidden=true;this.nextElementSibling.hidden=false;">{% endfor %}
+<span class="escudo-iniciais" {% if dados.fontes %}hidden{% endif %}>{{ dados.iniciais }}</span>
+</span>
+{%- endmacro %}

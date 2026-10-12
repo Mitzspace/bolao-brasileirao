@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}Editar Jogo{% endblock %}
+
+{% block conteudo %}
+
+<section class="ui-panel ui-hero">
+    <h1>Editar Jogo</h1>
+    <p class="ui-muted">{{ jogo.time_casa }} × {{ jogo.time_fora }}</p>
+</section>
+
+<section class="ui-panel">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="ui-field">
+            <label>Rodada</label>
+            <select name="rodada_id" required>
+                {% for rodada in rodadas %}
+                <option value="{{ rodada.id }}" {% if rodada.id == jogo.rodada_id %}selected{% endif %}>
+                    {{ rodada.campeonato.nome }} — {{ rodada.nome }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="ui-form-grid">
+            <div class="ui-field">
+                <label>Time da casa</label>
+                <input type="text" name="time_casa" value="{{ jogo.time_casa }}" required>
+            </div>
+            <div class="ui-field">
+                <label>Time visitante</label>
+                <input type="text" name="time_fora" value="{{ jogo.time_fora }}" required>
+            </div>
+        </div>
+
+        <div class="ui-field">
+            <label>Data e hora</label>
+            <input type="datetime-local" name="data"
+                value="{{ jogo.data.strftime('%Y-%m-%dT%H:%M') if jogo.data else '' }}">
+        </div>
+
+        <div class="ui-field">
+            <label>
+                <input type="checkbox" name="especial" {% if jogo.especial %}checked{% endif %}>
+                Jogo especial
+            </label>
+        </div>
+
+        <div class="ui-field">
+            <label>
+                <input type="checkbox" name="encerrado" {% if jogo.encerrado %}checked{% endif %}>
+                Encerrado para palpites
+            </label>
+        </div>
+
+        <div style="display:flex; gap:0.75rem; margin-top:0.5rem;">
+            <button type="submit">Salvar alterações</button>
+            <a class="ui-button secondary" href="{{ url_for('admin.cadastrar_resultados') }}">Cancelar</a>
+        </div>
+    </form>
+</section>
+
+{% endblock %}

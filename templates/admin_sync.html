@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block titulo %}Sync Automático — Admin{% endblock %}
+
+{% block conteudo %}
+
+<section class="ui-panel ui-hero">
+    <h1>Sincronização via API de Futebol</h1>
+    <p class="ui-muted">Importe dados oficiais da football-data.org com datas, horários de Brasília (UTC-3) e resultados automáticos.</p>
+</section>
+
+<form method="POST" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Parâmetros da Competição -->
+    <section class="ui-panel">
+        <p class="ui-eyebrow">1. Dados da Competição</p>
+
+        <div class="ui-form-grid">
+            <div class="ui-field">
+                <label>Competição API *</label>
+                <input type="text" name="competicao" value="BSA" required placeholder="BSA = Brasileirão">
+                <span class="ui-muted" style="font-size:0.75rem;">Ex: BSA (Brasileirão), PL (Premier League), CL (Champions)</span>
+            </div>
+
+            <div class="ui-field">
+                <label>Temporada / Ano</label>
+                <input type="number" name="temporada" value="2026" placeholder="Ex: 2026">
+            </div>
+
+            <div class="ui-field">
+                <label>Token da API <span class="ui-muted">(opcional se no .env)</span></label>
+                <input type="password" name="token" placeholder="Deixe vazio para usar do .env">
+            </div>
+        </div>
+    </section>
+
+    <!-- Importação de Jogos e Rodadas -->
+    <section class="ui-panel">
+        <p class="ui-eyebrow">2. Importar Jogos &amp; Rodadas</p>
+
+        <div class="ui-field">
+            <label>Campeonato no Bolão *</label>
+            <select name="campeonato_id" required>
+                <option value="">— Selecione o campeonato de destino —</option>
+                {% for c in campeonatos %}
+                <option value="{{ c.id }}">{{ c.nome }} ({{ c.ano }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Opção de Campeonato Completo -->
+        <div style="background: rgba(34, 197, 94, 0.1); border: 1.5px solid var(--ui-primary); padding: 1rem; border-radius: var(--ui-radius); margin: 1rem 0;">
+            <label style="display: flex; align-items: flex-start; gap: 0.75rem; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" name="campeonato_completo" id="chk_completo" style="width: 20px; height: 20px; margin-top: 2px;" checked onchange="toggleOpcoesRodada()">
+                <div>
+                    <span>Quero o campeonato por completo (todas as rodadas de uma só vez)</span>
+                    <p class="ui-muted" style="font-size: 0.8rem; font-weight: normal; margin-top: 0.25rem;">
+                        O sistema cria automaticamente as rodadas ("Rodada 1", "Rodada 2"...), cadastra todos os jogos com data/hora em horário de Brasília e já salva os placares dos jogos que já foram encerrados!
+                    </p>
+                </div>
+            </label>
+        </div>
+
+        <div id="opcoes_rodada_especifica" style="display: none;">
+            <div class="ui-form-grid">
+                <div class="ui-field">
+                    <label>Rodada na API <span class="ui-muted">(número, ex: 1)</span></label>
+                    <input type="number" name="rodada_api" min="1" max="38" placeholder="Ex: 1">
+                </div>
+
+                <div class="ui-field">
+                    <label>Nome da Rodada no Bolão <span class="ui-muted">(opcional)</span></label>
+                    <input type="text" name="nome_rodada" placeholder="Em branco usa 'Rodada X'">
+                </div>
+            </div>
+
+            <div class="ui-form-grid">
+                <div class="ui-field">
+                    <label>Data Início <span class="ui-muted">(filtro opcional)</span></label>
+                    <input type="date" name="data_inicio">
+                </div>
+
+                <div class="ui-field">
+                    <label>Data Fim <span class="ui-muted">(filtro opcional)</span></label>
+                    <input type="date" name="data_fim">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 1rem;">
+            <button type="submit" name="acao" value="jogos" class="ui-button">
+                Importar Jogos e Criar Rodadas
+            </button>
+        </div>
+    </section>
+
+    <!-- Atualização Apenas de Resultados -->
+    <section class="ui-panel">
+        <p class="ui-eyebrow">3. Atualizar Apenas Resultados Recentes</p>
+        <p class="ui-muted" style="margin-bottom: 1rem; font-size: 0.85rem;">
+            Busca apenas os jogos finalizados recentemente e atualiza os placares e encerra os jogos automaticamente no bolão.
+        </p>
+        <button type="submit" name="acao" value="resultados" class="ui-button secondary">
+            Sincronizar Placares Finais
+        </button>
+    </section>
+
+    <!-- Atualização de Informações de Jogos -->
+    <section class="ui-panel">
+        <p class="ui-eyebrow">4. Atualizar Informações dos Jogos (Data/Hora)</p>
+        <p class="ui-muted" style="margin-bottom: 1rem; font-size: 0.85rem;">
+            Atualiza apenas as informações dos jogos já cadastrados (data, hora, external_id) sem criar novos jogos.
+            Útil para corrigir horários e vincular jogos importados de planilha à API.
+        </p>
+        <button type="submit" name="acao" value="informacoes" class="ui-button secondary">
+            Atualizar Informações dos Jogos
+        </button>
+    </section>
+
+</form>
+
+<script>
+function toggleOpcoesRodada() {
+    var chk = document.getElementById("chk_completo");
+    var opcoes = document.getElementById("opcoes_rodada_especifica");
+    opcoes.style.display = chk.checked ? "none" : "block";
+}
+toggleOpcoesRodada();
+</script>
+
+{% endblock %}

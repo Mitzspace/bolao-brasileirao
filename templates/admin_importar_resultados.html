@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}Importar resultados{% endblock %}
+{% block conteudo %}
+<section class="ui-panel ui-hero">
+    <h1>Importar resultados</h1>
+    <p class="ui-muted">Atualiza placares de jogos já importados via fonte externa.</p>
+</section>
+<section class="ui-panel">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="ui-form-grid">
+            <div class="ui-field"><label>Competição API</label><input type="text" name="competicao" value="WC" required></div>
+            <div class="ui-field"><label>Temporada</label><input type="number" name="temporada" value="2026"></div>
+            <div class="ui-field"><label>Rodada API</label><input type="number" name="rodada_api"></div>
+        </div>
+        <div class="ui-form-grid">
+            <div class="ui-field"><label>Data início</label><input type="date" name="data_inicio"></div>
+            <div class="ui-field"><label>Data fim</label><input type="date" name="data_fim"></div>
+            <div class="ui-field"><label>Token football-data.org</label><input type="password" name="token"></div>
+        </div>
+        <button type="submit">Importar resultados</button>
+    </form>
+</section>
+{% endblock %}

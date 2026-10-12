@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block titulo %}Criar bolão{% endblock %}
+{% block conteudo %}
+<section class="ui-panel">
+    <h1>Criar bolão</h1>
+    <p class="ui-muted">Cadastre o bolão com seu próprio campeonato e temporada. Se quiser, copie os nomes de participantes de outro bolão que você gerencia.</p>
+    <form method="GET" action="{{ url_for('participante.criar_bolao') }}" class="mt-4 space-y-4">
+        <div class="ui-field"><label for="origem">Copiar participantes de outro bolão (opcional)</label>
+            <select id="origem" name="origem_id">
+                <option value="">Começar sem copiar participantes</option>
+                {% for b in fontes %}<option value="{{ b.id }}" {% if origem and origem.id == b.id %}selected{% endif %}>{{ b.nome }} · {{ b.campeonato.nome }} · {{ b.campeonato.ano or 'Temporada não informada' }}</option>{% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="ui-button secondary">Carregar lista de participantes</button>
+    </form>
+</section>
+<section class="ui-panel">
+    {% if erro %}<p role="alert" class="mb-4 text-destructive">{{ erro }}</p>{% endif %}
+    <form method="POST" action="{{ url_for('participante.criar_bolao') }}" class="space-y-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="origem_id" value="{{ origem.id if origem else '' }}">
+        <div class="ui-field"><label for="nome-bolao">Nome do bolão</label><input id="nome-bolao" name="nome" required minlength="2" maxlength="100" value="{{ valores.get('nome', '') }}"></div>
+        <div class="ui-field"><label for="campeonato">Campeonato deste bolão</label>
+            <input id="campeonato" name="campeonato_nome" required maxlength="100" placeholder="Ex.: Brasileirão Série A" value="{{ valores.get('campeonato_nome', '') }}">
+        </div>
+        <div class="ui-field"><label for="temporada">Temporada</label><input id="temporada" type="number" name="campeonato_ano" required min="1" max="9999" placeholder="Ex.: 2026" value="{{ valores.get('campeonato_ano', '') }}"></div>
+        <div class="ui-field"><label for="codigo-api">Código da competição na API (opcional)</label><input id="codigo-api" name="codigo_api" maxlength="20" value="{{ valores.get('codigo_api', 'BSA') }}"><p class="ui-muted">BSA = Brasileirão. Pode ser alterado depois no campeonato do bolão.</p></div>
+        {% if origem %}
+        <fieldset class="space-y-2">
+            <legend class="font-semibold">Participantes de {{ origem.nome }}</legend>
+            <p class="text-sm text-muted-foreground">Marque quem deseja incluir. Cada nome vira um participante ativo, sem conta, palpites ou pontos copiados. Você já será incluído como responsável.</p>
+            {% for p in pessoas %}
+            <label class="flex items-center gap-3 rounded-xl border border-border p-3">
+                <input type="checkbox" name="participacao_ids" value="{{ p.id }}" {% if p.id|string in marcados %}checked{% endif %}>
+                <span>{{ p.nome_exibicao }} <span class="text-sm text-muted-foreground">· {{ p.status }} · Registro {{ p.id }}</span></span>
+            </label>
+            {% else %}<p class="ui-muted">Não há outros participantes para copiar.</p>{% endfor %}
+        </fieldset>
+        {% endif %}
+        <div class="flex flex-wrap gap-3"><button type="submit" class="ui-button">Criar bolão</button><a class="ui-button secondary" href="{{ url_for('participante.escolher_bolao') }}">Voltar</a></div>
+    </form>
+</section>
+{% endblock %}

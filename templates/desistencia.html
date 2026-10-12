@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% set titulos = {'registrar': 'Registrar desistência', 'corrigir': 'Editar desistência', 'reativar': 'Reativar participante', 'restaurar': 'Histórico e palpites guardados'} %}
+{% block titulo %}{{ titulos.get(acao, 'Participação') }} · {{ pessoa.nome }}{% endblock %}
+{% block conteudo %}
+<section class="ui-panel ui-hero">
+    <p class="ui-eyebrow">{{ bolao_atual.nome }} · Registro {{ pessoa.id }}</p>
+    <h1>{{ titulos.get(acao, 'Participação') }}</h1>
+    <p class="text-xl font-semibold mt-2" style="overflow-wrap:anywhere">{{ pessoa.nome }}</p>
+    <p class="ui-muted mt-3"><strong>{{ regra }}.</strong> As rodadas anteriores continuam valendo; a partir da desistência, a pessoa sai do lançamento, das pendências e do ranking da rodada. O ranking geral mantém os pontos anteriores.</p>
+    <a class="ui-button secondary mt-4" href="{{ url_for('admin.listar_participantes') }}">Voltar aos participantes</a>
+</section>
+{% if erro %}<div class="ui-panel danger" role="alert">{{ erro }}</div>{% endif %}
+{% if plano %}
+<section class="ui-panel">
+    <h2>Confira antes de confirmar</h2>
+    <p class="ui-muted">Nenhuma alteração foi gravada. {{ 'A participação será reativada.' if acao == 'reativar' else ('Desistência a partir de ' ~ plano.rodada.nome ~ '.' if plano.rodada else 'Revise os palpites que podem voltar a valer.') }}</p>
+    {% if motivo %}<p class="mt-3" style="overflow-wrap:anywhere"><strong>Motivo:</strong> {{ motivo }}</p>{% endif %}
+    {% if plano.posteriores %}
+    <p class="mt-4 font-semibold text-accent">{{ plano.posteriores|length }} palpite(s) a partir da desistência. Serão guardados como “após desistência”, fora da pontuação.</p>
+    <div class="table-scroll mt-3"><table class="ui-table"><thead><tr><th>Rodada</th><th>Jogo</th><th>Palpite</th><th>Situação</th></tr></thead><tbody>
+    {% for p in plano.posteriores %}<tr><td>{{ p.jogo.rodada.nome }}</td><td>{{ p.jogo.time_casa }} × {{ p.jogo.time_fora }}</td><td>{{ p.gols_casa }} × {{ p.gols_fora }}</td><td>{{ 'Já guardado após desistência' if p.excluido_por_desistencia else 'Será guardado após desistência' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% endif %}
+    {% if plano.restauraveis %}
+    <h2 class="mt-5">Palpites que podem voltar a valer</h2>
+    <div class="table-scroll"><table class="ui-table"><thead><tr><th>Rodada</th><th>Jogo</th><th>Palpite</th></tr></thead><tbody>
+    {% for p in plano.restauraveis %}<tr><td>{{ p.jogo.rodada.nome }}</td><td>{{ p.jogo.time_casa }} × {{ p.jogo.time_fora }}</td><td>{{ p.gols_casa }} × {{ p.gols_fora }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% endif %}
+    <form method="POST" class="mt-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="acao" value="{{ acao }}">
+        <input type="hidden" name="rodada_desistencia_id" value="{{ rodada_id or '' }}">
+        <input type="hidden" name="motivo_desistencia" value="{{ motivo }}">
+        <input type="hidden" name="confirmacao" value="{{ confirmacao }}">
+        <input type="hidden" name="confirmar" value="sim">
+        {% if plano.restauraveis %}
+        <fieldset class="rounded-xl border border-border p-4 mb-4">
+            <legend class="font-semibold px-2">O que fazer com os palpites recuperáveis?</legend>
+            <label class="flex items-start gap-2 mb-3"><input type="radio" name="restaurar_palpites" value="sim" required> Confirmo que estes palpites devem voltar a valer, conforme os resultados oficiais.</label>
+            <label class="flex items-start gap-2"><input type="radio" name="restaurar_palpites" value="nao" required> Manter guardados e fora da pontuação por enquanto.</label>
+        </fieldset>
+        {% endif %}
+        {% if acao == 'reativar' %}<p class="ui-muted mb-4">Reativar a participação não concede acesso de responsável. Esse acesso é administrado em Configurações.</p>{% endif %}
+        <div class="ui-actions"><button class="ui-button" type="submit">Confirmar alteração</button><a class="ui-button secondary" href="{{ url_for('admin.gerenciar_desistencia', id=pessoa.id, acao=acao) }}">Voltar sem salvar</a></div>
+    </form>
+</section>
+{% elif acao in ['registrar', 'corrigir', 'reativar'] or (acao == 'restaurar' and guardados and pessoa.status in ['ativo', 'desistente']) %}
+<section class="ui-panel">
+    <h2>{{ titulos[acao] }}</h2>
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="acao" value="{{ acao }}">
+        {% if acao in ['registrar', 'corrigir'] %}
+        <div class="ui-field"><label for="rodada-desistencia">{{ regra }}</label>
+            <select id="rodada-desistencia" name="rodada_desistencia_id" required><option value="">Selecione a rodada</option>
+                {% for rodada in rodadas %}<option value="{{ rodada.id }}" {% if rodada.id == rodada_id %}selected{% endif %}>{{ rodada.nome }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="ui-field"><label for="motivo-desistencia">Motivo ou observação (opcional)</label><textarea id="motivo-desistencia" name="motivo_desistencia" rows="3">{{ motivo }}</textarea></div>
+        <p class="ui-muted mb-4">Data e responsável pelo registro são preenchidos automaticamente na confirmação.</p>
+        {% elif acao == 'reativar' %}<p class="ui-muted mb-4">Vamos mostrar os palpites guardados antes de reativar. Você escolhe se esse lote volta a valer.</p>{% endif %}
+        <button class="ui-button" type="submit">Revisar alteração</button>
+    </form>
+</section>
+{% endif %}
+{% if guardados %}
+<section class="ui-panel"><h2>Palpites guardados após desistência</h2><p class="ui-muted mb-3">Fora da pontuação até uma restauração confirmada. Nenhum registro foi apagado.</p>
+    <div class="table-scroll"><table class="ui-table"><thead><tr><th>Rodada</th><th>Jogo</th><th>Palpite</th><th>Primeiro gol</th></tr></thead><tbody>
+    {% for p in guardados %}<tr><td>{{ p.jogo.rodada.nome }}</td><td>{{ p.jogo.time_casa }} × {{ p.jogo.time_fora }}</td><td>{{ p.gols_casa }} × {{ p.gols_fora }}</td><td>{{ p.primeiro_gol or '—' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+<section class="ui-panel"><h2>Histórico da participação</h2><p class="ui-muted mb-3">Horários de São Paulo. O histórico dos palpites também registra cada marcação e restauração.</p>
+    {% for log in logs %}<details class="border-t border-border py-3"><summary class="cursor-pointer">{{ log.acao }} · {{ log.quando }} · {{ log.autor }}</summary>
+    <dl class="mt-3 space-y-2">{% for campo, antes, depois in log.mudancas %}<div style="overflow-wrap:anywhere"><dt class="font-semibold">{{ campo }}</dt><dd class="ui-muted">Antes: {{ antes if antes is not none else '—' }} → Depois: {{ depois if depois is not none else '—' }}</dd></div>{% endfor %}</dl>
+    </details>{% else %}<p class="ui-muted">Nenhuma mudança registrada desde a criação do histórico.</p>{% endfor %}
+</section>
+{% endblock %}

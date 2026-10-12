@@ -1,0 +1,35 @@
+{% if bolao_atual %}
+<div class="mx-auto max-w-6xl px-4 pb-3">
+    <details class="relative" id="seletor-bolao" @keydown.escape="$el.removeAttribute('open')" @click.outside="$el.removeAttribute('open')">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-primary/20 bg-card px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+            <span class="min-w-0">
+                <span class="block text-xs text-muted-foreground">Bolão atual · {{ bolao_atual.chave }}</span>
+                <span class="block truncate font-display text-xl font-bold" title="{{ bolao_atual.nome }}">{{ bolao_atual.nome }}</span>
+                {% if not config.FEATURE_PARTICIPANTE_LOGIN %}<span class="block text-xs text-muted-foreground">{{ bolao_atual.campeonato.nome }} · {{ bolao_atual.campeonato.ano or 'Temporada não informada' }}</span>{% endif %}
+            </span>
+            <span class="shrink-0 text-sm font-semibold text-primary">Trocar <span aria-hidden="true">▾</span></span>
+        </summary>
+        <div class="absolute left-0 right-0 z-40 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl sm:right-auto sm:w-96">
+            <form method="POST" action="{{ url_for('participante.selecionar_bolao') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aba_origem" value="{{ request.endpoint or '' }}">
+                <input type="hidden" name="bolao_origem_id" value="{{ bolao_atual.id }}">
+                {% if request.endpoint == 'participante.meus_palpites' and rodada_chave %}
+                <input type="hidden" name="rodada_origem" value="{{ rodada_chave }}">
+                {% endif %}
+                {% if request.endpoint in ['participante.listar_jogos', 'participante.visualizar_rodada', 'participante.ver_grade_palpites', 'admin.gerenciar_palpites', 'admin.cadastrar_resultados', 'participante.ranking'] %}
+                <input type="hidden" name="rodada_origem_id" value="{{ rodada_atual.id if rodada_atual is defined and rodada_atual else (rodada.id if rodada is defined and rodada else (rodada_sel.id if rodada_sel is defined and rodada_sel else request.args.get('rodada_id', ''))) }}">
+                {% endif %}
+                {% for b in boloes_disponiveis %}
+                <button type="submit" name="bolao_id" value="{{ b.id }}" {% if b.id == bolao_atual.id %}aria-current="true"{% endif %} class="block w-full rounded-lg px-3 py-3 text-left transition hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary {% if b.id == bolao_atual.id %}bg-primary/10{% endif %}">
+                    <span class="block break-words text-sm font-semibold">{{ b.nome }}{% if b.id == bolao_atual.id %} <span class="text-xs text-primary">· Atual</span>{% endif %}</span>
+                    <span class="mt-1 block text-xs text-muted-foreground">{{ b.campeonato.nome }} · {{ b.campeonato.ano or 'Temporada não informada' }}</span>
+                    <span class="mt-1 block text-xs text-muted-foreground">{{ b.criador.nome }} · {{ b.chave }}</span>
+                </button>
+                {% endfor %}
+            </form>
+            <a href="{{ url_for('participante.escolher_bolao') }}" class="mt-2 block rounded-lg border-t border-border px-3 py-3 text-sm font-semibold text-primary hover:bg-secondary">Ver todos os bolões</a>
+        </div>
+    </details>
+</div>
+{% endif %}

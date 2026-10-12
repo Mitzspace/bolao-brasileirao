@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block titulo %}Alteração não realizada{% endblock %}
+{% block conteudo %}
+<section class="ui-panel">
+    <h1>Alteração não realizada</h1>
+    <p class="mt-4">{{ mensagem }}</p>
+    <a class="ui-button mt-4" href="{{ url_for('admin.responsaveis') }}">Voltar aos responsáveis</a>
+</section>
+{% endblock %}
