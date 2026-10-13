@@ -25,6 +25,23 @@ def homonimos(bolao_id, nome, ignorar_id=None):
             if p.id != ignorar_id and normalizar_nome(p.nome_exibicao) == chave]
 
 
+def validar_dados_participante(bolao_id, nome, email, ignorar_id=None):
+    from utils import validar_email
+    erros = {}
+    if not 2 <= len(nome) <= 100:
+        erros['nome_exibicao'] = 'Informe um nome entre 2 e 100 caracteres.'
+    elif homonimos(bolao_id, nome, ignorar_id):
+        erros['nome_exibicao'] = 'Já existe participante com esse nome neste bolão.'
+    if email:
+        if len(email) > 100 or not validar_email(email):
+            erros['email'] = 'Informe um e-mail válido com até 100 caracteres.'
+        elif Participacao.query.filter(Participacao.bolao_id == bolao_id,
+                func.lower(Participacao.email) == email,
+                Participacao.id != ignorar_id if ignorar_id is not None else True).first():
+            erros['email'] = 'Já existe participante com esse e-mail neste bolão.'
+    return erros
+
+
 def totais_participantes(bolao_id, pessoas):
     # Contagem inclui os guardados; pontos consideram apenas os elegíveis.
     totais = {p.id: {'pontos': 0, 'palpites': 0} for p in pessoas}

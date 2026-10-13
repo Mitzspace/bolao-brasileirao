@@ -4,7 +4,7 @@
 <section class="ui-panel ui-hero">
     <p class="ui-eyebrow">{{ bolao_atual.nome }}</p>
     <h1>Participantes</h1>
-    <p class="ui-muted">Gerencie nomes, observações e entradas no bolão. Palpites e histórico são preservados.</p>
+    <p class="ui-muted">Gerencie nomes, e-mails, responsáveis e entradas no bolão. Palpites e histórico são preservados.</p>
     <div class="ui-actions">
         <a class="ui-button" href="#novo-participante">Adicionar participante</a>
         <a class="ui-button secondary" href="{{ url_for('admin.responsaveis') }}">Gerenciar responsáveis</a>
@@ -57,6 +57,22 @@
                     {% if edicao_id == p.id and erros.nome_exibicao %}<p id="erro-nome-{{ p.id }}" class="danger text-sm" role="alert">{{ erros.nome_exibicao }}</p>{% endif %}
                 </div>
                 <div class="ui-field">
+                    <label for="email-{{ p.id }}">E-mail de contato (opcional)</label>
+                    <input type="email" id="email-{{ p.id }}" name="email" maxlength="100" value="{{ edicao.get('email', '') if edicao_id == p.id else (p.email or '') }}">
+                    {% if edicao_id == p.id and erros.email %}<p class="danger text-sm" role="alert">{{ erros.email }}</p>{% endif %}
+                    <p class="ui-muted">O e-mail de contato não altera a conta de acesso vinculada.</p>
+                </div>
+                <div class="ui-field">
+                    <label for="responsavel-{{ p.id }}">Responsável</label>
+                    {% set papel_selecionado = edicao.get('responsavel') if edicao_id == p.id else ('sim' if p.papel == 'responsavel' else 'nao') %}
+                    <select id="responsavel-{{ p.id }}" name="responsavel">
+                        <option value="nao" {% if papel_selecionado == 'nao' %}selected{% endif %}>Não</option>
+                        <option value="sim" {% if papel_selecionado == 'sim' %}selected{% endif %}>Sim</option>
+                    </select>
+                    {% if edicao_id == p.id and erros.responsavel %}<p class="danger text-sm" role="alert">{{ erros.responsavel }}</p>{% endif %}
+                    {% if not p.usuario_id %}<p class="ui-muted">O acesso à gestão exige vincular uma conta em Gerenciar responsáveis.</p>{% endif %}
+                </div>
+                <div class="ui-field">
                     <label for="observacao-{{ p.id }}">Observação <span class="ui-muted">(opcional)</span></label>
                     <textarea id="observacao-{{ p.id }}" name="observacao" rows="3">{{ edicao.get('observacao', '') if edicao_id == p.id else (p.observacao or '') }}</textarea>
                 </div>
@@ -76,7 +92,7 @@
 </section>
 <section id="novo-participante" class="ui-panel">
     <h2>Adicionar participante</h2>
-    <p class="ui-muted mb-4">A pessoa não precisa de conta de acesso. Nomes iguais são permitidos, com aviso para conferir homônimos.</p>
+    <p class="ui-muted mb-4">A pessoa não precisa de conta de acesso. Nomes e e-mails repetidos não são permitidos neste bolão.</p>
     {% if rodadas %}
     <form method="POST" action="{{ url_for('admin.criar_participacao') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -95,6 +111,11 @@
                 <p id="regra-entrada" class="ui-muted">{% if bolao_atual.politica_entrada_tardia == 'fora_da_conta' %}Neste bolão, as rodadas anteriores à entrada ficam fora da conta.{% else %}Neste bolão, as rodadas anteriores à entrada contam com zero pontos, sem palpites.{% endif %}</p>
                 {% if not edicao_id and erros.rodada_entrada_id %}<p id="erro-rodada-entrada" class="danger text-sm" role="alert">{{ erros.rodada_entrada_id }}</p>{% endif %}
             </div>
+        </div>
+        <div class="ui-field">
+            <label for="email-novo">E-mail de contato (opcional)</label>
+            <input type="email" id="email-novo" name="email" maxlength="100" value="{{ novo.get('email', '') }}">
+            {% if not edicao_id and erros.email %}<p class="danger text-sm" role="alert">{{ erros.email }}</p>{% endif %}
         </div>
         <div class="ui-field">
             <label for="observacao-novo">Observação <span class="ui-muted">(opcional)</span></label>

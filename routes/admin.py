@@ -80,12 +80,25 @@ def responsaveis():
             if vinculada and legada and vinculada.id != legada.id:
                 abort(409, description='Há dois registros para essa conta no bolão; revise o vínculo antes de conceder acesso.')
             part = vinculada or legada
+            selecionada_id = request.form.get('participacao_id', '').strip()
+            if selecionada_id:
+                if not selecionada_id.isdecimal() or len(request.form.getlist('participacao_id')) != 1:
+                    abort(400)
+                selecionada = Participacao.query.filter_by(id=int(selecionada_id), bolao_id=bolao.id).first_or_404()
+                if part and part.id != selecionada.id:
+                    abort(409, description='Essa conta já está vinculada a outro participante.')
+                part = selecionada
             if part and part.usuario_id not in (None, usuario.id):
                 abort(409, description='O registro já está vinculado a outra conta.')
             if part and part.status == 'desistente':
                 abort(409, description='Reative a participação pela tela de desistência antes de conceder acesso.')
             if part is None:
-                part = Participacao(bolao=bolao, usuario=usuario, nome_exibicao=usuario.nome)
+                from services.gestao_participantes import validar_dados_participante
+                erros = validar_dados_participante(bolao.id, usuario.nome, email)
+                if erros:
+                    db.session.rollback()
+                    abort(409, description='Já existe participante com esse nome ou e-mail. Selecione o registro existente para vincular a conta.')
+                part = Participacao(bolao=bolao, usuario=usuario, nome_exibicao=usuario.nome, email=email)
                 db.session.add(part)
             part.usuario = usuario
             part.papel = 'responsavel'
@@ -107,7 +120,8 @@ def responsaveis():
             abort(400)
         return redirect(url_for('admin.responsaveis'))
     pessoas = Participacao.query.filter_by(bolao_id=bolao.id, papel='responsavel', status='ativo').all()
-    return render_template('responsaveis.html', responsaveis=pessoas)
+    participantes_sem_conta = Participacao.query.filter_by(bolao_id=bolao.id, usuario_id=None, status='ativo').order_by(Participacao.nome_exibicao).all()
+    return render_template('responsaveis.html', responsaveis=pessoas, participantes_sem_conta=participantes_sem_conta)
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -136,14 +150,13 @@ def dashboard():
 @admin_required
 def criar_participacao():
     from services.responsaveis import bloquear_bolao
-    from services.gestao_participantes import homonimos, tela_participantes
+    from services.gestao_participantes import validar_dados_participante, tela_participantes
     bolao = bolao_atual()
     bloquear_bolao(bolao.id)
     nome = request.form.get('nome_exibicao', '').strip()
     observacao = request.form.get('observacao', '').strip() or None
-    erros = {}
-    if not 2 <= len(nome) <= 100:
-        erros['nome_exibicao'] = 'Informe um nome entre 2 e 100 caracteres.'
+    email = request.form.get('email', '').strip().lower() or None
+    erros = validar_dados_participante(bolao.id, nome, email)
     rodada_id = request.form.get('rodada_entrada_id', type=int)
     rodada = Rodada.query.filter_by(id=rodada_id, campeonato_id=bolao.campeonato_id).first() if rodada_id else None
     if rodada is None or len(request.form.getlist('rodada_entrada_id')) != 1:
@@ -151,14 +164,11 @@ def criar_participacao():
     if erros:
         db.session.rollback()
         return tela_participantes(erros=erros, dados=request.form, status_http=422)
-    duplicado = bool(homonimos(bolao.id, nome))
     db.session.add(Participacao(bolao_id=bolao.id, nome_exibicao=nome,
-                               papel='participante', status='ativo', observacao=observacao,
+                               papel='participante', status='ativo', observacao=observacao, email=email,
                                rodada_entrada_id=rodada.id))
     db.session.commit()
     flash('Participante cadastrado sem conta de acesso.')
-    if duplicado:
-        flash('Aviso: já existe participante com esse nome neste bolão. O cadastro foi mantido como pessoa distinta; confira se é um homônimo real.')
     return redirect(url_for('admin.listar_participantes'))
 
 
@@ -166,22 +176,32 @@ def criar_participacao():
 @admin_required
 def editar_participacao(id):
     from services.responsaveis import bloquear_bolao
-    from services.gestao_participantes import homonimos, tela_participantes
+    from services.gestao_participantes import validar_dados_participante, tela_participantes
     bloquear_bolao(bolao_atual().id)
     pessoa = Participacao.query.filter_by(id=id, bolao_id=bolao_atual().id).first_or_404()
     nome = request.form.get('nome_exibicao', '').strip()
-    if not 2 <= len(nome) <= 100:
+    email = request.form.get('email', pessoa.email or '').strip().lower() or None
+    erros = validar_dados_participante(bolao_atual().id, nome, email, id)
+    responsavel = request.form.get('responsavel')
+    if responsavel is not None and responsavel not in {'sim', 'nao'}:
+        erros['responsavel'] = 'Selecione Sim ou Não.'
+    if responsavel == 'sim' and pessoa.status != 'ativo':
+        erros['responsavel'] = 'Reative o participante antes de torná-lo responsável.'
+    if erros:
         db.session.rollback()
-        return tela_participantes(erros={'nome_exibicao': 'Informe um nome entre 2 e 100 caracteres.'},
-            dados=request.form, edicao_id=id, status_http=422)
-    duplicado = bool(homonimos(bolao_atual().id, nome, ignorar_id=id))
+        return tela_participantes(erros=erros, dados=request.form, edicao_id=id, status_http=422)
+    if responsavel == 'nao':
+        from services.responsaveis import validar_retirada
+        validar_retirada(pessoa)
+        pessoa.papel = 'participante'
+    elif responsavel == 'sim':
+        pessoa.papel = 'responsavel'
+    pessoa.email = email
     pessoa.nome_exibicao = nome
     if 'observacao' in request.form:
         pessoa.observacao = request.form.get('observacao', '').strip() or None
     db.session.commit()
     flash('Participante atualizado somente neste bolão.')
-    if duplicado:
-        flash('Aviso: há outro participante com esse nome neste bolão. Os registros continuam separados; confira se é um homônimo real.')
     return redirect(url_for('admin.listar_participantes'))
 
 

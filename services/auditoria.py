@@ -138,7 +138,7 @@ CAMPOS_PARTICIPACAO = (
     "nome_exibicao", "papel", "status", "usuario_id", "participante_legado_id", "bolao_id",
     "entrou_em", "saiu_em", "pontua_desde", "entrada_legada", "rodada_entrada_id",
     "rodada_desistencia_id", "motivo_desistencia", "desistencia_registrada_em",
-    "desistencia_registrada_por", "observacao",
+    "desistencia_registrada_por", "observacao", "email",
 )
 
 

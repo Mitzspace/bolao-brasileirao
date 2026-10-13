@@ -161,6 +161,8 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             if any(t not in tabelas or not campos.issubset({c["name"] for c in inspector.get_columns(t)})
                    for t, campos in novos_campos.items()):
                 raise RuntimeError("Migração de participação pendente. Siga MIGRACAO_PARTICIPACAO.md; o banco não é migrado automaticamente.")
+            if 'email' not in {c['name'] for c in inspector.get_columns('participacao')}:
+                raise RuntimeError('Migração pendente: execute python -m migrations.contato_participante CAMINHO_DO_BANCO.')
             if 'situacao' not in {c['name'] for c in inspector.get_columns('palpite')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.situacao_palpite CAMINHO_DO_BANCO. Consulte AJUSTES_PALPITES_SYNC.md.')
         else:

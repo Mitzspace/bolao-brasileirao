@@ -24,6 +24,14 @@
     <form method="POST" action="{{ url_for('admin.responsaveis') }}" class="mt-4 space-y-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="acao" value="adicionar">
+        <div class="ui-field">
+            <label for="participacao-responsavel">Vincular a um participante existente</label>
+            <select id="participacao-responsavel" name="participacao_id">
+                <option value="">Usar vínculo da conta ou criar participante</option>
+                {% for p in participantes_sem_conta %}<option value="{{ p.id }}">{{ p.nome_exibicao }} · Registro {{ p.id }}</option>{% endfor %}
+            </select>
+            <p class="ui-muted">Selecione a pessoa já cadastrada para preservar seus palpites e evitar um segundo registro.</p>
+        </div>
         <div class="ui-field"><label for="email-responsavel">E-mail</label><input id="email-responsavel" name="email" type="email" required autocomplete="off"></div>
         <div class="ui-field"><label for="nome-responsavel">Nome para nova conta</label><input id="nome-responsavel" name="nome" maxlength="100" autocomplete="off"></div>
         <div class="ui-field"><label for="senha-responsavel">Senha inicial para nova conta</label><input id="senha-responsavel" name="senha" type="password" minlength="6" autocomplete="new-password"></div>

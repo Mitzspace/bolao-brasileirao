@@ -69,6 +69,7 @@ class Participacao(db.Model):
     # Identidade original para compatibilidade; não representa uma conta vinculada.
     participante_legado_id = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
     nome_exibicao = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=True)
     papel = db.Column(db.String(20), nullable=False, default="participante")
     status = db.Column(db.String(20), nullable=False, default="ativo")
     entrou_em = db.Column(db.DateTime, nullable=True, default=agora_utc)

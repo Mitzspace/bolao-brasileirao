@@ -55,16 +55,16 @@ def test_entrada_de_outro_campeonato_e_duplicada_recusadas(gestao):
     assert not Participacao.query.filter_by(nome_exibicao='Pessoa nova').first()
 
 
-def test_homonimos_aviso_nao_bloqueia_e_nao_confunde_boloes(gestao):
+def test_homonimos_bloqueados_sem_confundir_boloes(gestao):
     client = cliente(gestao)
     part = db.session.get(Participacao, gestao[3])
     part.nome_exibicao = 'João Silva'
     db.session.commit()
     response = client.post(f'/b/{gestao[2]}/participacoes/nova', data={
         'nome_exibicao': 'JOAO   SILVA', 'rodada_entrada_id': gestao[4]}, follow_redirects=True)
-    assert response.status_code == 200 and 'homônimo real' in response.text
-    assert 'Nome repetido neste bolão' in response.text
-    assert Participacao.query.filter_by(nome_exibicao='JOAO   SILVA').one().id != part.id
+    assert response.status_code == 422
+    assert 'Já existe participante com esse nome' in response.text
+    assert Participacao.query.filter_by(nome_exibicao='JOAO   SILVA').first() is None
     outro = Bolao(nome='Outro', campeonato_id=part.bolao.campeonato_id, criador_id=gestao[1]['responsavel'])
     db.session.add(Participacao(bolao=outro, nome_exibicao='Nome externo'))
     db.session.commit()
@@ -151,3 +151,49 @@ def test_usuario_sem_papel_nao_cria_nem_edita(gestao):
     assert client.get(f'/b/{gestao[2]}/participantes').status_code == 403
     assert client.post(f'/b/{gestao[2]}/participacoes/nova', data=dados).status_code == 403
     assert client.post(f'/b/{gestao[2]}/participacoes/{gestao[3]}/editar', data=dados).status_code == 403
+
+
+def test_email_responsavel_persistem_e_validam(gestao):
+    client = cliente(gestao)
+    url = f'/b/{gestao[2]}/participacoes/{gestao[3]}/editar'
+    dados = {'nome_exibicao': 'Sem conta', 'email': ' ALBERT@example.com ', 'responsavel': 'sim'}
+    assert client.post(url, data=dados).status_code == 302
+    db.session.expire_all()
+    pessoa = db.session.get(Participacao, gestao[3])
+    assert pessoa.email == 'albert@example.com' and pessoa.papel == 'responsavel'
+    assert 'albert@example.com' in client.get(f'/b/{gestao[2]}/participantes').text
+    dados['email'] = 'invalido'
+    dados['responsavel'] = 'nao'
+    assert client.post(url, data=dados).status_code == 422
+    db.session.expire_all()
+    assert pessoa.email == 'albert@example.com' and pessoa.papel == 'responsavel'
+    response = client.post(f'/b/{gestao[2]}/participacoes/nova', data={
+        'nome_exibicao': 'Outro contato', 'email': 'ALBERT@example.com', 'rodada_entrada_id': gestao[4]})
+    assert response.status_code == 422
+    assert not Participacao.query.filter_by(nome_exibicao='Outro contato').first()
+
+
+def test_edicao_preserva_ultimo_responsavel(gestao):
+    client = cliente(gestao)
+    pessoa = Participacao.query.filter_by(bolao_id=gestao[2], usuario_id=gestao[1]['responsavel']).one()
+    response = client.post(f'/b/{gestao[2]}/participacoes/{pessoa.id}/editar', data={
+        'nome_exibicao': pessoa.nome_exibicao, 'responsavel': 'nao'})
+    assert response.status_code == 409
+    db.session.expire_all()
+    assert pessoa.papel == 'responsavel'
+
+
+def test_responsavel_vincula_registro_existente_sem_duplicar(gestao):
+    client = cliente(gestao)
+    pessoa = db.session.get(Participacao, gestao[3])
+    antes = Participacao.query.count()
+    dados = {'acao': 'adicionar', 'nome': pessoa.nome_exibicao,
+             'email': 'novo-responsavel@example.com', 'senha': 'Teste123456!'}
+    url = f'/b/{gestao[2]}/configuracoes'
+    assert client.post(url, data=dados).status_code == 409
+    assert Participacao.query.count() == antes
+    dados['participacao_id'] = pessoa.id
+    assert client.post(url, data=dados).status_code == 302
+    db.session.expire_all()
+    assert Participacao.query.count() == antes
+    assert pessoa.usuario_id is not None and pessoa.papel == 'responsavel'
