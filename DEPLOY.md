@@ -379,5 +379,48 @@ recarregam automaticamente mesmo sem habilitar o depurador.
 
 Última verificação local: 346 testes aprovados, 3 integrações PostgreSQL
 ignoradas por ausência do servidor de teste; build CSS concluído. Servidor
-local reiniciado e resposta HTTP do ranking conferida. Publicação autorizada
-pelo usuário, mas ainda pendente da criação das contas GitHub, Render e Neon.
+local reiniciado e resposta HTTP do ranking conferida. A publicação no Render
+foi concluída em 12/10/2026, com os dados migrados para Neon e conferidos integralmente.
+
+
+## 12. Instalação publicada
+
+- Site: https://bolao-brasileirao-3r4o.onrender.com
+- Repositório privado: https://github.com/Mitzspace/bolao-brasileirao
+- Branch de publicação: `codex/publicacao`.
+- Render: https://dashboard.render.com/web/srv-db6mvs8u01pc73feg7t0
+- Serviço Docker Free, Ohio, health check `/healthz`, atualizações manuais.
+- Neon: projeto `Bolão Brasileirão`, plano Free, região AWS Ohio, branch `production`.
+- Versão inicial: `1188c0f`. Contém o ranking corrigido e a visualização móvel de Acertos.
+- Migração inicial: 24 participantes, 38 rodadas, 380 jogos, 5.806 palpites e 289 resultados.
+- William e Ryan preservam suas contas, hashes de senha e permissões administrativas.
+
+Os dados online passam a ser os oficiais. O SQLite local é independente: editar
+nele não atualiza o site, e alterações online não voltam automaticamente para ele.
+Não execute novamente a importação inicial para atualizar o sistema.
+
+### Atualizar código sem perder dados
+
+O primeiro envio foi preparado numa cópia limpa em `instance/publicacao`, para
+não enviar histórico anterior, dados ou credenciais. O projeto original continua
+na pasta principal, com suas alterações locais preservadas.
+
+1. Faça e teste as alterações no projeto principal.
+2. Copie somente os arquivos de código alterados para `instance/publicacao`,
+   mantendo as mesmas subpastas. Remoções e novos arquivos devem ser revisados
+   explicitamente. Não copie `.env*` privados, `instance`, planilhas ou bancos.
+3. Dentro de `instance/publicacao`, confira `git diff` e `git status`, adicione
+   somente os arquivos revisados, faça commit e envie com `git push`.
+4. No Render, use **Manual Deploy → Deploy latest commit**. Aguarde **Live**.
+5. Verifique `/healthz`, `/readyz`, login, administração e ranking.
+
+O deploy substitui o código, mas mantém o banco Neon. Não altere `DATABASE_URL`
+para outro banco. Mudanças de esquema exigem backup e migração específica conforme
+a seção 9. Os arquivos `.env.neon.local` e `.env.render.local` ficam apenas neste
+computador e estão excluídos do Git; guarde-os com segurança.
+
+No plano gratuito, o Render suspende o serviço após inatividade e o primeiro
+acesso pode demorar cerca de um minuto ou mais. O computador local pode ficar
+desligado. Não há garantia de disponibilidade contínua do plano Free. Não ative
+upgrades, discos, workers ou planos pagos; os dados persistem no Neon, não no
+sistema de arquivos efêmero do Render.

@@ -3,7 +3,7 @@ services:
     name: bolao
     runtime: docker
     plan: free
-    region: virginia
+    region: ohio
     healthCheckPath: /healthz
     autoDeployTrigger: "off"
     envVars:
