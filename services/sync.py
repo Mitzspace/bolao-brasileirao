@@ -257,11 +257,14 @@ def sync_resultados(token, competicao,
 
 
 def sync_informacoes_jogos(token, campeonato_id, competicao,
-                           temporada=None, data_inicio=None, data_fim=None):
+                           temporada=None, data_inicio=None, data_fim=None,
+                           salvar_resultados=True):
     """
     Atualiza jogos locais já cadastrados com dados oficiais da API.
     Não cria jogos novos. Usa external_id quando disponível e, para jogos
     importados de planilha, tenta casar por rodada/matchday e mandante/visitante.
+    salvar_resultados=False atualiza somente horários (e o vínculo com a API),
+    sem encerrar jogos nem gravar placares.
     """
     from database import db
     from models import Jogo, Resultado, Rodada
@@ -327,11 +330,12 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
             if data_anterior != jogo.data:
                 horarios_atualizados += 1
 
-        if item["finalizado"]:
-            jogo.encerrado = True
+        if salvar_resultados:
+            if item["finalizado"]:
+                jogo.encerrado = True
 
-        if _salvar_resultado_se_finalizado(db, Resultado, jogo, item):
-            resultados_salvos += 1
+            if _salvar_resultado_se_finalizado(db, Resultado, jogo, item):
+                resultados_salvos += 1
 
         atualizados += 1
 

@@ -1,4 +1,4 @@
-export const views = ['dashboard', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'] as const;
+export const views = ['dashboard', 'jogos', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'] as const;
 export type View = typeof views[number];
 
 export interface Usuario { nome: string; email: string }
@@ -9,6 +9,8 @@ export interface BolaoResumo {
   chave: string;
   campeonato: string;
   ano: number | null;
+  /** Bolão principal do grupo: campeonatos do mesmo bolão têm o mesmo grupoId. */
+  grupoId: number;
 }
 
 export interface Mensagem {
@@ -34,6 +36,8 @@ export interface Bootstrap {
 export interface Escudo {
   fontes: string[];
   iniciais: string;
+  /** Sigla de 3 letras usada no celular (ex.: FLA). */
+  sigla: string;
 }
 
 /** GET /interface/api/contexto */
@@ -41,3 +45,144 @@ export interface ContextoApi {
   usuario: { id: number; nome: string; email: string; adminGlobal: boolean };
   bolao: (BolaoResumo & { campeonatoId: number }) | null;
 }
+
+export type StatusJogo = 'agendado' | 'aguardando' | 'encerrado';
+
+export interface JogoApi {
+  id: number;
+  casa: string;
+  fora: string;
+  escudoCasa: Escudo;
+  escudoFora: Escudo;
+  data: string | null;
+  /** Já formatado no horário de Brasília, ex.: "Qua 14/10 · 16:00". */
+  dataTexto: string | null;
+  classico: boolean;
+  status: StatusJogo;
+  golsCasa: number | null;
+  golsFora: number | null;
+}
+
+export interface ItemRanking {
+  participacaoId: number;
+  nome: string;
+  status: 'ativo' | 'saiu' | 'removido' | 'desistente';
+  posicao: number | null;
+  /** > 0 subiu, < 0 caiu, 0 manteve, null sem comparação. */
+  variacao: number | null;
+  pontos: number;
+  pontosPalpites: number;
+  bonus: number;
+  bonusPrimeiroGol: number;
+  cravadas: number;
+  acertosVencedor: number;
+}
+
+/** GET /interface/api/dashboard */
+export interface DashboardApi {
+  bolao: { id: number; nome: string; chave: string; campeonato: string; ano: number | null };
+  participantesAtivos: number;
+  palpitesFaltantes: number;
+  rodada: { id: number; nome: string; aberta: boolean; numero: number | null; total: number; ultima: boolean } | null;
+  jogos: JogoApi[];
+  jogosEncerrados: number;
+  top5: ItemRanking[];
+  variacaoReferencia: string | null;
+}
+
+export interface JogoAtrasado extends JogoApi {
+  rodadaId: number;
+  rodadaNome: string;
+}
+
+export interface RodadaResumo { id: number; numero: number; nome: string; estado: EstadoRodada; faltantes: number }
+
+/** GET /interface/api/jogos */
+export interface AgendaApi {
+  agora: string;
+  rodada: {
+    id: number; nome: string; aberta: boolean; numero: number | null; total: number; atual: boolean;
+    inicio: string | null; inicioTexto: string | null; fimTexto: string | null; semHorario: number;
+    anteriorId: number | null; proximaId: number | null;
+  } | null;
+  rodadaAtualId: number | null;
+  rodadas: RodadaResumo[];
+  jogos: JogoApi[];
+  atrasados: JogoAtrasado[];
+  horarios: { fonte: string; configurado: boolean; ultimaAtualizacao: string | null };
+}
+
+/** POST /interface/api/horarios/atualizar */
+export interface AtualizacaoHorarios {
+  status: 'ok' | 'recente' | 'sem_token' | 'sem_codigo' | 'erro';
+  mensagem?: string;
+  horariosAtualizados?: number;
+}
+
+/** Calculado pelos jogos: fechada (todos com resultado), pendente (iniciada e faltando palpite), aberta. */
+export type EstadoRodada = 'aberta' | 'pendente' | 'fechada' | 'sem_jogos';
+
+export interface RodadaGestao {
+  id: number;
+  nome: string;
+  aberta: boolean;
+  estado: EstadoRodada;
+  faltantes: number;
+  jogos: number;
+  comResultado: number;
+  podeExcluir: boolean;
+  links: { grade: string; palpites: string };
+}
+
+/** GET /interface/api/campeonato */
+export interface CampeonatoApi {
+  campeonato: { id: number; nome: string; ano: number | null; codigoApi: string; totalRodadas: number; rodadasConcluidas: number };
+  rodadas: RodadaGestao[];
+  campeonatosDoBolao: { bolaoId: number; nome: string; ano: number | null; atual: boolean }[];
+  adminGlobal: boolean;
+  links: { sync?: string; importarJogos?: string; novoJogo: string };
+}
+
+export interface ZonaTabela { nome: string; cor: string; de: number; ate: number }
+
+export interface LinhaTabela {
+  posicao: number; time: string; timeCompleto: string; sigla: string; escudo: Escudo;
+  pontos: number; jogos: number; vitorias: number; empates: number; derrotas: number;
+  golsPro: number; golsContra: number; saldo: number; zona: ZonaTabela | null;
+}
+
+/** GET /interface/api/tabela */
+export interface TabelaApi {
+  sucesso: boolean;
+  erro: string | null;
+  aviso: string | null;
+  fonteCache: boolean;
+  horarioCache: string;
+  competicao: string;
+  grupos: { nome: string; linhas: LinhaTabela[] }[];
+  legendas: ZonaTabela[];
+  mataMata: { nome: string; jogos: { id: number; casa: string; fora: string; gols_casa: number | null; gols_fora: number | null; status: string; horario: string | null }[] }[];
+}
+
+export interface JogoGestao extends JogoApi {
+  rodadaId: number;
+  encerrado: boolean;
+  primeiroGol: string | null;
+  /** Valor para <input type="datetime-local">, no horário de Brasília. */
+  dataInput: string;
+  palpites: number;
+  podeExcluir: boolean;
+  /** Clássicos: nomes de primeiro gol que os participantes palpitaram. */
+  sugestoesPrimeiroGol: { nome: string; palpites: number }[];
+}
+
+/** GET /interface/api/rodadas */
+export interface GestaoRodadasApi {
+  rodadas: RodadaResumo[];
+  rodadaAtualId: number | null;
+  rodada: (RodadaResumo & { participantes: number; links: { palpites: string; grade: string } }) | null;
+  jogos: JogoGestao[];
+}
+
+/** GET /interface/api/rodadas/:id/classificacao */
+export interface ClassificacaoRodadaApi { rodada: string; ranking: ItemRanking[] }

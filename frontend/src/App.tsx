@@ -6,6 +6,10 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { BoloesScreen } from '@/screens/BoloesScreen';
 import { TelaEmMigracao } from '@/screens/TelaEmMigracao';
+import { Dashboard } from '@/screens/Dashboard';
+import { JogosScreen } from '@/screens/JogosScreen';
+import { CampeonatosScreen } from '@/screens/CampeonatosScreen';
+import { RodadasScreen } from '@/screens/RodadasScreen';
 
 function CurrentScreen() {
   const { dados, bolao, view } = useApp();
@@ -14,14 +18,13 @@ function CurrentScreen() {
   if (view === 'boloes' || !bolao) return <BoloesScreen />;
   switch (view) {
     case 'dashboard':
-      return <TelaEmMigracao titulo="Dashboard" descricao="Visão geral do bolão. Enquanto esta aba é migrada, use as telas atuais."
-        atalhos={[{ label: 'Lançar palpites', href: l.palpites, destaque: true }, { label: 'Classificação', href: l.ranking }, { label: 'Visão geral atual', href: l.dashboard }]} />;
+      return <Dashboard />;
+    case 'jogos':
+      return <JogosScreen />;
     case 'campeonatos':
-      return <TelaEmMigracao titulo="Campeonatos" descricao="Campeonato, rodadas e tabela oficial. Enquanto esta aba é migrada, use as telas atuais."
-        atalhos={[{ label: 'Abrir campeonatos', href: l.campeonatos, destaque: true }, { label: 'Tabela oficial', href: l.tabela }]} />;
+      return <CampeonatosScreen />;
     case 'rodadas':
-      return <TelaEmMigracao titulo="Rodadas" descricao="Jogos, resultados e lançamento de palpites. Enquanto esta aba é migrada, use as telas atuais."
-        atalhos={[{ label: 'Lançar palpites', href: l.palpites, destaque: true }, { label: 'Jogos e rodadas', href: l.rodadas }]} />;
+      return <RodadasScreen />;
     case 'participantes':
       return <TelaEmMigracao titulo="Participantes" descricao="Cadastro, entrada, desistência e pontos dos participantes. Enquanto esta aba é migrada, use a tela atual."
         atalhos={[{ label: 'Abrir participantes', href: l.participantes, destaque: true }]} />;

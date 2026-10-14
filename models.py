@@ -51,10 +51,18 @@ class Bolao(db.Model):
     pontua_desde_entrada = db.Column(db.Boolean, nullable=False, default=True)
     politica_entrada_tardia = db.Column(db.String(20), nullable=False,
         default="fora_da_conta", server_default="fora_da_conta")
+    # Vários campeonatos no mesmo bolão: cada campeonato é um Bolao próprio (jogos,
+    # palpites e classificação isolados) ligado ao bolão principal por grupo_id.
+    grupo_id = db.Column(db.Integer, db.ForeignKey("bolao.id"), nullable=True)
     __table_args__ = (db.CheckConstraint(
         "politica_entrada_tardia IN ('zero', 'fora_da_conta')", name="bolao_entrada_tardia"),)
     campeonato = db.relationship("Campeonato", backref="boloes")
     criador = db.relationship("Participante")
+
+    @property
+    def grupo_raiz_id(self):
+        """Id do bolão principal do grupo (o próprio id quando não há grupo)."""
+        return self.grupo_id or self.id
 
     @property
     def chave(self):

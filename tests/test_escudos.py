@@ -25,12 +25,23 @@ def test_arquivo_ausente_e_fontes_invalidas(app,monkeypatch):
 
 
 def test_cache_por_campeonato_e_macro(app,campeonato_teste):
-    db.session.add(ClassificacaoCache(campeonato_id=campeonato_teste.id,dados_json=json.dumps({'standings':[{'table':[{'team':{'id':1783,'name':'CR Flamengo','shortName':'Flamengo','crest':'https://example.com/fla.png'}}]}]})))
+    db.session.add(ClassificacaoCache(campeonato_id=campeonato_teste.id,dados_json=json.dumps({'standings':[{'table':[{'team':{'id':1783,'name':'Clube Sem Escudo Local','shortName':'Sem Escudo','crest':'https://example.com/fla.png'}}]}]})))
     db.session.commit()
     with app.test_request_context():
-        assert escudo_time('Flamengo',campeonato_id=campeonato_teste.id)['fontes']==['https://example.com/fla.png']
-        assert escudo_time('Flamengo',campeonato_id=999)['fontes']==[]
+        assert escudo_time('Sem Escudo',campeonato_id=campeonato_teste.id)['fontes']==['https://example.com/fla.png']
+        assert escudo_time('Sem Escudo',campeonato_id=999)['fontes']==[]
         from flask import render_template_string
         html=render_template_string("{% from 'partials/escudo.html' import escudo %}{{ escudo('Athletico-PR',1768,'https://example.com/antigo.png') }}")
         assert '/static/escudos/athletico-pr.png' in html and 'onerror=' in html
         assert 'https://example.com/antigo.png' in html and 'escudo-iniciais' in html
+
+
+def test_todos_os_times_do_campeonato_tem_escudo_local(app):
+    times = ['Athletico-PR', 'Atlético-MG', 'Bahia', 'Botafogo', 'Chapecoense', 'Corinthians', 'Coritiba',
+             'Cruzeiro', 'Flamengo', 'Fluminense', 'Grêmio', 'Internacional', 'Mirassol', 'Palmeiras',
+             'Red Bull Bragantino', 'Remo', 'Santos', 'São Paulo', 'Vasco', 'Vitória',
+             'CR Flamengo', 'SE Palmeiras', 'Clube do Remo', 'EC Vitória', 'CA Mineiro']
+    with app.test_request_context():
+        for nome in times:
+            fontes = escudo_time(nome)['fontes']
+            assert fontes and fontes[0].startswith('/static/escudos/'), nome

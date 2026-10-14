@@ -481,18 +481,13 @@ def editar_campeonato(id):
     camp = Campeonato.query.get_or_404(id)
 
     if request.method == "POST":
+        from services.gestao_campeonato import editar_campeonato as salvar_campeonato
         try:
-            nome = texto(request.form.get('nome'), 'Nome')
-            ano = inteiro(request.form.get('ano'), 'Temporada', 1, 9999)
+            salvar_campeonato(camp, request.form.get('nome'), request.form.get('ano'),
+                              request.form.get('codigo_api') if 'codigo_api' in request.form else None)
         except ValueError as e:
             flash(str(e))
             return render_template('admin_camp.html', campeonato=camp), 400
-
-        camp.nome = nome
-        camp.ano = ano
-        if "codigo_api" in request.form:
-            camp.codigo_api = (request.form.get("codigo_api") or "BSA").strip().upper()
-        db.session.commit()
 
         flash(f'Campeonato "{camp.nome}" atualizado!')
         return redirect(url_for("admin.listar_campeonatos"))
@@ -558,8 +553,8 @@ def cadastrar_rodada():
 @admin_required
 def toggle_rodada(id):
     rodada = Rodada.query.get_or_404(id)
-    rodada.aberta = not rodada.aberta
-    db.session.commit()
+    from services.gestao_campeonato import alternar_rodada
+    alternar_rodada(rodada)
 
     estado = "aberta" if rodada.aberta else "fechada"
     flash(f'Rodada "{rodada.nome}" agora esta {estado}.')
@@ -570,20 +565,13 @@ def toggle_rodada(id):
 @admin_required
 def excluir_rodada(id):
     rodada = Rodada.query.get_or_404(id)
-    if rodada.bonus_list or any(jogo.palpites for jogo in rodada.jogos):
-        flash("Esta rodada possui palpites ou créditos históricos e não pode ser excluída.")
-        return redirect(url_for("admin.listar_campeonatos"))
+    from services.gestao_campeonato import excluir_rodada as remover_rodada
     nome = rodada.nome
-
-    for jogo in rodada.jogos:
-        if jogo.resultado:
-            db.session.delete(jogo.resultado)
-        for palpite in jogo.palpites:
-            db.session.delete(palpite)
-        db.session.delete(jogo)
-
-    db.session.delete(rodada)
-    db.session.commit()
+    try:
+        remover_rodada(rodada)
+    except ValueError as e:
+        flash(str(e))
+        return redirect(url_for("admin.listar_campeonatos"))
 
     flash(f'Rodada "{nome}" e todos os seus jogos foram excluídos.')
     return redirect(url_for("admin.listar_campeonatos"))
@@ -599,25 +587,14 @@ def cadastrar_jogo():
     rodadas = Rodada.query.filter_by(campeonato_id=bolao_atual().campeonato_id).all() if bolao_atual() else Rodada.query.all()
 
     if request.method == "POST":
+        from services.gestao_jogos import criar_jogo
         try:
-            time_casa = texto(request.form.get('time_casa'), 'Time da casa')
-            time_fora = texto(request.form.get('time_fora'), 'Time de fora')
-            rodada_id = inteiro(request.form.get('rodada_id'), 'Rodada', 1)
-            data_jogo = validar_data_jogo(request.form.get('data'))
+            jogo = criar_jogo(request.form.get('time_casa'), request.form.get('time_fora'),
+                              request.form.get('rodada_id'), request.form.get('data'), "especial" in request.form)
         except ValueError as e:
             flash(str(e))
             return render_template('admin_jogo.html', rodadas=rodadas), 400
-        validar_rodada(Rodada.query.get_or_404(rodada_id))
-        especial = "especial" in request.form
-
-        db.session.add(Jogo(
-            time_casa=time_casa,
-            time_fora=time_fora,
-            rodada_id=rodada_id,
-            especial=especial,
-            data=data_jogo,
-        ))
-        db.session.commit()
+        time_casa, time_fora = jogo.time_casa, jogo.time_fora
 
         flash(f"Jogo {time_casa} x {time_fora} cadastrado!")
         return redirect(url_for("admin.cadastrar_jogo"))
@@ -633,24 +610,14 @@ def editar_jogo(id):
     rodadas = Rodada.query.filter_by(campeonato_id=bolao_atual().campeonato_id).all() if bolao_atual() else Rodada.query.all()
 
     if request.method == "POST":
+        from services.gestao_jogos import editar_jogo as salvar_jogo
         try:
-            time_casa = texto(request.form.get('time_casa'), 'Time da casa')
-            time_fora = texto(request.form.get('time_fora'), 'Time de fora')
-            rodada_id = inteiro(request.form.get('rodada_id'), 'Rodada', 1)
-            data = validar_data_jogo(request.form.get('data'))
+            salvar_jogo(jogo, request.form.get('time_casa'), request.form.get('time_fora'),
+                        request.form.get('rodada_id'), request.form.get('data'),
+                        "especial" in request.form, "encerrado" in request.form)
         except ValueError as e:
             flash(str(e))
             return render_template('admin_editar_jogo.html', jogo=jogo, rodadas=rodadas), 400
-        validar_rodada(Rodada.query.get_or_404(rodada_id))
-        jogo.time_casa = time_casa
-        jogo.time_fora = time_fora
-        jogo.rodada_id = rodada_id
-        jogo.especial = "especial" in request.form
-        jogo.encerrado = "encerrado" in request.form
-
-        jogo.data = data
-
-        db.session.commit()
 
         flash(f"Jogo {jogo.time_casa} x {jogo.time_fora} atualizado!")
         return redirect(url_for("admin.cadastrar_resultados"))
@@ -662,8 +629,8 @@ def editar_jogo(id):
 @admin_required
 def encerrar_jogo(id):
     jogo = Jogo.query.get_or_404(id)
-    jogo.encerrado = True
-    db.session.commit()
+    from services.gestao_jogos import definir_encerrado
+    definir_encerrado(jogo, True)
     flash(f"Jogo {jogo.time_casa} x {jogo.time_fora} encerrado para palpites.")
     return redirect(url_for("admin.cadastrar_resultados"))
 
@@ -672,8 +639,8 @@ def encerrar_jogo(id):
 @admin_required
 def reabrir_jogo(id):
     jogo = Jogo.query.get_or_404(id)
-    jogo.encerrado = False
-    db.session.commit()
+    from services.gestao_jogos import definir_encerrado
+    definir_encerrado(jogo, False)
     flash(f"Jogo {jogo.time_casa} x {jogo.time_fora} reaberto para palpites.")
     return redirect(url_for("admin.cadastrar_resultados"))
 
@@ -682,19 +649,12 @@ def reabrir_jogo(id):
 @admin_required
 def excluir_jogo(id):
     jogo = Jogo.query.get_or_404(id)
-    if jogo.palpites:
-        flash("Este jogo possui palpites e histórico e não pode ser excluído.")
+    from services.gestao_jogos import excluir_jogo as remover_jogo
+    try:
+        remover_jogo(jogo)
+    except ValueError as e:
+        flash(str(e))
         return redirect(url_for("admin.cadastrar_resultados"))
-
-    # Remove resultado e palpites vinculados antes de excluir o jogo
-    if jogo.resultado:
-        db.session.delete(jogo.resultado)
-
-    for palpite in jogo.palpites:
-        db.session.delete(palpite)
-
-    db.session.delete(jogo)
-    db.session.commit()
 
     flash(f"Jogo excluido.")
     return redirect(url_for("admin.cadastrar_resultados"))
@@ -716,27 +676,17 @@ def cadastrar_resultados():
     jogos = consulta.all()
 
     if request.method == "POST":
+        from services.gestao_jogos import lancar_resultado
         try:
             jogo_id = inteiro(request.form.get('jogo_id'), 'Jogo', 1)
-            gols_casa_real, gols_fora_real = placar(
-                request.form.get('gols_casa_real'), request.form.get('gols_fora_real'))
+            placar(request.form.get('gols_casa_real'), request.form.get('gols_fora_real'))
         except ValueError as e:
             flash(str(e))
             return render_template('admin_resultados.html', jogos=jogos), 400
-        validar_rodada(Jogo.query.get_or_404(jogo_id).rodada)
-        primeiro_gol_real = request.form.get("primeiro_gol_real") or None
-
-        resultado = Resultado.query.filter_by(jogo_id=jogo_id).first()
-
-        if resultado is None:
-            resultado = Resultado(jogo_id=jogo_id)
-            db.session.add(resultado)
-
-        resultado.gols_casa_real = gols_casa_real
-        resultado.gols_fora_real = gols_fora_real
-        resultado.primeiro_gol_real = primeiro_gol_real
-
-        db.session.commit()
+        jogo = Jogo.query.get_or_404(jogo_id)
+        validar_rodada(jogo.rodada)
+        lancar_resultado(jogo, request.form.get('gols_casa_real'), request.form.get('gols_fora_real'),
+                         request.form.get("primeiro_gol_real") or None)
         flash("Resultado salvo!")
         return redirect(url_for("admin.cadastrar_resultados"))
 

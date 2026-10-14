@@ -358,65 +358,9 @@ def ranking():
         rodada_selecionada = next((r for r, _ in opcoes if r.id == rodada_id), None)
         if rodada_selecionada is None:
             abort(404)
-    todos = (Participacao.query.filter_by(bolao_id=bolao.id).options(
-                *_relacoes_participacao(),
-                selectinload(Participacao.palpites).options(*_relacoes_palpite()),
-                selectinload(Participacao.creditos_historicos).joinedload(BonusRodada.rodada)
-             ).all() if bolao else ([] if Bolao.query.first() else Participante.query.options(
-                selectinload(Participante.palpites).options(*_relacoes_palpite()),
-                selectinload(Participante.bonus_list).joinedload(BonusRodada.rodada)).all()))
-    resultado_ranking = []
     ocultar_desistentes = request.args.get('ocultar_desistentes') == '1'
-
-    for p in todos:
-        if bolao and (ocultar_desistentes and p.status == 'desistente'
-                or rodada_selecionada and not entra_no_ranking_da_rodada(p, rodada_selecionada)):
-            continue
-        total_palpites = 0
-        cravadas = 0
-        acertos_vencedor = 0
-        bonus_primeiro_gol = 0
-
-        for pal in p.palpites:
-            if bolao and not palpite_elegivel(pal):
-                continue
-            if rodada_selecionada and pal.jogo.rodada_id != rodada_selecionada.id:
-                continue
-            if pal.jogo and pal.jogo.resultado:
-                res = pal.jogo.resultado
-                detalhe = calcular_pontuacao(pal, pal.jogo, res)
-                pts = detalhe.total
-                total_palpites += pts
-                bonus_primeiro_gol += detalhe.pontos_bonus
-
-                # Cravada (placar exato)
-                if detalhe.placar_exato:
-                    cravadas += 1
-                elif detalhe.acertou_resultado:
-                    acertos_vencedor += 1
-
-        total_bonus = sum(b.pontos for b in (p.creditos_historicos if bolao else p.bonus_list)
-                          if (not rodada_selecionada or b.rodada_id == rodada_selecionada.id)
-                          and (not bolao or dentro_do_periodo(p, b.rodada)))
-        total_geral = total_palpites + total_bonus
-
-        resultado_ranking.append({
-            "participante": p,
-            "pontos": total_geral,
-            "pontos_palpites": total_palpites,
-            "bonus": total_bonus,
-            "bonus_primeiro_gol": bonus_primeiro_gol,
-            "cravadas": cravadas,
-            "acertos_vencedor": acertos_vencedor,
-        })
-
-    # Pontos, placares exatos, acertos de vencedor/empate e nome.
-    import unicodedata
-    resultado_ranking.sort(key=lambda i: (
-        -i["pontos"], -i["cravadas"], -i["acertos_vencedor"],
-        "".join(c for c in unicodedata.normalize("NFKD", i["participante"].nome.casefold())
-                if not unicodedata.combining(c)),
-    ))
+    from services.ranking import calcular_ranking
+    resultado_ranking = calcular_ranking(bolao, rodada_selecionada, ocultar_desistentes)
 
     from services.textos_whatsapp import texto_ranking
     return render_template("ranking.html", ranking=resultado_ranking, opcoes_rodadas=opcoes,

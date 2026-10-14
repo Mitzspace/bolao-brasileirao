@@ -1,8 +1,9 @@
-import { Trophy, Calendar, Users, Target, Settings, LogOut, Moon, Sun, LayoutDashboard } from 'lucide-react';
+import { Trophy, Calendar, Users, Target, Settings, LogOut, Moon, Sun, LayoutDashboard, CalendarClock } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'jogos', label: 'Jogos', icon: CalendarClock },
   { id: 'campeonatos', label: 'Campeonatos', icon: Target },
   { id: 'rodadas', label: 'Rodadas', icon: Calendar },
   { id: 'participantes', label: 'Participantes', icon: Users },

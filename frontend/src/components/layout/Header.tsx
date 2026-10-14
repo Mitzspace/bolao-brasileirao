@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { Trophy, Moon, Sun } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { SeletorCampeonato } from '@/components/campeonatos/SeletorCampeonato';
 
 interface HeaderProps {
   title: string;
@@ -24,6 +25,7 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <SeletorCampeonato />
           {actions}
           <button
             onClick={toggleDarkMode}

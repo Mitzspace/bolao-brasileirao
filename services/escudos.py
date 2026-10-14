@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlparse
 from flask import current_app, g, url_for
-from config_escudos import ESCUDOS_POR_API_ID, ESCUDOS_POR_NOME
+from config_escudos import ESCUDOS_POR_API_ID, ESCUDOS_POR_NOME, SIGLAS_POR_NOME
 from services.sync import _normalizar_time
 
 
@@ -46,4 +46,5 @@ def escudo_time(nome, api_id=None, crest=None, campeonato_id=None):
         if fonte and fonte not in fontes:
             fontes.append(fonte)
     iniciais = ''.join(p[0] for p in nome.split()[:2]).upper() or '?'
-    return {'fontes': fontes, 'iniciais': iniciais}
+    sigla = SIGLAS_POR_NOME.get(normalizado) or (normalizado.replace(' ', '')[:3].upper() or iniciais)
+    return {'fontes': fontes, 'iniciais': iniciais, 'sigla': sigla}

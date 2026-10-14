@@ -107,3 +107,10 @@ def contexto():
                     'adminGlobal': bool(current_user.admin_global)},
         'bolao': serializar_bolao(bolao) if bolao else None,
     })
+
+
+# Rotas de cada tela ficam em módulos próprios, registradas neste mesmo blueprint.
+from routes import api_dashboard  # noqa: E402,F401
+from routes import api_jogos  # noqa: E402,F401
+from routes import api_campeonatos  # noqa: E402,F401
+from routes import api_rodadas  # noqa: E402,F401

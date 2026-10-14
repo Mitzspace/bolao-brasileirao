@@ -1,6 +1,6 @@
 <nav aria-label="Administração" class="mb-6 flex gap-2 overflow-x-auto pb-2 text-xs font-semibold">
-    {% for endpoint, label in [('admin.dashboard', 'Visão geral'), ('admin.responsaveis', 'Configurações'), ('admin.gerenciar_palpites', 'Palpites'), ('admin.listar_participantes', 'Participantes'), ('admin.cadastrar_resultados', 'Resultados'), ('admin.listar_campeonatos', 'Campeonatos'), ('admin.sync', 'Sincronização'), ('admin.importar_planilha', 'Importar planilha')] %}
-    {% if config.FEATURE_PARTICIPANTE_LOGIN or current_user.admin_global or endpoint not in ['admin.sync', 'admin.importar_planilha'] %}
+    {% for endpoint, label in [('admin.dashboard', 'Visão geral'), ('admin.responsaveis', 'Configurações'), ('admin.gerenciar_palpites', 'Palpites'), ('admin.listar_participantes', 'Participantes'), ('admin.cadastrar_resultados', 'Resultados'), ('admin.listar_campeonatos', 'Campeonatos'), ('admin.sync', 'Sincronização')] %}
+    {% if config.FEATURE_PARTICIPANTE_LOGIN or current_user.admin_global or endpoint not in ['admin.sync'] %}
     <a href="{{ url_for(endpoint) }}" {% if request.endpoint == endpoint %}aria-current="page"{% endif %} class="shrink-0 rounded-xl border px-3 py-2 transition {% if request.endpoint == endpoint %}border-primary/30 bg-primary/10 text-primary{% else %}border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground{% endif %}">{{ label }}</a>
     {% endif %}
     {% endfor %}

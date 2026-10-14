@@ -169,6 +169,8 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
                 raise RuntimeError('Migração pendente: execute python -m migrations.contato_participante CAMINHO_DO_BANCO.')
             if 'situacao' not in {c['name'] for c in inspector.get_columns('palpite')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.situacao_palpite CAMINHO_DO_BANCO. Consulte AJUSTES_PALPITES_SYNC.md.')
+            if 'grupo_id' not in {c['name'] for c in inspector.get_columns('bolao')}:
+                raise RuntimeError('Migração pendente: execute python -m migrations.grupo_bolao CAMINHO_DO_BANCO. Consulte MULTIPLOS_CAMPEONATOS.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')

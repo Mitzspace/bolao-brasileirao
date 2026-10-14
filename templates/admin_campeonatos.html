@@ -12,7 +12,6 @@
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             {% if config.FEATURE_PARTICIPANTE_LOGIN or current_user.admin_global %}<a class="ui-button" href="{{ url_for('participante.criar_bolao') }}">Criar bolão</a>{% endif %}
             {% if config.FEATURE_PARTICIPANTE_LOGIN or current_user.admin_global %}<a class="ui-button secondary" href="{{ url_for('admin.sync') }}">Sincronizar API</a>{% endif %}
-            {% if config.FEATURE_PARTICIPANTE_LOGIN or current_user.admin_global %}<a class="ui-button secondary" href="{{ url_for('admin.importar_planilha') }}">Importar Planilha</a>{% endif %}
         </div>
     </div>
 </section>

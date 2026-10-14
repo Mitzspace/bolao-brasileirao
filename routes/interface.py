@@ -10,7 +10,7 @@ from services.acesso import pode_acessar_gestao
 from services.contexto_bolao import bolao_atual, lembrar_bolao
 
 interface = Blueprint('interface', __name__, url_prefix='/interface')
-VIEWS = {'dashboard', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
+VIEWS = {'dashboard', 'jogos', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
 
 
 def assets_interface():
@@ -47,6 +47,10 @@ def index():
     atual = bolao_atual()
     if atual not in boloes:
         atual = None
+    # Um único bolão (mesmo com vários campeonatos): entra direto no campeonato principal.
+    if atual is None and boloes and len({b.grupo_raiz_id for b in boloes}) == 1:
+        atual = min(boloes, key=lambda b: (b.grupo_id is not None, b.id))
+        lembrar_bolao(atual.id)
     links = {}
     if atual:
         endpoints = {
@@ -61,6 +65,7 @@ def index():
         'boloes': [{
             'id': b.id, 'nome': b.nome, 'chave': b.chave,
             'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano,
+            'grupoId': b.grupo_raiz_id,
         } for b in boloes],
         'bolaoAtualId': atual.id if atual else None,
         'csrfToken': generate_csrf(),

@@ -16,16 +16,21 @@ def rodadas_de_referencia(campeonato_ids):
         Resultado, Resultado.jogo_id == Jogo.id
     ).join(Rodada, Rodada.id == Jogo.rodada_id).filter(
         Rodada.campeonato_id.in_(campeonato_ids)).all()
-    totais, em_andamento = {}, set()
+    totais, em_andamento, iniciadas = {}, set(), set()
     for rodada_id, encerrado, resultado_id in jogos:
         totais[rodada_id] = totais.get(rodada_id, 0) + 1
         if not encerrado and resultado_id is None:
             em_andamento.add(rodada_id)
+        else:
+            iniciadas.add(rodada_id)
     referencias = {}
     for campeonato_id in campeonato_ids:
         opcoes = sorted((r for r in rodadas if r.campeonato_id == campeonato_id
                          and r.id in totais), key=ordem_rodada)
-        pendentes = [r for r in opcoes if r.id in em_andamento]
+        # Rodada atual = a mais recente: jogos adiados de rodadas antigas não a "prendem".
+        ultima_iniciada = next((r for r in reversed(opcoes) if r.id in iniciadas), None)
+        pendentes = [r for r in opcoes if r.id in em_andamento and (
+            ultima_iniciada is None or ordem_rodada(r) >= ordem_rodada(ultima_iniciada))]
         abertas = [r for r in pendentes if r.aberta]
         rodada = next(iter(abertas or pendentes), opcoes[-1] if opcoes else None)
         referencias[campeonato_id] = {
