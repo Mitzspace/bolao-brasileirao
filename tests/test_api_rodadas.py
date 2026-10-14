@@ -119,3 +119,15 @@ def test_importar_jogos_via_api_continua_para_admin_geral(client, gestao):
     preparar(client, gestao)
     links = client.get('/interface/api/campeonato').get_json()['links']
     assert 'importarJogos' in links and 'importarPlanilha' not in links
+
+
+def test_grade_da_rodada(client, gestao):
+    bolao, r1, classico, comum, ana = preparar(client, gestao)
+    db.session.add(Resultado(jogo=classico, gols_casa_real=2, gols_fora_real=1, primeiro_gol_real='Braithwaite'))
+    db.session.commit()
+    dados = client.get(f'/interface/api/rodadas/{r1.id}/grade').get_json()
+    ana_dados = next(p for p in dados['participantes'] if p['nome'] == 'Ana')
+    assert ana_dados['pontos'] == 7 and ana_dados['cravadas'] == 1
+    celula = next(l for l in dados['linhas'] if l['jogo']['id'] == classico.id)['celulas'][str(ana.id)]
+    assert celula['cravada'] and celula['pontos'] == 7 and celula['primeiroGol'] == 'Braithwaite'
+    assert 'Ana' in dados['textoWhatsapp']

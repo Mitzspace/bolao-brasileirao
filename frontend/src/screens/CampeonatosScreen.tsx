@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Calendar, Check, Download, ExternalLink, Grid3x3, MoreVertical, Pencil, Plus, RefreshCw, Target, Trash2, Trophy } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
+import { GradeModal } from '@/components/palpites/GradeModal';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
@@ -20,7 +21,8 @@ type Aba = 'rodadas' | 'tabela';
 const botaoSecundario = 'px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors';
 const botaoPrimario = 'px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-60';
 
-export function CampeonatosScreen() {
+/** Campeonatos do bolão. Fica dentro de Configurações; `topo` recebe as abas dessa tela. */
+export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeonato do bolão, rodadas e tabela oficial', topo }: { titulo?: string; subtitulo?: string; topo?: ReactNode }) {
   const showToast = useToast();
   const [aba, setAba] = useState<Aba>('rodadas');
   const { dados, carregando, erro, recarregar } = useRecurso<CampeonatoApi>('/campeonato');
@@ -72,7 +74,7 @@ export function CampeonatosScreen() {
     try {
       await api.post<{ bolaoId: number }>('/campeonatos', novoCampeonato);
       // Recarrega a interface já no novo campeonato (o servidor mostra a mensagem de sucesso).
-      window.location.hash = 'campeonatos';
+      window.location.hash = 'configuracoes';
       window.location.reload();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Não foi possível criar o campeonato.', 'error');
@@ -86,8 +88,8 @@ export function CampeonatosScreen() {
   return (
     <div>
       <Header
-        title="Campeonatos"
-        subtitle="Campeonato do bolão, rodadas e tabela oficial"
+        title={titulo}
+        subtitle={subtitulo}
         actions={aba === 'rodadas' && dados ? (
           <button onClick={() => setNovaRodada({ nome: '', aberta: true })}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors">
@@ -97,6 +99,7 @@ export function CampeonatosScreen() {
       />
 
       <div className="p-4 md:p-8 space-y-6 pb-28 md:pb-8">
+        {topo}
         {erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
         {!dados && carregando && <Carregando linhas={3} />}
 
@@ -313,16 +316,19 @@ export function CampeonatosScreen() {
 }
 
 function AcoesRodada({ r, onExcluir }: { r: RodadaGestao; onExcluir: (r: RodadaGestao) => void }) {
+  const { setView } = useApp();
+  const [grade, setGrade] = useState<number | null>(null);
   const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors';
   return (
     <div className="flex flex-wrap md:justify-end gap-1.5">
-      <a href={r.links.grade} className={`${base} border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800`} title="Ver grade de palpites">
+      <button onClick={() => setGrade(r.id)} className={`${base} border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800`} title="Ver grade de palpites">
         <Grid3x3 className="w-3.5 h-3.5" /> Grade
-      </a>
-      <a href={r.links.palpites} title="Lançar palpites dos participantes"
+      </button>
+      <GradeModal rodadaId={grade} onClose={() => setGrade(null)} />
+      <button onClick={() => setView('palpites', { rodadaId: r.id })} title="Lançar palpites dos participantes"
         className={`${base} ${r.estado === 'pendente' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100'}`}>
         <Target className="w-3.5 h-3.5" /> {r.estado === 'pendente' ? 'Palpitar agora' : 'Palpitar'}
-      </a>
+      </button>
       <button onClick={() => onExcluir(r)} disabled={!r.podeExcluir} aria-label="Excluir rodada"
         title={r.podeExcluir ? 'Excluir rodada' : 'Rodada com palpites ou créditos históricos não pode ser excluída'}
         className={`${base} text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed`}>

@@ -10,7 +10,7 @@ from services.acesso import pode_acessar_gestao
 from services.contexto_bolao import bolao_atual, lembrar_bolao
 
 interface = Blueprint('interface', __name__, url_prefix='/interface')
-VIEWS = {'dashboard', 'jogos', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
+VIEWS = {'dashboard', 'jogos', 'palpites', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
 
 
 def assets_interface():

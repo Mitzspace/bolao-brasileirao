@@ -159,3 +159,33 @@ def remover_jogo(id):
     except ValueError as e:
         return erro(409, str(e))
     return jsonify({'mensagem': 'Jogo excluído.'})
+
+
+@api.get('/rodadas/<int:id>/grade')
+@requer_gestao()
+def grade_rodada(id):
+    """Grade participantes × jogos, com o texto pronto para o WhatsApp (mesmo da tela atual)."""
+    from services.grade_palpites import montar_grade
+    from services.textos_whatsapp import texto_rodada
+    bolao = bolao_atual()
+    rodada = _rodada_do_bolao(id)
+    participantes, jogos, matriz, totais, bonus = montar_grade(bolao, rodada)
+    linhas = []
+    for linha in matriz:
+        celulas = {}
+        for pessoa in participantes:
+            c = linha['palpites'][pessoa.id]
+            p = c['palpite']
+            celulas[str(pessoa.id)] = {
+                'casa': p.gols_casa, 'fora': p.gols_fora, 'primeiroGol': p.primeiro_gol or '',
+                'situacao': p.situacao, 'pontos': c['pontos'], 'cravada': c['cravada'], 'vencedor': c['vencedor'],
+            } if p else None
+        linhas.append({'jogo': serializar_jogo(linha['jogo'], bolao.campeonato_id), 'celulas': celulas})
+    return jsonify({
+        'rodada': rodada.nome,
+        'participantes': [{'id': p.id, 'nome': p.nome, 'pontos': totais[p.id]['pontos'],
+                           'cravadas': totais[p.id]['cravadas'], 'bonus': totais[p.id].get('bonus', 0)}
+                          for p in participantes],
+        'linhas': linhas,
+        'textoWhatsapp': texto_rodada(bolao, rodada, matriz, participantes, totais),
+    })

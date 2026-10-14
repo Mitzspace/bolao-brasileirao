@@ -957,42 +957,15 @@ def sync():
 @admin_required
 def previa_whatsapp():
     from flask import jsonify
-    from services.parser_whatsapp import ler_mensagem, rodadas_informadas
-    from services.texto_lancamento import assinatura
-    from services.elegibilidade import participa_na_rodada
     bolao = bolao_atual()
     if not bolao:
         abort(400, description='Selecione um bolão.')
     pessoa = Participacao.query.filter_by(id=request.form.get('participante_id', type=int), bolao_id=bolao.id).first_or_404()
     rodada = Rodada.query.get_or_404(request.form.get('rodada_id', type=int))
     validar_rodada(rodada)
-    if not participa_na_rodada(pessoa, rodada):
-        abort(409, description='Esta pessoa não participa desta rodada.')
-    texto = request.form.get('texto', '')
-    if not texto.strip() or len(texto) > 20000 or len(texto.splitlines()) > 200:
-        return jsonify(erro='Cole uma mensagem com até 20.000 caracteres e 200 linhas.'), 422
-    import re
-    cabecalhos = rodadas_informadas(texto)
-    numeros = re.findall(r'\d+', rodada.nome)
-    if cabecalhos and (len(numeros) != 1 or cabecalhos != {int(numeros[0])}):
-        return jsonify(erro=f'O cabeçalho informa rodada(s) {", ".join(map(str, sorted(cabecalhos)))}; a seleção é {rodada.nome}. Ajuste a rodada ou a mensagem antes de continuar.'), 422
-    jogos = list(rodada.jogos)
-    existentes = {p.jogo_id:p for p in Palpite.query.filter_by(participacao_id=pessoa.id).join(Jogo).filter(Jogo.rodada_id == rodada.id)}
-    linhas = ler_mensagem(texto, jogos)
-    opcoes = []
-    for jogo in jogos:
-        avisos = []
-        if jogo.id in existentes:
-            avisos.append('Palpite existente: será sobrescrito ao salvar, com histórico.')
-        bloqueado = jogo.id in existentes and existentes[jogo.id].excluido_por_desistencia
-        if bloqueado:
-            avisos.append('Após desistência: restaure no histórico antes de lançar.')
-        if not rodada.aberta or jogo.encerrado or (jogo.data and jogo.data <= agora_brasilia()):
-            avisos.append('Jogo iniciado ou fechado: lançamento permitido ao responsável e auditado.')
-        opcoes.append({'id':jogo.id, 'nome':f'{jogo.time_casa} × {jogo.time_fora}', 'avisos':avisos, 'bloqueado':bloqueado, 'primeiro_gol_permitido':bool(jogo.especial)})
-    return jsonify(linhas=linhas, jogos=opcoes,
-        reconhecido=any(i['jogo_id'] is not None for i in linhas),
-        token=assinatura(texto, current_user.id, bolao.id, pessoa.id, rodada.id))
+    from services.lancamento_palpites import gerar_previa
+    dados, status = gerar_previa(bolao, pessoa, rodada, request.form.get('texto', ''), current_user.id)
+    return jsonify(dados), status
 
 
 # ── Lançar palpites dos participantes pelo Admin ──────────────────────────────
@@ -1045,46 +1018,10 @@ def gerenciar_palpites():
         rodada_sel = Rodada.query.get_or_404(rodada_id)
         validar_rodada(rodada_sel)
         participante_sel = pessoa_selecionada(participante_id, rodada_sel)
-        existentes = {p.jogo_id: p for p in Palpite.query.filter_by(
-            **({'participacao_id': participante_sel.id} if bolao else {'participante_id': participante_sel.id})
-        ).join(Jogo).filter(Jogo.rodada_id == rodada_id).all()}
-        from services.lancamento_lote import validar_lote
-        itens, recebido, erros = validar_lote(request.form, rodada_sel.jogos, existentes)
-        texto_original, jogos_texto = None, set()
-        if request.form.get('whatsapp_token'):
-            from services.texto_lancamento import ler_assinatura
-            from itsdangerous import BadSignature
-            try:
-                texto_original = ler_assinatura(request.form['whatsapp_token'], current_user.id,
-                    bolao.id, participante_id, rodada_id)
-                jogos_texto = {int(id) for id in request.form.get('whatsapp_jogos', '').split(',') if id}
-                if not jogos_texto or not jogos_texto.issubset({j.id for j in rodada_sel.jogos}):
-                    raise ValueError('Jogos inválidos.')
-            except (BadSignature, ValueError, TypeError):
-                erros['whatsapp'] = 'A prévia da mensagem expirou ou é inválida. Cole e revise a mensagem novamente.'
+        from services.lancamento_palpites import salvar_lote
+        quantidade, erros = salvar_lote(bolao, participante_sel, rodada_sel, request.form, current_user.id)
         if not erros:
-            for jogo, casa, fora, primeiro in itens:
-                palpite = existentes.get(jogo.id)
-                if palpite is None:
-                    palpite = Palpite(
-                        participante_id=participante_sel.participante_legado_id if bolao else participante_sel.id,
-                        participacao_id=participante_sel.id if bolao else None, jogo_id=jogo.id)
-                    db.session.add(palpite)
-                palpite.situacao = ('nao_enviado' if request.form.get('nao_enviou_rodada') == '1'
-                    else request.form.get(f'situacao_{jogo.id}', palpite.situacao or 'valido'))
-                palpite.gols_casa = casa
-                palpite.gols_fora = fora
-                palpite.primeiro_gol = primeiro
-                palpite.origem = 'responsavel'
-                if recebido is not None:
-                    palpite.recebido_em = recebido
-                if jogo.id in jogos_texto:
-                    palpite._texto_original = texto_original
-                    if palpite.id:
-                        from sqlalchemy.orm.attributes import flag_modified
-                        flag_modified(palpite, 'origem')
-            db.session.commit()
-            flash(f"{len(itens)} palpites de '{participante_sel.nome}' para a '{rodada_sel.nome}' salvos com sucesso!")
+            flash(f"{quantidade} palpites de '{participante_sel.nome}' para a '{rodada_sel.nome}' salvos com sucesso!")
             if bolao:
                 lembrar_rodada(bolao, rodada_sel)
                 if acao == 'proximo':
@@ -1097,7 +1034,6 @@ def gerenciar_palpites():
                         participante_id = proximo
             return redirect(url_for('admin.gerenciar_palpites', participante_id=participante_id, rodada_id=rodada_id))
         valores = request.form
-        db.session.rollback()
 
     rodada_sel = None
     participante_sel = None

@@ -1,4 +1,4 @@
-export const views = ['dashboard', 'jogos', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'] as const;
+export const views = ['dashboard', 'jogos', 'palpites', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'] as const;
 export type View = typeof views[number];
 
 export interface Usuario { nome: string; email: string }
@@ -186,3 +186,42 @@ export interface GestaoRodadasApi {
 
 /** GET /interface/api/rodadas/:id/classificacao */
 export interface ClassificacaoRodadaApi { rodada: string; ranking: ItemRanking[] }
+
+export type SituacaoPalpite = 'valido' | 'nao_enviado' | 'fora_prazo';
+
+export interface JogoLancamento extends JogoApi {
+  numero: number;
+  iniciado: boolean;
+  palpite: {
+    casa: number | null; fora: number | null; primeiroGol: string; situacao: SituacaoPalpite;
+    guardado: boolean; pontos: number | null;
+  } | null;
+}
+
+/** GET /interface/api/palpites */
+export interface LancamentoApi {
+  rodadas: RodadaResumo[];
+  rodada: (RodadaResumo & { id: number; links: { grade: string } }) | null;
+  participantes: { id: number; nome: string; status: string; faltantes: number }[];
+  pessoa: { id: number; nome: string; status: string; anteriorId: number | null; proximaId: number | null } | null;
+  jogos: JogoLancamento[];
+}
+
+/** POST /interface/api/palpites/previa-whatsapp */
+export interface PreviaWhatsapp {
+  linhas: { texto: string; jogo_id: number | null; casa: string; fora: string; primeiro_gol: string; avisos: string[] }[];
+  jogos: { id: number; nome: string; avisos: string[]; bloqueado: boolean; primeiro_gol_permitido: boolean }[];
+  reconhecido: boolean;
+  token: string;
+}
+
+/** GET /interface/api/rodadas/:id/grade */
+export interface GradeApi {
+  rodada: string;
+  participantes: { id: number; nome: string; pontos: number; cravadas: number; bonus: number }[];
+  linhas: {
+    jogo: JogoApi;
+    celulas: Record<string, { casa: number; fora: number; primeiroGol: string; situacao: SituacaoPalpite; pontos: number | null; cravada: boolean; vencedor: boolean } | null>;
+  }[];
+  textoWhatsapp: string;
+}

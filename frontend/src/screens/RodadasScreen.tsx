@@ -10,8 +10,10 @@ import { Input, Select, Switch } from '@/components/ui/Form';
 import { Modal } from '@/components/ui/Modal';
 import { TeamCrest } from '@/components/ui/TeamCrest';
 import { useToast } from '@/components/ui/Toast';
+import { useApp } from '@/context/AppContext';
 import { SeletorRodadas } from '@/components/rodadas/SeletorRodadas';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
+import { GradeModal } from '@/components/palpites/GradeModal';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
 import type { ClassificacaoRodadaApi, GestaoRodadasApi, JogoGestao } from '@/types';
@@ -31,6 +33,7 @@ const placarInput = 'w-16 h-16 text-2xl font-bold text-center rounded-xl border-
 
 export function RodadasScreen() {
   const showToast = useToast();
+  const { setView } = useApp();
   const [rodadaId, setRodadaId] = useState<number | null>(null);
   const [aba, setAba] = useState<Aba>('jogos');
   const { dados, carregando, erro, recarregar } = useRecurso<GestaoRodadasApi>(rodadaId ? `/rodadas?rodada_id=${rodadaId}` : '/rodadas');
@@ -44,6 +47,7 @@ export function RodadasScreen() {
   const [formJogo, setFormJogo] = useState<FormJogo | null>(null);
   const [excluir, setExcluir] = useState<JogoGestao | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [grade, setGrade] = useState<number | null>(null);
 
   const gravar = async (acao: () => Promise<{ mensagem?: string }>, depois?: () => void) => {
     setSalvando(true);
@@ -113,12 +117,12 @@ export function RodadasScreen() {
                 <EstadoRodadaBadge estado={r.estado} faltantes={r.faltantes} />
               </div>
               <div className="flex gap-2">
-                <a href={r.links.grade} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                <button onClick={() => setGrade(r.id)} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
                   <Grid3x3 className="w-4 h-4" /><span className="hidden sm:inline">Grade</span>
-                </a>
-                <a href={r.links.palpites} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${r.estado === 'pendente' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100'}`}>
+                </button>
+                <button onClick={() => setView('palpites', { rodadaId: r.id })} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${r.estado === 'pendente' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100'}`}>
                   <Target className="w-4 h-4" /> Lançar palpites
-                </a>
+                </button>
               </div>
             </div>
 
@@ -211,10 +215,10 @@ export function RodadasScreen() {
                           className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed">
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        <a href={r.links.palpites} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors ml-auto">
+                        <button onClick={() => setView('palpites', { rodadaId: r.id })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors ml-auto">
                           <Users className="w-4 h-4" /> Palpites
                           <Badge color={jogo.palpites >= r.participantes && r.participantes > 0 ? 'green' : 'gray'} size="sm">{jogo.palpites}/{r.participantes}</Badge>
-                        </a>
+                        </button>
                       </div>
                     </div>
                   );
@@ -336,6 +340,8 @@ export function RodadasScreen() {
           </div>
         )}
       </Modal>
+
+      <GradeModal rodadaId={grade} onClose={() => setGrade(null)} />
 
       <ConfirmDialog open={!!excluir} onClose={() => setExcluir(null)}
         onConfirm={() => excluir ? gravar(() => api.delete(`/jogos/${excluir.id}`)) : undefined}

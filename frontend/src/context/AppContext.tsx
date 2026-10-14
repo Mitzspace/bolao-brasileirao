@@ -4,6 +4,7 @@ import { configurarApi } from '@/lib/api';
 
 function hashView(): View {
   const value = window.location.hash.slice(1);
+  if (value === 'campeonatos') return 'configuracoes'; // campeonatos ficam em Configurações
   return views.includes(value as View) ? value as View : 'dashboard';
 }
 function initialTheme(): boolean {
@@ -20,7 +21,9 @@ interface AppState {
   usuario: Bootstrap['usuario'];
   bolao: Bootstrap['boloes'][number] | undefined;
   view: View;
-  setView: (view: View) => void;
+  setView: (view: View, parametros?: Record<string, number>) => void;
+  /** Parâmetros passados na última navegação (ex.: rodada a abrir no lançamento). */
+  parametros: Record<string, number>;
   darkMode: boolean;
   toggleDarkMode: () => void;
   logout: () => void;
@@ -30,6 +33,7 @@ const AppContext = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [view, updateView] = useState<View>(hashView);
   const [darkMode, setDarkMode] = useState(initialTheme);
+  const [parametros, setParametros] = useState<Record<string, number>>({});
   useEffect(() => {
     const change = () => updateView(hashView());
     window.addEventListener('hashchange', change);
@@ -40,14 +44,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem('bolao-interface-theme', darkMode ? 'dark' : 'light'); }
     catch { /* O tema continua funcionando quando o armazenamento é indisponível. */ }
   }, [darkMode]);
-  const setView = (next: View) => {
+  const setView = (next: View, novos: Record<string, number> = {}) => {
+    setParametros(novos);
     window.location.hash = next;
     updateView(next);
     document.getElementById('conteudo')?.scrollTo({ top: 0 });
   };
   return <AppContext.Provider value={{
     dados, usuario: dados.usuario, bolao: dados.boloes.find(b => b.id === dados.bolaoAtualId),
-    view, setView, darkMode, toggleDarkMode: () => setDarkMode(value => !value),
+    view, setView, parametros, darkMode, toggleDarkMode: () => setDarkMode(value => !value),
     logout: () => window.location.assign(dados.links.logout),
   }}>{children}</AppContext.Provider>;
 }

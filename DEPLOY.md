@@ -263,8 +263,10 @@ contratou recursos remotos.
 - Cookies Secure/HttpOnly/SameSite, CSRF, hashes e permissões foram mantidos.
   TRUST_PROXY=true confia em um salto do proxy Render; não copie isso para
   servidor diretamente exposto ou outra cadeia de proxies sem revisão.
-- Limite global atual de 50/h e 200/dia por IP permanece; administradores na mesma
-  rede compartilham limite. A recuperação pública de senha continua desativada.
+- Limites de requisição: visitantes sem login têm 1000/h por IP; responsáveis
+  logados não têm limite geral (a API da nova interface tem teto de 6000/h por IP
+  só contra laços acidentais). Login (10/h) e cadastro (5/h) continuam baixos
+  contra tentativa de senha. A recuperação pública de senha continua desativada.
 - O modelo de entrada é gestão por administradores/responsáveis existentes.
   FEATURE_PARTICIPANTE_LOGIN=false bloqueia o fluxo de cadastro/participante;
   não muda os papéis ou amplia permissões de contas importadas.

@@ -19,9 +19,9 @@ from services.contexto_bolao import bolao_atual, responsavel_atual
 
 api = Blueprint('api', __name__, url_prefix='/interface/api')
 
-# A interface faz várias chamadas por tela; o limite padrão (50/hora por IP)
-# vale para as telas antigas e bloquearia o uso normal da API.
-limiter.limit('1500 per hour')(api)
+# A interface faz várias chamadas por tela. Este teto (por IP) só existe para
+# conter um laço acidental no navegador; o uso normal fica muito abaixo dele.
+limiter.limit('6000 per hour')(api)
 
 MENSAGENS = {
     400: 'Requisição inválida.',
@@ -114,3 +114,4 @@ from routes import api_dashboard  # noqa: E402,F401
 from routes import api_jogos  # noqa: E402,F401
 from routes import api_campeonatos  # noqa: E402,F401
 from routes import api_rodadas  # noqa: E402,F401
+from routes import api_palpites  # noqa: E402,F401

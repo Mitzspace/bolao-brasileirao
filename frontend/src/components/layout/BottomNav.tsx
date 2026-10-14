@@ -1,9 +1,9 @@
-import { Trophy, Calendar, Users, Target, Settings, CalendarClock } from 'lucide-react';
+import { Trophy, Calendar, Users, PencilLine, Settings, CalendarClock } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
 const navItems = [
   { id: 'jogos', label: 'Jogos', icon: CalendarClock },
-  { id: 'campeonatos', label: 'Campeonatos', icon: Target },
+  { id: 'palpites', label: 'Palpites', icon: PencilLine },
   { id: 'rodadas', label: 'Rodadas', icon: Calendar },
   { id: 'participantes', label: 'Participantes', icon: Users },
   { id: 'boloes', label: 'Bolões', icon: Trophy },

@@ -33,6 +33,7 @@ export function Dashboard() {
 }
 
 function Conteudo({ dados, links }: { dados: DashboardApi; links: ReturnType<typeof useApp>['dados']['links'] }) {
+  const { setView } = useApp();
   const { rodada } = dados;
   const stats = [
     { label: 'Participantes ativos', value: dados.participantesAtivos, icon: Users, color: 'gold' },
@@ -53,12 +54,12 @@ function Conteudo({ dados, links }: { dados: DashboardApi; links: ReturnType<typ
           <p className="text-white/80 text-sm mt-2">
             {dados.bolao.campeonato} {dados.bolao.ano ?? ''}{rodada ? ` — ${rodada.nome}` : ''}
           </p>
-          {links.palpites && (
-            <a href={links.palpites} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white text-brand-700 rounded-xl font-semibold text-sm hover:bg-brand-50 transition-colors">
+          {(
+            <button onClick={() => setView('palpites')} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white text-brand-700 rounded-xl font-semibold text-sm hover:bg-brand-50 transition-colors">
               <Target className="w-4 h-4" />
               Lançar palpites da rodada atual
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </button>
           )}
         </div>
       </div>

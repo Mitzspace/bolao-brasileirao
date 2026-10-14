@@ -155,65 +155,8 @@ def ver_grade_palpites(id):
     rodada = Rodada.query.get_or_404(id)
     validar_rodada(rodada)
     bolao = bolao_atual()
-    participantes = (Participacao.query.filter_by(bolao_id=bolao.id).options(*_relacoes_participacao()).order_by(Participacao.nome_exibicao).all()
-                     if bolao else Participante.query.order_by(Participante.nome).all())
-    if bolao:
-        participantes = [p for p in participantes if entra_no_ranking_da_rodada(p, rodada)]
-    jogos = Jogo.query.filter_by(rodada_id=rodada.id).options(joinedload(Jogo.resultado)).all()
-
-    consulta = Palpite.query.options(*_relacoes_palpite()).join(Jogo).filter(Jogo.rodada_id == rodada.id)
-    if bolao:
-        consulta = consulta.join(Participacao).filter(Participacao.bolao_id == bolao.id)
-    palpites_db = consulta.all()
-    mapa_palpites = {((p.participacao_id if bolao else p.participante_id), p.jogo_id): p for p in palpites_db
-                    if not bolao or palpite_elegivel(p)}
-
-    matriz = []
-    totais_participantes = {p.id: {"pontos": 0, "cravadas": 0} for p in participantes}
-
-    for jogo in jogos:
-        res = jogo.resultado
-        linha = {
-            "jogo": jogo,
-            "resultado": res,
-            "palpites": {}
-        }
-        for part in participantes:
-            pal = mapa_palpites.get((part.id, jogo.id))
-            dono = current_user.is_authenticated and (part.usuario_id == current_user.id if bolao else part.id == current_user.id)
-            if not jogo.bloqueado() and not (responsavel_atual() or dono):
-                pal = None
-            pts = None
-            eh_cravada = False
-            eh_vencedor = False
-
-            if pal and res:
-                detalhe = calcular_pontuacao(pal, jogo, res)
-                pts = detalhe.total
-                totais_participantes[part.id]["pontos"] += pts
-                if detalhe.placar_exato:
-                    eh_cravada = True
-                    totais_participantes[part.id]["cravadas"] += 1
-                elif detalhe.acertou_resultado:
-                    eh_vencedor = True
-
-            linha["palpites"][part.id] = {
-                "palpite": pal,
-                "pontos": pts,
-                "cravada": eh_cravada,
-                "vencedor": eh_vencedor,
-            }
-        matriz.append(linha)
-
-    # Adiciona bônus da rodada aos totais
-    bonus = BonusRodada.query.filter_by(rodada_id=rodada.id).options(
-        joinedload(BonusRodada.participacao).options(*_relacoes_participacao())).all()
-    bonus_db = {(b.participacao_id if bolao else b.participante_id): b.pontos for b in bonus
-                if not bolao or (b.participacao.bolao_id == bolao.id and dentro_do_periodo(b.participacao, rodada))}
-    for part in participantes:
-        b_pts = bonus_db.get(part.id, 0)
-        totais_participantes[part.id]["bonus"] = b_pts
-        totais_participantes[part.id]["pontos"] += b_pts
+    from services.grade_palpites import montar_grade
+    participantes, jogos, matriz, totais_participantes, bonus_db = montar_grade(bolao, rodada)
 
     from services.textos_whatsapp import texto_rodada
     return render_template(

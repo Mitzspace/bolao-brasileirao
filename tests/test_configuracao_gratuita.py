@@ -65,3 +65,28 @@ def test_producao_nunca_inicializa_banco_sozinha(monkeypatch, tmp_path):
         create_app('production', database_uri='sqlite:///' + path.as_posix())
     with sqlite3.connect(path) as con:
         assert con.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0] == 0
+
+
+def test_limite_geral_nao_bloqueia_responsavel_logado(monkeypatch):
+    from app import create_app
+    from config import TestingConfig
+    from database import db
+    from models import Participante
+    monkeypatch.setattr(TestingConfig, 'RATELIMIT_ENABLED', True)
+    monkeypatch.setattr(TestingConfig, 'RATELIMIT_STORAGE_URI', 'memory://')
+    app = create_app('testing')
+    with app.app_context():
+        db.create_all()
+        usuario = Participante(nome='Resp', email='resp@example.com')
+        db.session.add(usuario)
+        db.session.commit()
+        uid = usuario.id
+    anonimo = app.test_client()
+    respostas = [anonimo.get('/interface/').status_code for _ in range(1001)]
+    assert 429 not in respostas[:1000] and respostas[-1] == 429  # visitante: 1000/hora
+    logado = app.test_client()
+    with logado.session_transaction() as s:
+        s['_user_id'] = str(uid)
+        s['_fresh'] = True
+    # Responsável logado não tem o limite geral (mesmo IP do teste).
+    assert all(logado.get('/interface/').status_code != 429 for _ in range(1100))
