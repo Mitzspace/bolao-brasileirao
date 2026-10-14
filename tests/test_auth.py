@@ -22,7 +22,6 @@ class TestCadastro:
             "nome": "Novo Usuario",
             "email": "novo@example.com",
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -39,7 +38,6 @@ class TestCadastro:
             "nome": "Outro Usuario",
             "email": participante_teste.email,
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -51,7 +49,6 @@ class TestCadastro:
             "nome": "A",
             "email": "teste@example.com",
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -63,7 +60,6 @@ class TestCadastro:
             "nome": "Teste",
             "email": "email_invalido",
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -75,7 +71,6 @@ class TestCadastro:
             "nome": "Teste",
             "email": "teste@example.com",
             "senha": "123",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -91,6 +86,15 @@ class TestLogin:
         assert response.status_code == 200
         assert b"Entrar" in response.data
 
+    def test_login_get_includes_csrf_token_when_enabled(self, app, client):
+        """Testa que o formulário renderiza o token CSRF quando a proteção está ativa."""
+        app.config["WTF_CSRF_ENABLED"] = True
+
+        response = client.get("/login")
+
+        assert response.status_code == 200
+        assert b'name="csrf_token"' in response.data
+
     def test_login_sucesso(self, client, participante_teste):
         """Testa login com credenciais válidas."""
         # Primeiro precisamos atualizar a senha para um hash válido
@@ -101,7 +105,6 @@ class TestLogin:
         response = client.post("/login", data={
             "email": participante_teste.email,
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -111,7 +114,6 @@ class TestLogin:
         response = client.post("/login", data={
             "email": "inexistente@example.com",
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -126,7 +128,6 @@ class TestLogin:
         response = client.post("/login", data={
             "email": participante_teste.email,
             "senha": "senha_errada",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -137,7 +138,6 @@ class TestLogin:
         response = client.post("/login", data={
             "email": "email_invalido",
             "senha": "123456",
-            "csrf_token": "test"
         }, follow_redirects=True)
 
         assert response.status_code == 200
@@ -164,48 +164,17 @@ class TestLogout:
 
 
 class TestResetarSenha:
-    """Testes para a rota de resetar senha."""
-
-    def test_resetar_senha_get(self, client):
-        """Testa acesso à página de resetar senha."""
-        response = client.get("/resetar-senha")
+    def test_orientacao_sem_formulario_de_reset(self, client):
+        response = client.get('/resetar-senha')
         assert response.status_code == 200
-        assert b"Resetar Senha" in response.data
-        assert b"email" in response.data.lower()
+        assert b'administrador do sistema' in response.data
+        assert b'<form' not in response.data
 
-    def test_resetar_senha_post_email_existente(self, client, participante_teste, db_session):
-        """Testa reset de senha com email existente no banco."""
-        from models import Participante
-        from utils import verificar_senha
-
-        response = client.post("/resetar-senha", data={
-            "email": participante_teste.email,
-            "csrf_token": "test"
-        }, follow_redirects=True)
-
+    @pytest.mark.parametrize('email', ['teste@example.com', 'naoexiste@example.com', 'invalido', ''])
+    def test_reset_publico_nunca_altera_senha(self, client, participante_teste, email):
+        anterior = participante_teste.senha
+        response = client.post('/resetar-senha', data={'email': email}, follow_redirects=True)
+        db.session.refresh(participante_teste)
         assert response.status_code == 200
-        # Verifica se a senha foi realmente resetada
-        p = Participante.query.filter_by(email=participante_teste.email).first()
-        assert p is not None
-        assert verificar_senha("123456", p.senha) is True
-
-    def test_resetar_senha_post_email_nao_existente(self, client, db_session):
-        """Testa reset de senha com email não cadastrado (mensagem de segurança)."""
-        response = client.post("/resetar-senha", data={
-            "email": "naoexiste@example.com",
-            "csrf_token": "test"
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        # Mensagem de segurança: não revela se o email existe ou não
-        assert b"receber" in response.data
-
-    def test_resetar_senha_post_email_invalido(self, client):
-        """Testa reset de senha com email em formato inválido."""
-        response = client.post("/resetar-senha", data={
-            "email": "email_invalido",
-            "csrf_token": "test"
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b"Email inv" in response.data
+        assert participante_teste.senha == anterior
+        assert b'administrador do sistema' in response.data

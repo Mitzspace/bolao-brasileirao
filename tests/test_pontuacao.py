@@ -84,12 +84,12 @@ class TestCalcularPontos:
         pontos = calcular_pontos(palpite, resultado, especial=True)
         assert pontos == 7  # 5 placar exato + 2 bônus
 
-    def test_bonus_primeiro_gol_normal_sem_pontos(self):
+    def test_bonus_primeiro_gol_normal(self):
         palpite = Palpite(gols_casa=2, gols_fora=1, primeiro_gol="João Silva")
         resultado = Resultado(gols_casa_real=2, gols_fora_real=1, primeiro_gol_real="João Silva")
 
         pontos = calcular_pontos(palpite, resultado, especial=False)
-        assert pontos == 3  # 3 placar exato, sem bônus em jogo normal
+        assert pontos == 5  # placar comum + bônus, conforme regra confirmada
 
     def test_bonus_primeiro_gol_normalizado(self):
         palpite = Palpite(gols_casa=2, gols_fora=1, primeiro_gol="João Silva")

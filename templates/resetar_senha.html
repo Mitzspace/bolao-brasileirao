@@ -1,24 +1,11 @@
 {% extends "base.html" %}
-{% block titulo %}Resetar Senha{% endblock %}
-
+{% block titulo %}Recuperar Senha — Bolão do Brasileirão{% endblock %}
 {% block conteudo %}
-<section class="panel" style="max-width:420px; margin:2rem auto;">
-    <h1 style="margin-bottom:1.5rem;">Resetar Senha</h1>
-
-    <form method="POST">
-        {% if config.WTF_CSRF_ENABLED %}
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        {% endif %}
-        <div class="form-row">
-            <label>Email</label>
-            <input type="email" name="email" required autofocus>
-        </div>
-                <button type="submit" class="button" style="width:100%; margin-top:0.5rem;">Resetar Senha</button>
-    </form>
-
-    <p class="muted" style="margin-top:1.25rem; text-align:center;">
-        Lembrou sua senha?
-        <a href="{{ url_for('auth.login') }}" style="color:var(--dourado);">Entrar</a>
-    </p>
-</section>
+<div class="mx-auto max-w-sm py-6 sm:py-10">
+    <h1 class="font-display text-3xl font-extrabold uppercase text-foreground mb-6">Recuperar Senha</h1>
+    <div class="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
+        <p class="text-sm text-muted-foreground">Para recuperar o acesso, entre em contato com o administrador do sistema.</p>
+        <a href="{{ url_for('auth.login') }}" class="font-semibold text-primary hover:underline">Voltar para o login</a>
+    </div>
+</div>
 {% endblock %}

@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: bolao
+    runtime: docker
+    plan: free
+    region: ohio
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: RATELIMIT_STORAGE_URI
+        value: memory://
+      - key: RATELIMIT_SINGLE_PROCESS
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: FEATURE_PARTICIPANTE_LOGIN
+        value: "false"
+      - key: SYNC_ENABLED
+        value: "false"

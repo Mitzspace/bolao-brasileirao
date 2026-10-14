@@ -1,5 +1,19 @@
+from datetime import datetime
+
 from database import db
 from flask_login import UserMixin
+import secrets
+from sqlalchemy.orm import synonym
+from sqlalchemy import false
+
+
+def agora_utc():
+    from datetime import timezone
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def gerar_codigo():
+    return secrets.token_urlsafe(32)
 
 
 class Participante(db.Model, UserMixin):
@@ -9,8 +23,98 @@ class Participante(db.Model, UserMixin):
     email = db.Column(db.String(100), unique=True, nullable=False)
     senha = db.Column(db.String(200))
     admin = db.Column(db.Boolean, default=False, nullable=False)
+    admin_global = db.Column(db.Boolean, default=False, nullable=False)
+    conta_ativa = db.Column(db.Boolean, default=True, nullable=False)
 
-    palpites = db.relationship("Palpite", backref="participante", lazy=True)
+    palpites = db.relationship("Palpite", backref="participante", lazy=True,
+                               foreign_keys="Palpite.participante_id")
+
+    @property
+    def is_active(self):
+        return self.conta_ativa
+
+
+# Mantém tabela, IDs, hashes e imports antigos durante a transição.
+Usuario = Participante
+
+
+class Bolao(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    campeonato_id = db.Column(db.Integer, db.ForeignKey("campeonato.id"), nullable=False)
+    criador_id = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=False)
+    codigo_convite = db.Column(db.String(100), unique=True, nullable=True, default=gerar_codigo)
+    permite_palpite_proprio = db.Column(db.Boolean, nullable=False, default=False)
+    permite_lancamento_por_responsavel = db.Column(db.Boolean, nullable=False, default=True)
+    status = db.Column(db.String(20), nullable=False, default="ativo")
+    criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
+    pontua_desde_entrada = db.Column(db.Boolean, nullable=False, default=True)
+    politica_entrada_tardia = db.Column(db.String(20), nullable=False,
+        default="fora_da_conta", server_default="fora_da_conta")
+    __table_args__ = (db.CheckConstraint(
+        "politica_entrada_tardia IN ('zero', 'fora_da_conta')", name="bolao_entrada_tardia"),)
+    campeonato = db.relationship("Campeonato", backref="boloes")
+    criador = db.relationship("Participante")
+
+    @property
+    def chave(self):
+        """Identificação pública estável; não concede acesso nem substitui convite."""
+        return f"BOL-{self.id:06d}"
+
+
+class Participacao(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bolao_id = db.Column(db.Integer, db.ForeignKey("bolao.id"), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
+    # Identidade original para compatibilidade; não representa uma conta vinculada.
+    participante_legado_id = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
+    nome_exibicao = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=True)
+    papel = db.Column(db.String(20), nullable=False, default="participante")
+    status = db.Column(db.String(20), nullable=False, default="ativo")
+    entrou_em = db.Column(db.DateTime, nullable=True, default=agora_utc)
+    entrada_legada = db.Column(db.Boolean, nullable=False, default=False)
+    pontua_desde = db.Column(db.DateTime, nullable=True, default=agora_utc)
+    saiu_em = db.Column(db.DateTime, nullable=True)
+    rodada_entrada_id = db.Column(db.Integer, db.ForeignKey("rodada.id"), nullable=True)
+    rodada_desistencia_id = db.Column(db.Integer, db.ForeignKey("rodada.id"), nullable=True)
+    motivo_desistencia = db.Column(db.Text, nullable=True)
+    desistencia_registrada_em = db.Column(db.DateTime, nullable=True)
+    desistencia_registrada_por = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
+    observacao = db.Column(db.Text, nullable=True)
+    rodada_entrada = db.relationship("Rodada", foreign_keys=[rodada_entrada_id])
+    rodada_desistencia = db.relationship("Rodada", foreign_keys=[rodada_desistencia_id])
+    autor_desistencia = db.relationship("Participante", foreign_keys=[desistencia_registrada_por])
+    codigo_vinculo = db.Column(db.String(100), unique=True, nullable=True)
+    bolao = db.relationship("Bolao", backref="participacoes")
+    usuario = db.relationship("Participante", foreign_keys=[usuario_id], backref="participacoes")
+    participante_legado = db.relationship("Participante", foreign_keys=[participante_legado_id])
+
+    @property
+    def nome(self):
+        return self.nome_exibicao
+
+    @property
+    def admin(self):
+        return self.papel == 'responsavel'
+    __table_args__ = (
+        db.UniqueConstraint("bolao_id", "usuario_id", name="unique_usuario_bolao"),
+        db.UniqueConstraint("bolao_id", "participante_legado_id", name="unique_legado_bolao"),
+        db.CheckConstraint("papel IN ('responsavel', 'participante')", name="participacao_papel"),
+        db.CheckConstraint("status IN ('ativo', 'saiu', 'removido', 'desistente')", name="participacao_status"),
+    )
+
+
+class ParticipacaoLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    participacao_id = db.Column(db.Integer, db.ForeignKey("participacao.id"), nullable=False)
+    alterado_por = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
+    alterado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
+    acao = db.Column(db.String(32), nullable=False)
+    valores_anteriores = db.Column(db.Text, nullable=True)
+    valores_novos = db.Column(db.Text, nullable=False)
+    participacao = db.relationship("Participacao", backref="logs")
+    autor = db.relationship("Participante")
 
 
 class Campeonato(db.Model):
@@ -18,8 +122,25 @@ class Campeonato(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     ano = db.Column(db.Integer)
+    codigo_api = db.Column(db.String(20), default="BSA", nullable=True)
 
     rodadas = db.relationship("Rodada", backref="campeonato", lazy=True)
+
+
+class ClassificacaoCache(db.Model):
+    __tablename__ = "classificacao_cache"
+
+    id = db.Column(db.Integer, primary_key=True)
+    campeonato_id = db.Column(
+        db.Integer, db.ForeignKey("campeonato.id"), nullable=False, unique=True
+    )
+    dados_json = db.Column(db.Text, nullable=False)
+    atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    campeonato = db.relationship(
+        "Campeonato",
+        backref=db.backref("classificacao_cache", uselist=False, cascade="all, delete-orphan"),
+    )
 
 
 class Rodada(db.Model):
@@ -39,7 +160,10 @@ class Jogo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     time_casa = db.Column(db.String(100), nullable=False)
     time_fora = db.Column(db.String(100), nullable=False)
-    especial = db.Column(db.Boolean, default=False)
+    classico = db.Column(db.Boolean, default=False, nullable=False)
+    especial = synonym("classico")
+    _especial_legado = db.Column("especial", db.Boolean, default=False)
+    primeiro_marcador = db.Column(db.String(100), nullable=True)
     encerrado = db.Column(db.Boolean, default=False, nullable=False)
     data = db.Column(db.DateTime)
     external_fonte = db.Column(db.String(50))
@@ -57,8 +181,8 @@ class Jogo(db.Model):
             return True
         if self.data is None:
             return False
-        from datetime import datetime
-        return datetime.now() >= self.data
+        from services.relogio import agora_brasilia
+        return agora_brasilia() >= self.data
 
     @property
     def data_formatada(self):
@@ -70,23 +194,54 @@ class Jogo(db.Model):
         return "Horário a definir"
 
 
-
 class Palpite(db.Model):
+
+    situacao = db.Column(db.String(20), nullable=False, default="valido", server_default="valido")
+
+    @property
+    def situacao_label(self):
+        return {"valido": "Válido", "nao_enviado": "Não enviou palpite", "fora_prazo": "Fora do prazo"}.get(self.situacao, "Válido")
+
 
     id = db.Column(db.Integer, primary_key=True)
     gols_casa = db.Column(db.Integer, nullable=False)
     gols_fora = db.Column(db.Integer, nullable=False)
-    primeiro_gol = db.Column(db.String(100))
+    jogador_primeiro_gol = db.Column("primeiro_gol", db.String(100))
+    primeiro_gol = synonym("jogador_primeiro_gol")
     participante_id = db.Column(
-        db.Integer, db.ForeignKey("participante.id"), nullable=False
+        db.Integer, db.ForeignKey("participante.id"), nullable=True
     )
+    participacao_id = db.Column(db.Integer, db.ForeignKey("participacao.id"), nullable=False)
+    origem = db.Column(db.String(20), nullable=True)
+    lancado_por = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
+    criado_em = db.Column(db.DateTime, nullable=True, default=agora_utc)
+    atualizado_em = db.Column(db.DateTime, nullable=True, default=agora_utc)
+    recebido_em = db.Column(db.DateTime, nullable=True)
+    lancado_apos_inicio = db.Column(db.Boolean, nullable=False, default=False)
+    auditoria_legada = db.Column(db.Boolean, nullable=False, default=False)
+    excluido_por_desistencia = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
+    participacao = db.relationship("Participacao", backref="palpites")
+    autor = db.relationship("Participante", foreign_keys=[lancado_por])
     jogo_id = db.Column(
         db.Integer, db.ForeignKey("jogo.id"), nullable=False
     )
 
     __table_args__ = (
-        db.UniqueConstraint("participante_id", "jogo_id", name="unique_palpite"),
+        db.UniqueConstraint("participacao_id", "jogo_id", name="unique_palpite_participacao"),
+        db.CheckConstraint("origem IS NULL OR origem IN ('responsavel', 'proprio')", name="palpite_origem"),
+        db.CheckConstraint("gols_casa >= 0 AND gols_fora >= 0", name="palpite_gols"),
     )
+
+
+class PalpiteLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    palpite_id = db.Column(db.Integer, db.ForeignKey("palpite.id"), nullable=False)
+    alterado_por = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
+    alterado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
+    acao = db.Column(db.String(20), nullable=False)
+    valores_anteriores = db.Column(db.Text, nullable=True)
+    valores_novos = db.Column(db.Text, nullable=False)
+    palpite = db.relationship("Palpite", backref="logs")
 
 
 class Resultado(db.Model):
@@ -112,11 +267,13 @@ class BonusRodada(db.Model):
     )
     pontos = db.Column(db.Integer, default=0, nullable=False)
     motivo = db.Column(db.String(100), default="Bônus")
+    participacao_id = db.Column(db.Integer, db.ForeignKey("participacao.id"), nullable=False)
+    historico = db.Column(db.Boolean, nullable=False, default=True)
+    participacao = db.relationship("Participacao", backref="creditos_historicos")
 
     participante = db.relationship("Participante", backref="bonus_list")
     rodada = db.relationship("Rodada", backref="bonus_list")
 
     __table_args__ = (
-        db.UniqueConstraint("participante_id", "rodada_id", name="unique_bonus_rodada"),
+        db.UniqueConstraint("participacao_id", "rodada_id", name="unique_bonus_participacao_rodada"),
     )
-

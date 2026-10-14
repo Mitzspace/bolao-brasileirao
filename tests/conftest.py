@@ -2,6 +2,10 @@
 Configuração de fixtures para testes.
 """
 import pytest
+from utils import hash_senha
+
+# Hash real compartilhado entre fixtures; evita recalcular em cada teste.
+SENHA_TESTE = hash_senha("123456")
 from app import create_app
 from database import db
 from models import Participante, Campeonato, Rodada, Jogo, Palpite, Resultado
@@ -11,6 +15,8 @@ from models import Participante, Campeonato, Rodada, Jogo, Palpite, Resultado
 def app():
     """Cria uma aplicação Flask para testes."""
     app = create_app("testing")
+    # A suíte legada continua verificando o fluxo reativável de participantes.
+    app.config["FEATURE_PARTICIPANTE_LOGIN"] = True
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
 
@@ -56,7 +62,7 @@ def participante_teste(db_session):
     participante = Participante(
         nome="Teste User",
         email="teste@example.com",
-        senha="pbkdf2:sha256:260000$random$hash",  # Senha: 123456
+        senha=SENHA_TESTE,  # Senha: 123456
         admin=False
     )
     db_session.add(participante)
@@ -70,7 +76,7 @@ def admin_teste(db_session):
     admin = Participante(
         nome="Admin User",
         email="admin@example.com",
-        senha="pbkdf2:sha256:260000$random$hash",  # Senha: 123456
+        senha=SENHA_TESTE,  # Senha: 123456
         admin=True
     )
     db_session.add(admin)

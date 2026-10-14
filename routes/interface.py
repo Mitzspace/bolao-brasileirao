@@ -1,0 +1,90 @@
+"""Entrada gradual do visual React, reutilizando sessão e autorização existentes."""
+import json
+from pathlib import Path
+
+from flask import Blueprint, abort, current_app, g, get_flashed_messages, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+from flask_wtf.csrf import generate_csrf
+
+from services.acesso import pode_acessar_gestao
+from services.contexto_bolao import bolao_atual, lembrar_bolao
+
+interface = Blueprint('interface', __name__, url_prefix='/interface')
+VIEWS = {'dashboard', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
+
+
+def assets_interface():
+    manifest_path = Path(current_app.static_folder) / 'interface' / '.vite' / 'manifest.json'
+    if not manifest_path.is_file():
+        return None
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    entry = manifest['src/main.tsx']
+    return {
+        'script': url_for('static', filename='interface/' + entry['file']),
+        'css': [url_for('static', filename='interface/' + css) for css in entry.get('css', [])],
+    }
+
+
+@interface.get('/')
+def index():
+    authed = current_user.is_authenticated
+    if authed and not pode_acessar_gestao(current_user):
+        abort(403)
+    # O React recebe apenas bolões em que há vínculo ativo de responsável.
+    boloes = [b for b in g.boloes_disponiveis if any(
+        p.usuario_id == current_user.id and p.status == 'ativo' and p.papel == 'responsavel'
+        for p in b.participacoes)] if authed else []
+    atual = bolao_atual()
+    if atual not in boloes:
+        atual = None
+    links = {}
+    if atual:
+        endpoints = {
+            'dashboard': 'admin.dashboard', 'campeonatos': 'admin.listar_campeonatos',
+            'rodadas': 'participante.listar_jogos', 'participantes': 'admin.listar_participantes',
+            'configuracoes': 'admin.responsaveis', 'palpites': 'admin.gerenciar_palpites',
+            'ranking': 'participante.ranking', 'tabela': 'participante.tabela',
+        }
+        links = {nome: url_for(endpoint, bolao_id=atual.id) for nome, endpoint in endpoints.items()}
+    dados = {
+        'usuario': {'nome': current_user.nome, 'email': current_user.email} if authed else None,
+        'boloes': [{
+            'id': b.id, 'nome': b.nome, 'chave': b.chave,
+            'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano,
+        } for b in boloes],
+        'bolaoAtualId': atual.id if atual else None,
+        'csrfToken': generate_csrf(),
+        'mensagens': get_flashed_messages(),
+        'links': {
+            **links, 'login': url_for('auth.login'),
+            'logout': url_for('auth.logout', nova_interface='1'),
+            'selecionar': url_for('interface.selecionar'),
+            'boloes': url_for('participante.escolher_bolao'),
+            'criarBolao': url_for('participante.criar_bolao'),
+            'recuperarSenha': url_for('auth.resetar_senha'),
+        },
+    }
+    response = current_app.make_response(render_template(
+        'interface.html', dados=dados, assets=assets_interface()))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@interface.post('/selecionar')
+@login_required
+def selecionar():
+    if not pode_acessar_gestao(current_user):
+        abort(403)
+    if len(request.form.getlist('bolao_id')) != 1:
+        abort(400)
+    id = request.form.get('bolao_id', type=int)
+    escolhido = next((b for b in g.boloes_disponiveis if b.id == id and any(
+        p.usuario_id == current_user.id and p.status == 'ativo' and p.papel == 'responsavel'
+        for p in b.participacoes)), None)
+    if escolhido is None:
+        abort(403)
+    lembrar_bolao(escolhido.id)
+    view = request.form.get('view', 'dashboard')
+    if view not in VIEWS:
+        view = 'dashboard'
+    return redirect(url_for('interface.index') + '#' + view, code=303)

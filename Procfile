@@ -1,1 +1,1 @@
-web: gunicorn wsgi:app
+web: python -m services.servidor

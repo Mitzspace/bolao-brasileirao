@@ -1,72 +1,71 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block titulo %}Bolao{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>{% block titulo %}Gestão de bolões{% endblock %}</title>
+
     {% if config.WTF_CSRF_ENABLED %}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {% endif %}
+
+    <!-- Google Fonts: Barlow Condensed (títulos esportivos) e Manrope (corpo/UI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ui.css') }}">
+    <script defer src="{{ url_for('static', filename='js/alpine.min.js') }}"></script>
 </head>
-<body>
+<body class="flex flex-col min-h-screen antialiased bg-pitch">
 
-<header class="topbar">
-    <a class="brand" href="{{ url_for('participante.inicio') }}">
-        BOLÃO
-    </a>
+    <!-- Topbar / Navbar Global -->
+    {% include "partials/navbar.html" %}
+    <div class="px-4 py-2 text-center text-xs border-b border-border"><a class="text-primary hover:underline" href="{{ url_for('interface.index') }}">Abrir nova interface</a></div>
 
-    <nav class="nav">
-        <a href="{{ url_for('participante.listar_jogos') }}">Jogos &amp; Rodadas</a>
-        <a href="{{ url_for('participante.ranking') }}">Ranking</a>
-
-        {% if current_user.is_authenticated %}
-            <a href="{{ url_for('participante.meus_palpites') }}">Meus palpites</a>
-            {% if current_user.admin %}
-                <a class="admin-link" href="{{ url_for('admin.dashboard') }}">Admin</a>
-            {% endif %}
-            <a href="{{ url_for('auth.logout') }}">Sair</a>
-        {% else %}
-            <a href="{{ url_for('auth.login') }}">Entrar</a>
-            <a href="{{ url_for('auth.cadastro') }}">Cadastro</a>
+    <!-- Área de Conteúdo Centralizada -->
+    <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-6 md:py-8">
+        {% if request.blueprint == 'admin' and bolao_atual and responsavel_bolao %}
+        {% include "partials/admin_nav.html" %}
         {% endif %}
-    </nav>
-</header>
+        <!-- Alertas Flash -->
+        {% include "partials/alerts.html" %}
 
-<main class="page">
-    {% with mensagens = get_flashed_messages() %}
-        {% if mensagens %}
-            <div class="alerts">
-                {% for m in mensagens %}<p>{{ m }}</p>{% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
+        <!-- Bloco Principal das Telas -->
+        {% block conteudo %}{% endblock %}
+    </main>
 
-    {% block conteudo %}{% endblock %}
-</main>
+    <!-- Rodapé Discreto -->
+    <footer class="mt-auto border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p>{{ bolao_atual.nome if bolao_atual else 'Bolão de futebol' }}{% if bolao_atual %} · {{ bolao_atual.chave }}{% endif %}</p>
+            <p class="text-muted-foreground/80">Palpites &amp; Ranking Oficial</p>
+        </div>
+    </footer>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll("[data-scroll-key]").forEach(function (el) {
-        var key = "bolao-scroll:" + el.dataset.scrollKey;
-        var saved = sessionStorage.getItem(key);
+    <!-- Preservação do script de restauração de scroll das rodadas -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-scroll-key]").forEach(function (el) {
+            var key = "bolao-scroll:" + el.dataset.scrollKey;
+            var saved = sessionStorage.getItem(key);
 
-        if (saved !== null) {
-            el.scrollLeft = parseInt(saved, 10) || 0;
-        }
+            if (saved !== null) {
+                el.scrollLeft = parseInt(saved, 10) || 0;
+            }
 
-        el.addEventListener("scroll", function () {
-            sessionStorage.setItem(key, String(el.scrollLeft));
-        }, { passive: true });
-
-        el.querySelectorAll("a").forEach(function (link) {
-            link.addEventListener("click", function () {
+            el.addEventListener("scroll", function () {
                 sessionStorage.setItem(key, String(el.scrollLeft));
+            }, { passive: true });
+
+            el.querySelectorAll("a").forEach(function (link) {
+                link.addEventListener("click", function () {
+                    sessionStorage.setItem(key, String(el.scrollLeft));
+                });
             });
         });
     });
-});
-</script>
-
+    </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

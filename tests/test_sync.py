@@ -29,7 +29,7 @@ class TestDataFormatada:
 
     def test_data_formatada_com_data(self):
         jogo = Jogo(time_casa="A", time_fora="B", data=datetime(2025, 5, 15, 20, 30))
-        assert jogo.data_formatada == "15/05/2025 a as 20:30"
+        assert jogo.data_formatada == "15/05/2025 às 20:30"
 
     def test_data_formatada_sem_data_encerrado(self):
         jogo = Jogo(time_casa="A", time_fora="B", data=None, encerrado=True)
@@ -37,13 +37,12 @@ class TestDataFormatada:
 
     def test_data_formatada_sem_data_aberto(self):
         jogo = Jogo(time_casa="A", time_fora="B", data=None, encerrado=False)
-        assert jogo.data_formatada == "Horario a definir"
+        assert jogo.data_formatada == "Horário a definir"
 
     def test_data_formatada_data_prioriza_sobre_encerrado(self):
         jogo = Jogo(time_casa="A", time_fora="B",
                     data=datetime(2025, 5, 15, 20, 30), encerrado=True)
-        assert jogo.data_formatada == "15/05/2025 a as 20:30"
-        assert jogo.data_formatada == "15/05/2025 a as 20:30"
+        assert jogo.data_formatada == "15/05/2025 às 20:30"
 
 
 class TestJogoBloqueado:
@@ -63,7 +62,7 @@ class TestJogoBloqueado:
                     encerrado=False, data=datetime.now() + timedelta(days=30))
         assert jogo.bloqueado() is False
 
-        def test_nao_bloqueado_sem_data(self):
+    def test_nao_bloqueado_sem_data(self):
         jogo = Jogo(time_casa="A", time_fora="B", encerrado=False, data=None)
         assert jogo.bloqueado() is False
 

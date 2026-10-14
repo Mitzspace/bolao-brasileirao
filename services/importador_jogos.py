@@ -26,7 +26,7 @@ def _requisitar(token, caminho, params=None):
 
     req = Request(url, headers={"X-Auth-Token": token})
 
-    with urlopen(req) as resposta:
+    with urlopen(req, timeout=20) as resposta:
         return json.loads(resposta.read())
 
 
@@ -36,10 +36,14 @@ def _parse_data_brasilia(data_utc):
         return None
     try:
         dt = datetime.fromisoformat(data_utc.replace("Z", "+00:00"))
-        fuso_brasilia = ZoneInfo("America/Sao_Paulo") if ZoneInfo else timezone(timedelta(hours=-3))
+        try:
+            fuso_brasilia = ZoneInfo("America/Sao_Paulo")
+        except Exception:
+            fuso_brasilia = timezone(timedelta(hours=-3))
         dt_br = dt.astimezone(fuso_brasilia)
         return dt_br.replace(tzinfo=None)
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao converter data '{data_utc}': {e}")
         return None
 
 
@@ -115,6 +119,7 @@ def buscar_resultados_football_data(
                 "external_id": info["external_id"],
                 "gols_casa_real": info["gols_casa_real"],
                 "gols_fora_real": info["gols_fora_real"],
+                "data": info["data"],
             })
 
     return resultados

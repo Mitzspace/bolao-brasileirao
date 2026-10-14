@@ -1,0 +1,38 @@
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+        <div class="space-y-2 mb-6">
+            {% for categoria, mensagem in mensagens %}
+                {# Tratamento de mensagens com ou sem categoria explícita #}
+                {% set eh_erro = categoria in ['error', 'danger'] or 'erro' in mensagem|lower or 'inválid' in mensagem|lower or 'incorret' in mensagem|lower %}
+                {% set eh_sucesso = categoria == 'success' or 'sucesso' in mensagem|lower or 'salvo' in mensagem|lower %}
+                
+                <div x-data="{ show: true }" x-show="show" x-transition.duration.200ms
+                     class="flex items-center justify-between gap-3 rounded-2xl border p-4 text-sm font-medium transition-all shadow-sm {% if eh_erro %} border-destructive/40 bg-destructive/15 text-destructive-foreground {% elif eh_sucesso %} border-primary/40 bg-primary/15 text-foreground {% else %} border-border bg-card text-foreground {% endif %}">
+                    
+                    <div class="flex items-center gap-3">
+                        {% if eh_erro %}
+                            <svg class="h-5 w-5 text-destructive shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        {% elif eh_sucesso %}
+                            <svg class="h-5 w-5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        {% else %}
+                            <svg class="h-5 w-5 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        {% endif %}
+                        <span>{{ mensagem }}</span>
+                    </div>
+
+                    <button @click="show = false" type="button" class="text-muted-foreground hover:text-foreground p-1 transition-colors" aria-label="Fechar">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}

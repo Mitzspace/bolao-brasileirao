@@ -1,117 +1,251 @@
 {% extends "base.html" %}
-{% block titulo %}Ranking Geral do Bolão{% endblock %}
+{% macro situacao(p) %}{% if p.status == 'desistente' %}<span class="block mt-1 text-xs text-accent">Desistente ({{ p.rodada_desistencia.nome if p.rodada_desistencia else 'rodada não informada' }})</span>{% endif %}{% endmacro %}
+{% block titulo %}Ranking {{ rodada_selecionada.nome if rodada_selecionada else 'Geral' }}{% endblock %}
 
 {% block conteudo %}
+<div class="space-y-6">
 
-<section class="panel panel-hero">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div>
-            <p class="campeonato-titulo">Classificação Oficial · Brasileirão 2025</p>
-            <h1>Tabela de Classificação do Bolão</h1>
-            <p class="muted">Pontuação acumulada de todos os participantes com critérios de desempate oficiais.</p>
+    <!-- Hero Header do Ranking -->
+    <section class="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span>Classificação Oficial</span>
+                    <span>•</span>
+                    <span>Temporada {{ bolao_atual.campeonato.ano if bolao_atual else '2026' }}</span>
+                </div>
+                <h1 class="mt-1 font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-foreground">
+                    Ranking {{ rodada_selecionada.nome if rodada_selecionada else 'Geral' }}
+                </h1>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Desempate: pontos, placares exatos, acertos de vencedor/empate e ordem alfabética.
+                </p>
+            </div>
+            <div>
+                <a href="{{ url_for('participante.listar_jogos') }}"
+                   class="inline-flex items-center justify-center rounded-xl border border-border bg-secondary/80 px-4 py-2 text-xs sm:text-sm font-semibold text-foreground transition hover:bg-secondary hover:border-primary/40">
+                    Ver Jogos &amp; Rodadas
+                </a>
+            </div>
         </div>
-        <div>
-            <a class="button small secondary" href="{{ url_for('participante.listar_jogos') }}">
-                Ver Jogos &amp; Rodadas
-            </a>
+    </section>
+
+    <section class="ui-panel">
+        <form method="GET" action="{{ url_for('participante.ranking') }}" class="flex flex-wrap items-end gap-3">
+            {% if bolao_atual %}<input type="hidden" name="bolao_id" value="{{ bolao_atual.id }}">{% endif %}
+            <div class="ui-field"><label for="rodada-ranking">Período do ranking</label>
+                <select id="rodada-ranking" name="rodada_id">
+                    <option value="">Geral</option>
+                    {% for r, chave in opcoes_rodadas %}<option value="{{ r.id }}" {% if rodada_selecionada and rodada_selecionada.id == r.id %}selected{% endif %}>{{ r.nome }}</option>{% endfor %}
+                </select>
+            </div>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="ocultar_desistentes" value="1" {% if ocultar_desistentes %}checked{% endif %}> Ocultar desistentes</label>
+            <button type="submit" class="ui-button secondary">Mostrar ranking</button>
+            {% if rodada_selecionada %}<a class="ui-button secondary" href="{{ url_for('participante.ver_grade_palpites', id=rodada_selecionada.id) }}">Resumo da rodada</a>{% endif %}
+        </form>
+        <p class="text-sm text-muted-foreground">A coluna Palpites inclui o bônus de primeiro gol. A coluna Bônus reúne os créditos históricos. Acertos são os resultados corretos (vencedor ou empate), sem contar as cravadas — equivalem a Resultados na planilha.</p>
+    </section>
+    {% set rotulo_copiar = 'Copiar ranking' %}
+    {% include 'partials/copiar_texto.html' %}
+
+    <!-- Pódio dos 3 Primeiros Colocados -->
+    {% if ranking and ranking|length >= 3 %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-end">
+
+        <!-- 2º Lugar (Prata) -->
+        <div class="order-2 md:order-1 rounded-2xl border border-slate-400/30 bg-card p-4 sm:p-5 shadow-sm relative overflow-hidden">
+            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                <span class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-400/20 text-slate-300 font-display font-extrabold text-xs">2</span>
+                    2º Lugar
+                </span>
+                <span class="text-[11px] text-muted-foreground font-medium">{{ ranking[1].cravadas }} cravadas</span>
+            </div>
+            <div class="font-display text-xl sm:text-2xl font-bold text-foreground truncate" title="{{ ranking[1].participante.nome }}">
+                {{ ranking[1].participante.nome }}
+            </div>
+            {{ situacao(ranking[1].participante) }}
+            <div class="mt-2 flex items-baseline gap-1 text-slate-200">
+                <span class="font-display text-3xl sm:text-4xl font-extrabold leading-none">{{ ranking[1].pontos }}</span>
+                <span class="text-xs font-semibold text-muted-foreground uppercase">pts</span>
+            </div>
         </div>
-    </div>
-</section>
 
-<!-- Pódio Rápido dos Líderes -->
-{% if ranking and ranking | length >= 3 %}
-<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 1.25rem;">
-    <!-- 2º Lugar -->
-    <div class="stat-card" style="border-top: 3px solid #bdc3c7;">
-        <div style="font-size: 1rem; font-weight: 800; color: #bdc3c7; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.25rem;">2º Lugar</div>
-        <div style="font-size: 1.15rem; font-weight: 800; color: #fff;">{{ ranking[1].participante.nome }}</div>
-        <div class="num" style="font-size: 1.6rem; color: #fff;">{{ ranking[1].pontos }} <span style="font-size:0.8rem; font-weight:normal;">pts</span></div>
-        <div class="label">{{ ranking[1].cravadas }} cravadas</div>
-    </div>
+        <!-- 1º Lugar (Ouro / Líder) -->
+        <div class="order-1 md:order-2 rounded-2xl border-2 border-accent/60 bg-gradient-to-b from-card to-accent/10 p-5 sm:p-6 shadow-glow relative overflow-hidden">
+            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-accent mb-2">
+                <span class="flex items-center gap-1.5">
+                    <svg class="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Líder do Bolão
+                </span>
+                <span class="text-[11px] bg-accent/20 text-accent font-bold px-2 py-0.5 rounded-full border border-accent/30">
+                    1º Lugar
+                </span>
+            </div>
+            <div class="font-display text-2xl sm:text-3xl font-black text-foreground truncate" title="{{ ranking[0].participante.nome }}">
+                {{ ranking[0].participante.nome }}
+            </div>
+            {{ situacao(ranking[0].participante) }}
+            <div class="mt-2 flex items-baseline gap-1 text-accent">
+                <span class="font-display text-4xl sm:text-5xl font-black leading-none">{{ ranking[0].pontos }}</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-accent/80">pts</span>
+            </div>
+            <p class="mt-2 text-xs font-medium text-muted-foreground">
+                {{ ranking[0].cravadas }} cravadas no placar exato
+            </p>
+        </div>
 
-    <!-- 1º Lugar -->
-    <div class="stat-card" style="border-top: 4px solid var(--dourado); background: #260e13;">
-        <div style="font-size: 1.05rem; font-weight: 900; color: var(--dourado); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.25rem;">1º Lugar</div>
-        <div style="font-size: 1.25rem; font-weight: 900; color: var(--dourado);">{{ ranking[0].participante.nome }}</div>
-        <div class="num" style="font-size: 2rem; color: var(--dourado);">{{ ranking[0].pontos }} <span style="font-size:0.8rem; font-weight:normal;">pts</span></div>
-        <div class="label" style="color: var(--dourado-claro);">{{ ranking[0].cravadas }} cravadas · LÍDER</div>
-    </div>
+        <!-- 3º Lugar (Bronze) -->
+        <div class="order-3 md:order-3 rounded-2xl border border-amber-700/30 bg-card p-4 sm:p-5 shadow-sm relative overflow-hidden">
+            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-amber-500 mb-2">
+                <span class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-700/20 text-amber-400 font-display font-extrabold text-xs">3</span>
+                    3º Lugar
+                </span>
+                <span class="text-[11px] text-muted-foreground font-medium">{{ ranking[2].cravadas }} cravadas</span>
+            </div>
+            <div class="font-display text-xl sm:text-2xl font-bold text-foreground truncate" title="{{ ranking[2].participante.nome }}">
+                {{ ranking[2].participante.nome }}
+            </div>
+            {{ situacao(ranking[2].participante) }}
+            <div class="mt-2 flex items-baseline gap-1 text-amber-300">
+                <span class="font-display text-3xl sm:text-4xl font-extrabold leading-none">{{ ranking[2].pontos }}</span>
+                <span class="text-xs font-semibold text-muted-foreground uppercase">pts</span>
+            </div>
+        </div>
 
-    <!-- 3º Lugar -->
-    <div class="stat-card" style="border-top: 3px solid #cd6133;">
-        <div style="font-size: 1rem; font-weight: 800; color: #cd6133; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.25rem;">3º Lugar</div>
-        <div style="font-size: 1.15rem; font-weight: 800; color: #fff;">{{ ranking[2].participante.nome }}</div>
-        <div class="num" style="font-size: 1.6rem; color: #fff;">{{ ranking[2].pontos }} <span style="font-size:0.8rem; font-weight:normal;">pts</span></div>
-        <div class="label">{{ ranking[2].cravadas }} cravadas</div>
     </div>
-</div>
-{% endif %}
-
-<!-- Tabela Estilo Planilha Completa -->
-<section class="panel table-scroll" style="padding: 0;">
-    <div class="mobile-scroll-hint" style="display: none; padding: 0.5rem 1rem; font-size: 0.72rem; color: var(--cinza-muted); background: #1a080b; border-bottom: 1px solid var(--vermelho-borda);">
-        Deslize para o lado para ver todos os detalhes →
-    </div>
-    {% if ranking %}
-    <table class="table" style="min-width: 780px;">
-        <thead>
-            <tr>
-                <th class="pos" style="text-align: center;">Pos</th>
-                <th>Participante</th>
-                <th style="text-align: center;">Pontos dos Palpites</th>
-                <th style="text-align: center;">Bônus</th>
-                <th style="text-align: center;">Cravadas</th>
-                <th style="text-align: center;">Acertos (Venc/Emp)</th>
-                <th class="pts" style="text-align: right; padding-right: 1.5rem;">TOTAL</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in ranking %}
-            <tr {% if current_user.is_authenticated and item.participante.id == current_user.id %}class="me"{% endif %}>
-                <td class="pos" style="text-align: center; font-size: 0.95rem;">
-                    {% if loop.index == 1 %}
-                        <span class="badge-pos badge-pos-1">1º</span>
-                    {% elif loop.index == 2 %}
-                        <span class="badge-pos badge-pos-2">2º</span>
-                    {% elif loop.index == 3 %}
-                        <span class="badge-pos badge-pos-3">3º</span>
-                    {% else %}
-                        <span class="badge-pos">{{ loop.index }}º</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <strong style="font-size: 0.95rem;">{{ item.participante.nome }}</strong>
-                    {% if current_user.is_authenticated and item.participante.id == current_user.id %}
-                        <span class="tag" style="background: var(--vermelho); margin-left: 0.5rem;">você</span>
-                    {% endif %}
-                    {% if item.participante.admin %}
-                        <span class="tag cinza" style="font-size: 0.65rem; margin-left: 0.25rem;">Admin</span>
-                    {% endif %}
-                </td>
-                <td style="text-align: center; color: var(--cinza-claro);">
-                    {{ item.pontos_palpites }}
-                </td>
-                <td style="text-align: center; color: {{ 'var(--dourado)' if item.bonus > 0 else 'var(--cinza-muted)' }}; font-weight: {{ 'bold' if item.bonus > 0 else 'normal' }};">
-                    {{ item.bonus if item.bonus > 0 else '0' }}
-                </td>
-                <td style="text-align: center; color: #2ecc71; font-weight: 700;">
-                    {{ item.cravadas }}
-                </td>
-                <td style="text-align: center; color: var(--cinza-claro);">
-                    {{ item.acertos_vencedor }}
-                </td>
-                <td class="pts" style="text-align: right; padding-right: 1.5rem; font-size: 1.1rem;">
-                    <span style="color: var(--vermelho-vivo); font-weight: 900; background: rgba(231, 76, 60, 0.15); padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(231, 76, 60, 0.3);">
-                        {{ item.pontos }} pts
-                    </span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-        <p class="muted" style="padding: 1.5rem;">Nenhum participante pontuou ainda.</p>
     {% endif %}
-</section>
 
+    <!-- Tabela de Classificação Completa -->
+    <section class="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-border flex items-center justify-between">
+            <h2 class="font-display text-xl font-bold uppercase text-foreground">
+                Tabela de Classificação
+            </h2>
+            <span class="text-xs text-muted-foreground">
+                Total: {{ ranking|length }} participantes
+            </span>
+        </div>
+
+        {% if ranking %}
+        <div class="sm:hidden divide-y divide-border/60" aria-label="Ranking no celular">
+            {% for item in ranking %}
+            <article class="p-4 space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="font-semibold">{{ loop.index }}º · {{ item.participante.nome }}</p>
+                    <strong class="text-primary whitespace-nowrap">{{ item.pontos }} pts</strong>
+                </div>
+                {{ situacao(item.participante) }}
+                <dl class="grid grid-cols-2 gap-2 text-sm">
+                    <div><dt class="text-muted-foreground">Cravadas</dt><dd class="font-bold">{{ item.cravadas }}</dd></div>
+                    <div><dt class="text-muted-foreground">Acertos</dt><dd class="font-bold">{{ item.acertos_vencedor }}</dd></div>
+                    <div><dt class="text-muted-foreground">Pontos dos palpites</dt><dd>{{ item.pontos_palpites }}</dd></div>
+                    <div><dt class="text-muted-foreground">Bônus histórico</dt><dd>{{ item.bonus }}</dd></div>
+                </dl>
+            </article>
+            {% endfor %}
+        </div>
+        <div class="hidden sm:block overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="border-b border-border/80 bg-secondary/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <th class="py-3 px-3 sm:px-4 text-center w-12 sm:w-16">Pos</th>
+                        <th class="py-3 px-3 sm:px-4">Participante</th>
+                        <th class="py-3 px-2 sm:px-3 text-center">Palpites</th>
+                        <th class="py-3 px-2 sm:px-3 text-center">Bônus</th>
+                        <th class="py-3 px-2 sm:px-3 text-center">Cravadas</th>
+                        <th class="py-3 px-2 sm:px-3 text-center" title="Vencedor ou empate correto, sem placar exato">Acertos</th>
+                        <th class="py-3 px-3 sm:px-4 text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border/60">
+                    {% for item in ranking %}
+                    {% set eh_eu = current_user.is_authenticated and (item.participante.usuario_id == current_user.id if bolao_atual else item.participante.id == current_user.id) %}
+                    <tr class="transition-colors hover:bg-secondary/40 {% if eh_eu %}bg-primary/10 hover:bg-primary/15{% endif %}">
+                        <!-- Posição -->
+                        <td class="py-3 px-3 sm:px-4 text-center font-display font-bold">
+                            {% if loop.index == 1 %}
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent text-accent-foreground font-black text-xs shadow-sm">
+                                    1º
+                                </span>
+                            {% elif loop.index == 2 %}
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-300 text-slate-900 font-black text-xs shadow-sm">
+                                    2º
+                                </span>
+                            {% elif loop.index == 3 %}
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-700 text-amber-100 font-black text-xs shadow-sm">
+                                    3º
+                                </span>
+                            {% else %}
+                                <span class="text-xs text-muted-foreground">{{ loop.index }}º</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Nome e Badges -->
+                        <td class="py-3 px-3 sm:px-4">
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-foreground {% if eh_eu %}text-primary{% endif %}">
+                                    {{ item.participante.nome }}
+                                    {{ situacao(item.participante) }}
+                                </span>
+                                {% if eh_eu %}
+                                    <span class="rounded-full bg-primary/20 text-primary border border-primary/30 px-2 py-0.2 text-[10px] font-bold uppercase">
+                                        Você
+                                    </span>
+                                {% endif %}
+                                {% if item.participante.admin %}
+                                    <span class="rounded-full bg-secondary text-muted-foreground border border-border px-1.5 py-0.2 text-[10px] font-semibold">
+                                        Admin
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Pontos Palpites -->
+                        <td class="py-3 px-2 sm:px-3 text-center text-xs text-muted-foreground">
+                            {{ item.pontos_palpites }}
+                        </td>
+
+                        <!-- Bônus -->
+                        <td class="py-3 px-2 sm:px-3 text-center text-xs">
+                            {% if item.bonus > 0 %}
+                                <span class="font-bold text-accent">+{{ item.bonus }}</span>
+                            {% else %}
+                                <span class="text-muted-foreground/60">0</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Cravadas -->
+                        <td class="py-3 px-2 sm:px-3 text-center text-xs font-bold text-primary">
+                            {{ item.cravadas }}
+                        </td>
+
+                        <!-- Acertos simples -->
+                        <td class="py-3 px-2 sm:px-3 text-center text-xs text-muted-foreground">
+                            {{ item.acertos_vencedor }}
+                        </td>
+
+                        <!-- Pontuação Total -->
+                        <td class="py-3 px-3 sm:px-4 text-right">
+                            <span class="inline-flex items-center rounded-xl bg-primary/15 border border-primary/30 px-2.5 py-1 font-display text-sm sm:text-base font-extrabold text-primary">
+                                {{ item.pontos }} <span class="text-[10px] font-normal ml-0.5 text-primary/70">pts</span>
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-sm text-muted-foreground">
+            Nenhum participante pontuou ainda.
+        </div>
+        {% endif %}
+    </section>
+
+</div>
 {% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='js/copiar-texto.js') }}"></script>{% endblock %}

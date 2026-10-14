@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de bolões</title>
+    <meta name="csrf-token" content="{{ dados.csrfToken }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    {% if assets %}{% for css in assets.css %}
+    <link rel="stylesheet" href="{{ css }}">
+    {% endfor %}{% endif %}
+</head>
+<body>
+    {% if assets %}
+    <div id="root"></div>
+    <script id="interface-data" type="application/json">{{ dados|tojson }}</script>
+    <script type="module" src="{{ assets.script }}"></script>
+    <noscript>Ative JavaScript para usar a nova interface. <a href="{{ url_for('auth.login') }}">Acessar sistema atual</a></noscript>
+    {% else %}
+    <main><h1>Interface aguardando compilação</h1><p>Execute npm ci e npm run build na pasta frontend.</p><a href="{{ url_for('auth.login') }}">Acessar sistema atual</a></main>
+    {% endif %}
+</body>
+</html>

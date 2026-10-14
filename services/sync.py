@@ -14,6 +14,7 @@ import sys
 import re
 import unicodedata
 
+
 from services.importador_jogos import (
     buscar_jogos_football_data,
     buscar_resultados_football_data,
@@ -28,7 +29,8 @@ def _normalizar_texto(valor):
     valor = re.sub(r"[^a-z0-9]+", " ", valor)
     valor = re.sub(
         r"\b(futebol clube|football club|clube de regatas|esporte clube|"
-        r"sociedade esportiva|associacao atletica|saf|fc|ec|cr|se)\b",
+        r"sociedade esportiva|associacao atletica|clube atletico|sport club|"
+        r"clube do|saf|fc|ec|cr|se|ca|sc|af|fr|fbc)\b",
         " ",
         valor,
     )
@@ -42,18 +44,40 @@ def _normalizar_time(nome):
         "america mg": "america mg",
         "athletico paranaense": "athletico pr",
         "athletico pr": "athletico pr",
+        "athletico": "athletico pr",
+        "paranaense": "athletico pr",
         "atletico mineiro": "atletico mg",
         "atletico mg": "atletico mg",
+        "mineiro": "atletico mg",
         "atletico goianiense": "atletico go",
         "atletico go": "atletico go",
         "bragantino": "red bull bragantino",
         "rb bragantino": "red bull bragantino",
         "red bull bragantino": "red bull bragantino",
+        "corinthians paulista": "corinthians",
+        "corinthians": "corinthians",
+        "coritiba fbc": "coritiba",
+        "coritiba": "coritiba",
+        "chapecoense af": "chapecoense",
+        "chapecoense": "chapecoense",
         "gremio fbpa": "gremio",
         "gremio": "gremio",
         "vasco da gama": "vasco",
         "vasco": "vasco",
         "sao paulo": "sao paulo",
+        "botafogo fr": "botafogo",
+        "botafogo": "botafogo",
+        "cruzeiro ec": "cruzeiro",
+        "cruzeiro": "cruzeiro",
+        "palmeiras": "palmeiras",
+        "flamengo": "flamengo",
+        "fluminense": "fluminense",
+        "internacional": "internacional",
+        "santos": "santos",
+        "bahia": "bahia",
+        "vitoria": "vitoria",
+        "mirassol": "mirassol",
+        "remo": "remo",
     }
     return aliases.get(nome, nome)
 

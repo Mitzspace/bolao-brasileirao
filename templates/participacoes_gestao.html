@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block titulo %}Participantes · {{ bolao_atual.nome }}{% endblock %}
+{% block conteudo %}
+<section class="ui-panel ui-hero">
+    <p class="ui-eyebrow">{{ bolao_atual.nome }}</p>
+    <h1>Participantes</h1>
+    <p class="ui-muted">Gerencie nomes, e-mails, responsáveis e entradas no bolão. Palpites e histórico são preservados.</p>
+    <div class="ui-actions">
+        <a class="ui-button" href="#novo-participante">Adicionar participante</a>
+        <a class="ui-button secondary" href="{{ url_for('admin.responsaveis') }}">Gerenciar responsáveis</a>
+    </div>
+</section>
+<section class="ui-panel" aria-label="Lista de participantes">
+    <nav class="flex flex-wrap gap-2" aria-label="Filtrar participantes">
+        {% for valor, rotulo in [('todos', 'Todos'), ('ativos', 'Ativos'), ('desistentes', 'Desistentes')] %}
+        <a class="ui-button {{ 'secondary' if filtro != valor else '' }}" href="{{ url_for('admin.listar_participantes', filtro=valor) }}" {% if filtro == valor %}aria-current="page"{% endif %}>{{ rotulo }} ({{ contagens[valor] }})</a>
+        {% endfor %}
+    </nav>
+    <p class="ui-muted mt-3">Ativos primeiro, seguidos de desistentes e registros inativos. A quantidade de palpites inclui todos os registros guardados.</p>
+    {% set status_nomes = {'ativo': 'Ativo', 'desistente': 'Desistente', 'removido': 'Removido', 'saiu': 'Saiu (registro legado)'} %}
+    {% for p in participacoes %}
+    <article id="participacao-{{ p.id }}" class="mt-4 rounded-xl border border-border p-4" aria-labelledby="nome-participacao-{{ p.id }}">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1" style="overflow-wrap:anywhere">
+                <h2 id="nome-participacao-{{ p.id }}">{{ p.nome_exibicao }}</h2>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="ui-tag {{ 'verde' if p.status == 'ativo' else '' }}" {% if p.status == 'desistente' %}style="color:var(--ui-accent-light);border:1px solid var(--ui-accent)"{% endif %}>{{ status_nomes.get(p.status, p.status) }}</span>
+                    <span class="ui-muted">Registro {{ p.id }} · {{ 'Responsável' if p.papel == 'responsavel' else 'Participante' }}</span>
+                </div>
+                {% if p.id in duplicados %}<p class="mt-2 text-sm text-accent" role="note">Nome repetido neste bolão. Confira o número do registro para distinguir homônimos.</p>{% endif %}
+            </div>
+            {% if p.status == 'ativo' %}<a class="ui-button secondary" href="{{ url_for('admin.gerenciar_palpites', participante_id=p.id) }}">Lançar palpites</a>{% endif %}
+        </div>
+        <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div><dt class="ui-muted">Pontos totais</dt><dd class="text-xl font-bold text-primary">{{ totais[p.id].pontos }}</dd></div>
+            <div><dt class="ui-muted">Palpites</dt><dd class="text-xl font-bold">{{ totais[p.id].palpites }}</dd></div>
+            <div><dt class="ui-muted">Rodada de entrada</dt><dd class="text-sm font-semibold">{{ p.rodada_entrada.nome if p.rodada_entrada else 'Histórico preservado' }}</dd></div>
+            <div><dt class="ui-muted">Rodada de desistência</dt><dd class="text-sm font-semibold">{{ p.rodada_desistencia.nome if p.rodada_desistencia else '—' }}</dd></div>
+        </dl>
+        {% if p.observacao %}<p class="mt-3 text-sm whitespace-pre-wrap" style="overflow-wrap:anywhere"><strong>Observação:</strong> {{ p.observacao }}</p>{% endif %}
+        <div class="ui-actions">
+            {% if p.status == 'ativo' %}<a class="ui-button secondary" href="{{ url_for('admin.gerenciar_desistencia', id=p.id, acao='registrar') }}">Registrar desistência</a>{% endif %}
+            {% if p.status == 'desistente' %}
+            <a class="ui-button secondary" href="{{ url_for('admin.gerenciar_desistencia', id=p.id, acao='corrigir') }}">Editar desistência</a>
+            <a class="ui-button secondary" href="{{ url_for('admin.gerenciar_desistencia', id=p.id, acao='reativar') }}">Reativar participante</a>
+            {% endif %}
+            <a class="ui-button secondary" href="{{ url_for('admin.gerenciar_desistencia', id=p.id, acao='restaurar') }}">Histórico e palpites guardados</a>
+        </div>
+        <details class="mt-4 border-t border-border pt-3" {% if edicao_id == p.id %}open{% endif %}>
+            <summary class="cursor-pointer font-semibold">Editar participante · Registro {{ p.id }}</summary>
+            <form method="POST" action="{{ url_for('admin.editar_participacao', id=p.id) }}" class="mt-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="filtro" value="{{ filtro }}">
+                <div class="ui-field">
+                    <label for="nome-{{ p.id }}">Nome de exibição</label>
+                    <input id="nome-{{ p.id }}" name="nome_exibicao" value="{{ edicao.get('nome_exibicao', '') if edicao_id == p.id else p.nome_exibicao }}" required minlength="2" maxlength="100" {% if edicao_id == p.id and erros.nome_exibicao %}aria-invalid="true" aria-describedby="erro-nome-{{ p.id }}"{% endif %}>
+                    {% if edicao_id == p.id and erros.nome_exibicao %}<p id="erro-nome-{{ p.id }}" class="danger text-sm" role="alert">{{ erros.nome_exibicao }}</p>{% endif %}
+                </div>
+                <div class="ui-field">
+                    <label for="email-{{ p.id }}">E-mail de contato (opcional)</label>
+                    <input type="email" id="email-{{ p.id }}" name="email" maxlength="100" value="{{ edicao.get('email', '') if edicao_id == p.id else (p.email or '') }}">
+                    {% if edicao_id == p.id and erros.email %}<p class="danger text-sm" role="alert">{{ erros.email }}</p>{% endif %}
+                    <p class="ui-muted">O e-mail de contato não altera a conta de acesso vinculada.</p>
+                </div>
+                <div class="ui-field">
+                    <label for="responsavel-{{ p.id }}">Responsável</label>
+                    {% set papel_selecionado = edicao.get('responsavel') if edicao_id == p.id else ('sim' if p.papel == 'responsavel' else 'nao') %}
+                    <select id="responsavel-{{ p.id }}" name="responsavel">
+                        <option value="nao" {% if papel_selecionado == 'nao' %}selected{% endif %}>Não</option>
+                        <option value="sim" {% if papel_selecionado == 'sim' %}selected{% endif %}>Sim</option>
+                    </select>
+                    {% if edicao_id == p.id and erros.responsavel %}<p class="danger text-sm" role="alert">{{ erros.responsavel }}</p>{% endif %}
+                    {% if not p.usuario_id %}<p class="ui-muted">O acesso à gestão exige vincular uma conta em Gerenciar responsáveis.</p>{% endif %}
+                </div>
+                <div class="ui-field">
+                    <label for="observacao-{{ p.id }}">Observação <span class="ui-muted">(opcional)</span></label>
+                    <textarea id="observacao-{{ p.id }}" name="observacao" rows="3">{{ edicao.get('observacao', '') if edicao_id == p.id else (p.observacao or '') }}</textarea>
+                </div>
+                <button class="ui-button secondary" type="submit">Salvar alterações</button>
+            </form>
+            {% if p.status in ['ativo', 'removido', 'saiu'] %}
+            <form method="POST" action="{{ url_for('admin.alterar_status_participacao', id=p.id) }}" class="mt-4 border-t border-border pt-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="acao" value="{{ 'remover' if p.status == 'ativo' else 'reativar' }}">
+                <p class="ui-muted mb-3">A remoção administrativa mantém a pessoa, os palpites e o histórico guardados. Reativar não concede acesso de responsável.</p>
+                <button class="ui-button secondary" type="submit">{{ 'Remover do bolão' if p.status == 'ativo' else 'Reativar participante' }}</button>
+            </form>
+            {% endif %}
+        </details>
+    </article>
+    {% else %}<p class="ui-muted py-6">Nenhum participante neste filtro.</p>{% endfor %}
+</section>
+<section id="novo-participante" class="ui-panel">
+    <h2>Adicionar participante</h2>
+    <p class="ui-muted mb-4">A pessoa não precisa de conta de acesso. Nomes e e-mails repetidos não são permitidos neste bolão.</p>
+    {% if rodadas %}
+    <form method="POST" action="{{ url_for('admin.criar_participacao') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="ui-form-grid">
+            <div class="ui-field">
+                <label for="nome-novo">Nome de exibição</label>
+                <input id="nome-novo" name="nome_exibicao" value="{{ novo.get('nome_exibicao', '') }}" required minlength="2" maxlength="100" {% if not edicao_id and erros.nome_exibicao %}aria-invalid="true" aria-describedby="erro-nome-novo"{% endif %}>
+                {% if not edicao_id and erros.nome_exibicao %}<p id="erro-nome-novo" class="danger text-sm" role="alert">{{ erros.nome_exibicao }}</p>{% endif %}
+            </div>
+            <div class="ui-field">
+                <label for="rodada-entrada">Primeira rodada em que participa</label>
+                <select id="rodada-entrada" name="rodada_entrada_id" required aria-describedby="regra-entrada{% if not edicao_id and erros.rodada_entrada_id %} erro-rodada-entrada{% endif %}" {% if not edicao_id and erros.rodada_entrada_id %}aria-invalid="true"{% endif %}>
+                    <option value="">Selecione a rodada de entrada</option>
+                    {% for r in rodadas %}<option value="{{ r.id }}" {% if novo.get('rodada_entrada_id') == r.id|string %}selected{% endif %}>{{ r.nome }}</option>{% endfor %}
+                </select>
+                <p id="regra-entrada" class="ui-muted">{% if bolao_atual.politica_entrada_tardia == 'fora_da_conta' %}Neste bolão, as rodadas anteriores à entrada ficam fora da conta.{% else %}Neste bolão, as rodadas anteriores à entrada contam com zero pontos, sem palpites.{% endif %}</p>
+                {% if not edicao_id and erros.rodada_entrada_id %}<p id="erro-rodada-entrada" class="danger text-sm" role="alert">{{ erros.rodada_entrada_id }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="ui-field">
+            <label for="email-novo">E-mail de contato (opcional)</label>
+            <input type="email" id="email-novo" name="email" maxlength="100" value="{{ novo.get('email', '') }}">
+            {% if not edicao_id and erros.email %}<p class="danger text-sm" role="alert">{{ erros.email }}</p>{% endif %}
+        </div>
+        <div class="ui-field">
+            <label for="observacao-novo">Observação <span class="ui-muted">(opcional)</span></label>
+            <textarea id="observacao-novo" name="observacao" rows="3">{{ novo.get('observacao', '') }}</textarea>
+        </div>
+        <button class="ui-button" type="submit">Adicionar participante</button>
+    </form>
+    {% else %}<p class="ui-muted">Cadastre uma rodada neste campeonato antes de adicionar participantes com rodada de entrada.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,16 +1,15 @@
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf.csrf import CSRFError
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import check_password_hash
 
 from database import db
 from models import Participante
+from services.acesso import pode_acessar_gestao
+from extensions import limiter
 from utils import validar_email, validar_senha, validar_nome, hash_senha
 
 auth = Blueprint("auth", __name__)
-limiter = Limiter(key_func=get_remote_address)
 
 
 @auth.errorhandler(CSRFError)
@@ -24,13 +23,13 @@ def handle_csrf_error(e):
 def cadastro():
 
     if current_user.is_authenticated:
-        return redirect(url_for("participante.inicio"))
+        return redirect(url_for("participante.escolher_bolao", continuar=1))
 
     if request.method == "POST":
 
-        nome = request.form["nome"].strip()
-        email = request.form["email"].strip().lower()
-        senha = request.form["senha"]
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        senha = request.form.get("senha", "")
 
         # Validações
         if not validar_nome(nome):
@@ -62,7 +61,7 @@ def cadastro():
 
         login_user(participante)
 
-        return redirect(url_for("participante.inicio"))
+        return redirect(url_for("participante.escolher_bolao", continuar=1))
 
     return render_template("cadastro.html")
 
@@ -71,32 +70,40 @@ def cadastro():
 @limiter.limit("10 per hour")
 def login():
 
+    nova_interface = request.form.get('nova_interface') == '1'
+    destino_login = 'interface.index' if nova_interface else 'auth.login'
+    destino_sucesso = (url_for('interface.index') if nova_interface
+                       else url_for('participante.escolher_bolao', continuar=1))
     if current_user.is_authenticated:
-        return redirect(url_for("participante.inicio"))
+        return redirect(destino_sucesso)
 
     if request.method == "POST":
 
-        email = request.form["email"].strip().lower()
-        senha = request.form["senha"]
+        email = request.form.get("email", "").strip().lower()
+        senha = request.form.get("senha", "")
 
         # Validações
         if not validar_email(email):
             flash("Email inválido.")
-            return redirect(url_for("auth.login"))
+            return redirect(url_for(destino_login))
 
         if not senha:
             flash("Digite sua senha.")
-            return redirect(url_for("auth.login"))
+            return redirect(url_for(destino_login))
 
         p = Participante.query.filter_by(email=email).first()
 
-        if not p or not p.senha or not check_password_hash(p.senha, senha):
+        if not p or not p.conta_ativa or not p.senha or not check_password_hash(p.senha, senha):
             flash("Email ou senha invalidos.")
-            return redirect(url_for("auth.login"))
+            return redirect(url_for(destino_login))
+
+        if not current_app.config["FEATURE_PARTICIPANTE_LOGIN"] and not pode_acessar_gestao(p):
+            flash("Acesso disponível somente para responsáveis por bolões.")
+            return redirect(url_for(destino_login))
 
         login_user(p)
 
-        return redirect(url_for("participante.inicio"))
+        return redirect(destino_sucesso)
 
     return render_template("login.html")
 
@@ -105,33 +112,16 @@ def login():
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for("auth.login"))
+    session.pop('bolao_id', None)
+    session.pop('bolao_usuario_id', None)
+    return redirect(url_for('interface.index' if request.args.get('nova_interface') == '1' else 'auth.login'))
 
 
 @auth.route("/resetar-senha", methods=["GET", "POST"])
 def resetar_senha():
-    """Rota para resetar senha (simplificada - em produção usar email)."""
+    """Orientação até haver recuperação com comprovação de posse da conta."""
     if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-
-        if not validar_email(email):
-            flash("Email inválido.")
-            return redirect(url_for("auth.resetar_senha"))
-
-        participante = Participante.query.filter_by(email=email).first()
-
-        if participante:
-            # Em produção, aqui enviaria um email com link de reset
-            # Por enquanto, apenas reset para senha padrão e avisa
-            from utils import hash_senha
-            nova_senha = "123456"
-            participante.senha = hash_senha(nova_senha)
-            db.session.commit()
-            flash(f"Senha resetada para {nova_senha}. Por favor, faça login e altere sua senha.")
-        else:
-            flash("Se este email estiver cadastrado, você receberá instruções.")
-            # Sempre mostra mesma mensagem por segurança (não revela se email existe)
-
-        return redirect(url_for("auth.login"))
-
+        # Mesmo comportamento para qualquer e-mail; nunca consulta ou altera contas.
+        flash("Para recuperar o acesso, entre em contato com o administrador do sistema.")
+        return redirect(url_for("auth.resetar_senha"))
     return render_template("resetar_senha.html")

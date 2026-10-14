@@ -3,25 +3,25 @@
 
 {% block conteudo %}
 
-<section class="panel panel-hero">
+<section class="ui-panel ui-hero">
     <h1>Editar Participante</h1>
-    <p class="muted">Atualize nome, e-mail, senha e permissão de administrador.</p>
+    <p class="ui-muted">Atualize nome, e-mail, senha e permissão de administrador.</p>
 </section>
 
-<section class="panel">
+<section class="ui-panel">
     <form method="POST" action="{{ url_for('admin.editar_participante', id=participante.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-grid">
-            <div class="form-row">
+        <div class="ui-form-grid">
+            <div class="ui-field">
                 <label>Nome completo *</label>
                 <input type="text" name="nome" value="{{ participante.nome }}" required>
             </div>
-            <div class="form-row">
+            <div class="ui-field">
                 <label>E-mail *</label>
                 <input type="email" name="email" value="{{ participante.email }}" required>
             </div>
-            <div class="form-row">
-                <label>Nova senha <span class="muted">(opcional)</span></label>
+            <div class="ui-field">
+                <label>Nova senha <span class="ui-muted">(opcional)</span></label>
                 <input type="password" name="senha" placeholder="Deixe em branco para manter a atual">
             </div>
         </div>
@@ -31,9 +31,9 @@
             Conceder permissão de Administrador
         </label>
 
-        <div class="form-actions">
-            <button type="submit" class="button">Salvar Alterações</button>
-            <a class="button secondary" href="{{ url_for('admin.listar_participantes') }}">Voltar</a>
+        <div class="ui-actions">
+            <button type="submit" class="ui-button">Salvar Alterações</button>
+            <a class="ui-button secondary" href="{{ url_for('admin.listar_participantes') }}">Voltar</a>
         </div>
     </form>
 </section>

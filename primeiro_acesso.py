@@ -24,6 +24,7 @@ def promover_admin(email):
             print("Crie sua conta pelo /cadastro primeiro.")
             sys.exit(1)
         p.admin = True
+        p.admin_global = True
         db.session.commit()
         print(f"Sucesso! '{p.nome}' agora é admin.")
         print("Acesse /admin no navegador para gerenciar o bolão.")
