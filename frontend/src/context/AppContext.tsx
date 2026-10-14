@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { views, type Bootstrap, type View } from '@/types';
+import { configurarApi } from '@/lib/api';
 
 function hashView(): View {
   const value = window.location.hash.slice(1);
@@ -12,6 +13,7 @@ function initialTheme(): boolean {
 const dataElement = document.getElementById('interface-data');
 if (!dataElement?.textContent) throw new Error('Contexto da interface não disponível.');
 const dados: Bootstrap = JSON.parse(dataElement.textContent);
+configurarApi({ base: dados.apiBase, csrfToken: dados.csrfToken });
 
 interface AppState {
   dados: Bootstrap;
@@ -24,6 +26,7 @@ interface AppState {
   logout: () => void;
 }
 const AppContext = createContext<AppState | null>(null);
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [view, updateView] = useState<View>(hashView);
   const [darkMode, setDarkMode] = useState(initialTheme);
@@ -37,13 +40,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem('bolao-interface-theme', darkMode ? 'dark' : 'light'); }
     catch { /* O tema continua funcionando quando o armazenamento é indisponível. */ }
   }, [darkMode]);
-  const setView = (next: View) => { window.location.hash = next; updateView(next); };
+  const setView = (next: View) => {
+    window.location.hash = next;
+    updateView(next);
+    document.getElementById('conteudo')?.scrollTo({ top: 0 });
+  };
   return <AppContext.Provider value={{
     dados, usuario: dados.usuario, bolao: dados.boloes.find(b => b.id === dados.bolaoAtualId),
     view, setView, darkMode, toggleDarkMode: () => setDarkMode(value => !value),
     logout: () => window.location.assign(dados.links.logout),
   }}>{children}</AppContext.Provider>;
 }
+
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) throw new Error('AppProvider não encontrado.');

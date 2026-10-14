@@ -25,6 +25,16 @@ def assets_interface():
     }
 
 
+def tipo_mensagem(categoria, texto):
+    """Mesma classificação visual de templates/partials/alerts.html."""
+    minusculo = texto.lower()
+    if categoria in ('error', 'danger') or any(t in minusculo for t in ('erro', 'inválid', 'invalid', 'incorret', 'digite', 'somente para')):
+        return 'error'
+    if categoria == 'success' or 'sucesso' in minusculo or 'salvo' in minusculo:
+        return 'success'
+    return 'info'
+
+
 @interface.get('/')
 def index():
     authed = current_user.is_authenticated
@@ -54,7 +64,9 @@ def index():
         } for b in boloes],
         'bolaoAtualId': atual.id if atual else None,
         'csrfToken': generate_csrf(),
-        'mensagens': get_flashed_messages(),
+        'mensagens': [{'tipo': tipo_mensagem(categoria, texto), 'texto': texto}
+                      for categoria, texto in get_flashed_messages(with_categories=True)],
+        'apiBase': url_for('interface.index') + 'api',
         'links': {
             **links, 'login': url_for('auth.login'),
             'logout': url_for('auth.logout', nova_interface='1'),

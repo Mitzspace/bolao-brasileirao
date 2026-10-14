@@ -98,11 +98,13 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
     from routes.admin import admin
     from routes.participante import participante
     from routes.interface import interface
+    from routes.api import api
 
     app.register_blueprint(auth)
     app.register_blueprint(admin)
     app.register_blueprint(participante)
     app.register_blueprint(interface)
+    app.register_blueprint(api)
 
     from services.urls_bolao import registrar_urls_bolao, redirecionar_url_antiga
     registrar_urls_bolao(app)

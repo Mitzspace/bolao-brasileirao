@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { Trophy, Mail, Lock, ArrowRight, Shield } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
+const estilosMensagem = {
+  error: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
+  success: 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300',
+  info: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+};
+
 export function LoginScreen() {
   const { dados } = useApp();
   const [loading, setLoading] = useState(false);
@@ -22,14 +28,16 @@ export function LoginScreen() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg mb-4">
             <Trophy className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bolão Pro</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestão de bolões</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestão de bolões</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Palpites e classificação do seu bolão</p>
         </div>
 
         <form action={dados.links.login} method="POST" onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 md:p-8 animate-slide-up border border-gray-100 dark:border-gray-800">
           <input type="hidden" name="csrf_token" value={dados.csrfToken} />
           <input type="hidden" name="nova_interface" value="1" />
-          {dados.mensagens.map((mensagem, index) => <p key={index} role="alert" className="mb-4 rounded-xl bg-red-50 text-red-700 p-3 text-sm">{mensagem}</p>)}
+          {dados.mensagens.map((mensagem, index) => (
+            <p key={index} role={mensagem.tipo === 'error' ? 'alert' : 'status'} className={`mb-4 rounded-xl p-3 text-sm ${estilosMensagem[mensagem.tipo]}`}>{mensagem.texto}</p>
+          ))}
           <div className="flex items-center gap-2 mb-6 p-3 rounded-xl bg-gold-50 dark:bg-gold-900/20 border border-gold-200 dark:border-gold-800/40">
             <Shield className="w-5 h-5 text-gold-600 shrink-0" />
             <p className="text-sm text-gold-800 dark:text-gold-300 font-medium">Acesso restrito aos responsáveis pelo bolão</p>

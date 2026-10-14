@@ -1,8 +1,8 @@
-import { Trophy, Calendar, Users, Target, Settings, LogOut, Moon, Sun } from 'lucide-react';
+import { Trophy, Calendar, Users, Target, Settings, LogOut, Moon, Sun, LayoutDashboard } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: Trophy },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'campeonatos', label: 'Campeonatos', icon: Target },
   { id: 'rodadas', label: 'Rodadas', icon: Calendar },
   { id: 'participantes', label: 'Participantes', icon: Users },
@@ -17,16 +17,16 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 shrink-0">
       <div className="px-5 py-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md shrink-0">
           <Trophy className="w-5 h-5 text-white" />
         </div>
-        <div>
-          <h1 className="font-bold text-gray-900 dark:text-white leading-tight">Bolão Pro</h1>
-          <p className="text-xs text-gray-400">{bolao?.campeonato ?? 'Gestão de bolões'}</p>
+        <div className="min-w-0">
+          <h1 className="font-bold text-gray-900 dark:text-white leading-tight truncate">{bolao?.nome ?? 'Gestão de bolões'}</h1>
+          <p className="text-xs text-gray-400 truncate">{bolao ? `${bolao.campeonato} ${bolao.ano ?? ''}` : 'Gestão de bolões'}</p>
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav aria-label="Navegação principal" className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(item => {
           const Icon = item.icon;
           const active = view === item.id;
@@ -68,8 +68,8 @@ export function Sidebar() {
 
       <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm">
-            {usuario.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+            {usuario.nome.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase()}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{usuario.nome}</p>
