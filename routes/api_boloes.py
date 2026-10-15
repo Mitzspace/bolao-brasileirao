@@ -1,0 +1,137 @@
+"""Aba Bolões da nova interface: lista, classificação completa e criação de bolão."""
+from flask import abort, flash, g, jsonify, request
+from flask_login import current_user
+
+from routes.api import api, erro, requer_gestao
+from routes.api_serializacao import serializar_item_ranking
+from services.contexto_bolao import lembrar_bolao, opcoes_rodadas
+from services.criacao_bolao import (criar_bolao, fontes_de_copia, mensagem_criacao,
+                                    pessoas_da_origem, validar_dados)
+from services.ranking import calcular_ranking, ranking_com_variacao
+from services.regras_pontuacao import REGRAS_PONTUACAO
+from services.responsaveis import bloquear_bolao
+from services.resumo_boloes import resumos_boloes
+from services.textos_whatsapp import texto_classificacao_compartilhar
+
+
+def boloes_geridos():
+    """Mesmo filtro da entrada da interface: vínculo ativo de responsável."""
+    return [b for b in g.boloes_disponiveis if any(
+        p.usuario_id == current_user.id and p.status == 'ativo' and p.papel == 'responsavel'
+        for p in b.participacoes)]
+
+
+def _bolao_gerido(id):
+    bolao = next((b for b in boloes_geridos() if b.id == id), None)
+    if bolao is None:
+        abort(404)
+    return bolao
+
+
+@api.get('/boloes')
+@requer_gestao(precisa_bolao=False)
+def listar_boloes():
+    boloes = boloes_geridos()
+    resumos = resumos_boloes(boloes)
+    return jsonify({'boloes': [{
+        'id': b.id, 'nome': b.nome, 'chave': b.chave, 'grupoId': b.grupo_raiz_id,
+        'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano, 'status': b.status,
+        'participantesAtivos': resumos[b.id]['ativos'],
+        'rodada': resumos[b.id]['rodada'].nome if resumos[b.id]['rodada'] else None,
+        'palpitesFaltantes': resumos[b.id]['pendencias'],
+    } for b in boloes]})
+
+
+@api.get('/boloes/<int:id>/classificacao')
+@requer_gestao(precisa_bolao=False)
+def classificacao_bolao(id):
+    """Mesma classificação da tela de ranking: geral (com variação) ou de uma rodada."""
+    bolao = _bolao_gerido(id)
+    opcoes = opcoes_rodadas(bolao.campeonato_id)
+    rodada = None
+    if request.args.get('rodada_id'):
+        rodada_id = request.args.get('rodada_id', type=int)
+        rodada = next((r for r, _ in opcoes if r.id == rodada_id), None)
+        if rodada is None:
+            abort(404)
+    ocultar = request.args.get('ocultar_desistentes') == '1'
+    referencia = None
+    if rodada:
+        ranking = calcular_ranking(bolao, rodada, ocultar)
+        for posicao, item in enumerate(ranking, 1):
+            item['posicao'] = posicao
+    else:
+        ranking, ultima = ranking_com_variacao(bolao, ocultar)
+        referencia = ultima.nome if ultima else None
+    grupo = [b for b in boloes_geridos() if b.grupo_raiz_id == bolao.grupo_raiz_id]
+    return jsonify({
+        'bolao': {'id': bolao.id, 'nome': bolao.nome, 'chave': bolao.chave,
+                  'campeonato': bolao.campeonato.nome, 'ano': bolao.campeonato.ano, 'status': bolao.status},
+        'campeonatosDoBolao': [{'bolaoId': b.id, 'nome': b.campeonato.nome, 'ano': b.campeonato.ano}
+                               for b in sorted(grupo, key=lambda b: (b.grupo_id is not None, b.id))],
+        'rodadas': [{'id': r.id, 'nome': r.nome} for r, _ in opcoes],
+        'rodadaId': rodada.id if rodada else None,
+        'variacaoReferencia': referencia,
+        'ranking': [serializar_item_ranking(i) for i in ranking],
+        'textoWhatsapp': texto_classificacao_compartilhar(bolao, ranking, rodada),
+        'regras': {
+            'comumExato': REGRAS_PONTUACAO['comum_exato'], 'comumResultado': REGRAS_PONTUACAO['comum_resultado'],
+            'classicoExato': REGRAS_PONTUACAO['classico_exato'],
+            'classicoResultado': REGRAS_PONTUACAO['classico_resultado'],
+            'primeiroGol': REGRAS_PONTUACAO['primeiro_gol'],
+            'politicaEntrada': bolao.politica_entrada_tardia,
+        },
+    })
+
+
+@api.get('/boloes/fontes')
+@requer_gestao(precisa_bolao=False)
+def fontes_para_copiar():
+    """Bolões de onde dá para copiar nomes; com origem_id, lista as pessoas daquele bolão."""
+    fontes = fontes_de_copia(current_user)
+    origem = None
+    if request.args.get('origem_id'):
+        origem = next((b for b in fontes if b.id == request.args.get('origem_id', type=int)), None)
+        if origem is None:
+            return erro(403)
+    return jsonify({
+        'fontes': [{'id': b.id, 'nome': b.nome, 'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano}
+                   for b in fontes],
+        'pessoas': [{'id': p.id, 'nome': p.nome_exibicao, 'status': p.status}
+                    for p in pessoas_da_origem(origem, current_user)],
+    })
+
+
+@api.post('/boloes')
+@requer_gestao(precisa_bolao=False)
+def novo_bolao():
+    c = request.get_json(silent=True) or {}
+    fontes = fontes_de_copia(current_user)
+    origem = None
+    if c.get('origemId') not in (None, ''):
+        if not isinstance(c['origemId'], int):
+            return erro(400)
+        origem = next((b for b in fontes if b.id == c['origemId']), None)
+        if origem is None:
+            return erro(403)
+    ids = c.get('participacaoIds') or []
+    if not isinstance(ids, list) or any(not isinstance(i, int) or isinstance(i, bool) for i in ids):
+        return erro(400)
+    pessoas = pessoas_da_origem(origem, current_user)
+    selecionados = set(ids)
+    if selecionados - {p.id for p in pessoas}:
+        return erro(403)
+    try:
+        def txt(chave):
+            return c.get(chave) if isinstance(c.get(chave), str) else None
+        ano = c.get('ano') if isinstance(c.get('ano'), (str, int)) and not isinstance(c.get('ano'), bool) else None
+        dados = validar_dados(txt('nome'), txt('campeonato'), ano, txt('codigoApi'))
+    except ValueError as e:
+        return erro(400, str(e))
+    if origem:
+        bloquear_bolao(origem.id)
+    novo = criar_bolao(current_user, *dados, pessoas, selecionados)
+    lembrar_bolao(novo.id)
+    mensagem = mensagem_criacao(selecionados)
+    flash(mensagem, 'success')
+    return jsonify({'bolaoId': novo.id, 'mensagem': mensagem}), 201

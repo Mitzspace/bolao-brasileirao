@@ -30,12 +30,12 @@ def _relacoes_palpite():
 @login_required
 def criar_bolao():
     from services.acesso import pode_acessar_gestao
+    from services.criacao_bolao import (criar_bolao as criar, fontes_de_copia, mensagem_criacao,
+                                        pessoas_da_origem, validar_dados)
     from services.responsaveis import bloquear_bolao
     if not pode_acessar_gestao(current_user):
         abort(403)
-    fontes = (Bolao.query.join(Participacao).filter(
-        Participacao.usuario_id == current_user.id, Participacao.papel == 'responsavel',
-        Participacao.status == 'ativo').order_by(Bolao.nome, Bolao.id).all())
+    fontes = fontes_de_copia(current_user)
     valores = request.form if request.method == 'POST' else request.args
     origem_id = valores.get('origem_id', '').strip()
     origem = None
@@ -45,24 +45,18 @@ def criar_bolao():
         origem = next((b for b in fontes if b.id == int(origem_id)), None)
         if origem is None:
             abort(403)
-    pessoas = (Participacao.query.filter(Participacao.bolao_id == origem.id,
-        (Participacao.usuario_id.is_(None) | (Participacao.usuario_id != current_user.id)))
-        .order_by(Participacao.nome_exibicao, Participacao.id).all()) if origem else []
+    pessoas = pessoas_da_origem(origem, current_user)
     erro = None
     marcados = valores.getlist('participacao_ids')
     if request.method == 'POST':
-        nome = request.form.get('nome', '').strip()
-        from services.validacao_formularios import texto, inteiro
-        campeonato = None
-        if not 2 <= len(nome) <= 100:
-            erro = 'Informe um nome entre 2 e 100 caracteres.'
-        elif request.form.get('campeonato_id'):
+        if request.form.get('campeonato_id'):
             erro = 'Informe o campeonato deste novo bolão; não selecione um campeonato de outro bolão.'
+            if not 2 <= len(request.form.get('nome', '').strip()) <= 100:
+                erro = 'Informe um nome entre 2 e 100 caracteres.'
         else:
             try:
-                campeonato_nome = texto(request.form.get('campeonato_nome'), 'Campeonato')
-                campeonato_ano = inteiro(request.form.get('campeonato_ano'), 'Temporada', 1, 9999)
-                codigo_api = texto(request.form.get('codigo_api') or 'BSA', 'Código da API', 20).upper()
+                dados = validar_dados(request.form.get('nome'), request.form.get('campeonato_nome'),
+                                      request.form.get('campeonato_ano'), request.form.get('codigo_api'))
             except ValueError as e:
                 erro = str(e)
         if any(not id.isdecimal() for id in marcados):
@@ -74,19 +68,9 @@ def criar_bolao():
             if origem:
                 # Revalida o acesso à fonte sob o mesmo bloqueio usado na revogação.
                 bloquear_bolao(origem.id)
-            campeonato = Campeonato(nome=campeonato_nome, ano=campeonato_ano, codigo_api=codigo_api)
-            novo = Bolao(nome=nome, campeonato=campeonato, criador=current_user,
-                         permite_palpite_proprio=False, permite_lancamento_por_responsavel=True)
-            db.session.add(novo)
-            db.session.add(Participacao(bolao=novo, usuario=current_user,
-                nome_exibicao=current_user.nome, papel='responsavel', status='ativo'))
-            for pessoa in pessoas:
-                if pessoa.id in selecionados:
-                    db.session.add(Participacao(bolao=novo, nome_exibicao=pessoa.nome_exibicao,
-                        papel='participante', status='ativo'))
-            db.session.commit()
+            novo = criar(current_user, *dados, pessoas, selecionados)
             lembrar_bolao(novo.id)
-            flash(f'Bolão criado com {len(selecionados)} participantes copiados, além do responsável.')
+            flash(mensagem_criacao(selecionados))
             return redirect(url_for('admin.listar_participantes', bolao_id=novo.id))
     return render_template('criar_bolao.html', fontes=fontes, origem=origem, pessoas=pessoas,
         erro=erro, valores=valores, marcados=marcados), (400 if erro else 200)

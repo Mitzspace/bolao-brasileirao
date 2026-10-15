@@ -27,6 +27,36 @@ def texto_ranking(bolao, ranking, rodada=None):
     return '\n'.join(linhas)
 
 
+# Faixas do texto de classificação para o WhatsApp (modelo do bolão):
+# 1º–4º verde, 5º amarelo, 6º–10º azul, últimos 4 vermelho e o restante branco.
+FAIXAS_COMPARTILHAR = ((1, 4, '🟩'), (5, 5, '🟨'), (6, 10, '🟦'))
+ULTIMOS_VERMELHOS = 4
+ULTIMA_POSICAO_PROTEGIDA = 10  # as faixas do topo têm prioridade sobre o vermelho
+
+
+def marcador_posicao(posicao, total):
+    for inicio, fim, marcador in FAIXAS_COMPARTILHAR:
+        if inicio <= posicao <= fim:
+            return marcador
+    if posicao > ULTIMA_POSICAO_PROTEGIDA and posicao > total - ULTIMOS_VERMELHOS:
+        return '🟥'
+    return '⬜'
+
+
+def texto_classificacao_compartilhar(bolao, ranking, rodada=None):
+    """Texto curto da classificação, no modelo usado no grupo do bolão."""
+    titulo = f'*🏆{linha(bolao.nome)}' + (f' · {linha(rodada.nome)}' if rodada else '') + '*'
+    linhas = [titulo, '']
+    total = len(ranking)
+    for posicao, item in enumerate(ranking, 1):
+        pontos = item['pontos']
+        linhas.append(f"{marcador_posicao(posicao, total)} {posicao}. {linha(item['participante'].nome)} – "
+                      f"{pontos} {'ponto' if pontos == 1 else 'pontos'}")
+    if not ranking:
+        linhas.append('Nenhum participante na classificação.')
+    return '\n'.join(linhas)
+
+
 def texto_rodada(bolao, rodada, matriz, participantes, totais):
     linhas = cabecalho(bolao, f'Resumo · {linha(rodada.nome)}')
     for item in matriz:

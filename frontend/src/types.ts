@@ -271,3 +271,32 @@ export interface PreviaDesistencia {
   previa: { acao: AcaoDesistencia; rodada: string | null; motivo: string; posteriores: PalpiteGuardado[]; restauraveis: PalpiteGuardado[] };
   token: string;
 }
+
+/** GET /interface/api/boloes */
+export interface BoloesApi {
+  boloes: {
+    id: number; nome: string; chave: string; grupoId: number; campeonato: string; ano: number | null;
+    status: string; participantesAtivos: number; rodada: string | null; palpitesFaltantes: number;
+  }[];
+}
+
+/** GET /interface/api/boloes/:id/classificacao */
+export interface ClassificacaoBolaoApi {
+  bolao: { id: number; nome: string; chave: string; campeonato: string; ano: number | null; status: string };
+  campeonatosDoBolao: { bolaoId: number; nome: string; ano: number | null }[];
+  rodadas: { id: number; nome: string }[];
+  rodadaId: number | null;
+  variacaoReferencia: string | null;
+  ranking: ItemRanking[];
+  textoWhatsapp: string;
+  regras: {
+    comumExato: number; comumResultado: number; classicoExato: number; classicoResultado: number;
+    primeiroGol: number; politicaEntrada: 'zero' | 'fora_da_conta';
+  };
+}
+
+/** GET /interface/api/boloes/fontes */
+export interface FontesBolaoApi {
+  fontes: { id: number; nome: string; campeonato: string; ano: number | null }[];
+  pessoas: { id: number; nome: string; status: string }[];
+}

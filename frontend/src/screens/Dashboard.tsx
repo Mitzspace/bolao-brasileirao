@@ -33,7 +33,7 @@ export function Dashboard() {
 }
 
 function Conteudo({ dados, links }: { dados: DashboardApi; links: ReturnType<typeof useApp>['dados']['links'] }) {
-  const { setView } = useApp();
+  const { setView, dados: { bolaoAtualId } } = useApp();
   const { rodada } = dados;
   const stats = [
     { label: 'Participantes ativos', value: dados.participantesAtivos, icon: Users, color: 'gold' },
@@ -111,11 +111,9 @@ function Conteudo({ dados, links }: { dados: DashboardApi; links: ReturnType<typ
               ))}
             </div>
           )}
-          {links.ranking && (
-            <a href={links.ranking} className="block w-full mt-4 text-center text-sm text-brand-600 dark:text-brand-400 font-medium hover:underline">
-              Ver classificação completa
-            </a>
-          )}
+          <button onClick={() => setView('boloes', { bolaoId: bolaoAtualId ?? 0 })} className="block w-full mt-4 text-center text-sm text-brand-600 dark:text-brand-400 font-medium hover:underline">
+            Ver classificação completa
+          </button>
         </div>
 
         {/* Jogos da rodada */}
