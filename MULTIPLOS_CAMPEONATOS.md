@@ -29,3 +29,16 @@ BEGIN;
 ALTER TABLE bolao ADD COLUMN IF NOT EXISTS grupo_id INTEGER REFERENCES bolao(id);
 COMMIT;
 ```
+
+## Atualização: cada campeonato é um bolão separado
+
+A interface não cria mais campeonatos dentro do mesmo bolão. Para um novo
+campeonato, use **Bolões › Novo bolão**. Os grupos já existentes são desfeitos por:
+
+- Local (SQLite, faz backup): `python -m migrations.separar_campeonatos instance/banco.db`
+- Neon: rode `migrations/sql/006_separar_campeonatos.sql` no SQL Editor (após backup).
+
+Bolões extras com o mesmo nome do principal passam a se chamar "<campeonato> <temporada>"
+(ex.: "Copa do Brasil 2026"). Palpites, jogos, participantes e pontos não mudam.
+A coluna `grupo_id` e `services/grupos_bolao.py` ficam para a ideia futura de vários
+campeonatos no mesmo bolão (que exigirá trocar de campeonato também na aba Jogos).

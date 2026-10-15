@@ -182,7 +182,12 @@ export interface GestaoRodadasApi {
   rodadaAtualId: number | null;
   rodada: (RodadaResumo & { participantes: number; links: { palpites: string; grade: string } }) | null;
   jogos: JogoGestao[];
+  regras: Regras;
 }
+
+/** Regras de pontuação de um bolão. */
+export interface Regras { comumExato: number; comumResultado: number; classicoExato: number; classicoResultado: number; primeiroGol: number }
+export const REGRAS_PADRAO: Regras = { comumExato: 3, comumResultado: 1, classicoExato: 5, classicoResultado: 3, primeiroGol: 2 };
 
 /** GET /interface/api/rodadas/:id/classificacao */
 export interface ClassificacaoRodadaApi { rodada: string; ranking: ItemRanking[] }
@@ -289,10 +294,7 @@ export interface ClassificacaoBolaoApi {
   variacaoReferencia: string | null;
   ranking: ItemRanking[];
   textoWhatsapp: string;
-  regras: {
-    comumExato: number; comumResultado: number; classicoExato: number; classicoResultado: number;
-    primeiroGol: number; politicaEntrada: 'zero' | 'fora_da_conta';
-  };
+  regras: Regras & { politicaEntrada: 'zero' | 'fora_da_conta' };
 }
 
 /** GET /interface/api/boloes/fontes */

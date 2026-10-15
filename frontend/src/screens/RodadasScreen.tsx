@@ -17,6 +17,7 @@ import { GradeModal } from '@/components/palpites/GradeModal';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
 import type { ClassificacaoRodadaApi, GestaoRodadasApi, JogoGestao } from '@/types';
+import { REGRAS_PADRAO } from '@/types';
 
 type Aba = 'jogos' | 'classificacao';
 interface FormJogo { id: number | null; casa: string; fora: string; rodadaId: string; data: string; classico: boolean }
@@ -37,6 +38,7 @@ export function RodadasScreen() {
   const [rodadaId, setRodadaId] = useState<number | null>(null);
   const [aba, setAba] = useState<Aba>('jogos');
   const { dados, carregando, erro, recarregar } = useRecurso<GestaoRodadasApi>(rodadaId ? `/rodadas?rodada_id=${rodadaId}` : '/rodadas');
+  const regras = dados?.regras ?? REGRAS_PADRAO;
   const r = dados?.rodada;
   const classificacao = useRecurso<ClassificacaoRodadaApi>(aba === 'classificacao' && r ? `/rodadas/${r.id}/classificacao` : null);
 
@@ -294,7 +296,7 @@ export function RodadasScreen() {
                   <Input placeholder="Nome do jogador que fez o primeiro gol" value={semGols ? '' : resultado.primeiroGol} disabled={semGols}
                     autoFocus={resultado.focoGol} list="sugestoes-primeiro-gol"
                     onChange={e => setResultado({ ...resultado, primeiroGol: e.target.value })}
-                    hint={semGols ? 'Jogo sem gols (0 × 0): não há bônus de primeiro gol.' : 'Quem palpitou o mesmo jogador ganha +2 pontos. Maiúsculas e acentos não importam.'} />
+                    hint={semGols ? 'Jogo sem gols (0 × 0): não há bônus de primeiro gol.' : `Quem palpitou o mesmo jogador ganha +${regras.primeiroGol} ${regras.primeiroGol === 1 ? 'ponto' : 'pontos'}. Maiúsculas e acentos não importam.`} />
                   <datalist id="sugestoes-primeiro-gol">
                     {resultado.jogo.sugestoesPrimeiroGol.map(s => <option key={s.nome} value={s.nome} />)}
                   </datalist>
@@ -336,7 +338,7 @@ export function RodadasScreen() {
               </Select>
               <Input label="Data e hora (Brasília)" type="datetime-local" value={formJogo.data} onChange={e => setFormJogo({ ...formJogo, data: e.target.value })} />
             </div>
-            <Switch checked={formJogo.classico} onChange={v => setFormJogo({ ...formJogo, classico: v })} label="Clássico" description="Placar exato vale 5 e resultado 3; primeiro gol vale +2" />
+            <Switch checked={formJogo.classico} onChange={v => setFormJogo({ ...formJogo, classico: v })} label="Clássico" description={`Placar exato vale ${regras.classicoExato} e resultado ${regras.classicoResultado}; primeiro gol vale +${regras.primeiroGol}`} />
           </div>
         )}
       </Modal>

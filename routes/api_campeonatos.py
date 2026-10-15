@@ -1,15 +1,15 @@
 """Aba Campeonatos: campeonato do bolão, rodadas e tabela oficial."""
 import os
 
-from flask import current_app, flash, g, jsonify, request, url_for
+from flask import current_app, g, jsonify, request, url_for
 from flask_login import current_user
 
 from models import Rodada
 from routes.api import api, erro, requer_gestao
 from services.classificacao import buscar_classificacao
-from services.contexto_bolao import bolao_atual, lembrar_bolao, opcoes_rodadas, validar_rodada
+from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.estado_rodadas import estados_das_rodadas
-from services.grupos_bolao import campeonatos_do_grupo, criar_campeonato_no_grupo
+from services.grupos_bolao import campeonatos_do_grupo
 from services.escudos import escudo_time
 from services.gestao_campeonato import criar_rodada, editar_campeonato, excluir_rodada, rodada_tem_historico
 
@@ -61,22 +61,6 @@ def ver_campeonato():
         'adminGlobal': global_,
         'links': links,
     })
-
-
-@api.post('/campeonatos')
-@requer_gestao()
-def novo_campeonato():
-    """Cria mais um campeonato no bolão atual e já o seleciona."""
-    corpo = request.get_json(silent=True) or {}
-    try:
-        novo, copiados = criar_campeonato_no_grupo(bolao_atual(), corpo.get('nome'), corpo.get('ano'),
-                                                   corpo.get('codigoApi'), current_user)
-    except ValueError as e:
-        return erro(400, str(e))
-    lembrar_bolao(novo.id)
-    mensagem = f'Campeonato "{novo.campeonato.nome}" criado com {copiados} participantes do bolão.'
-    flash(mensagem, 'success')  # exibido após a interface recarregar no novo campeonato
-    return jsonify({'mensagem': mensagem, 'bolaoId': novo.id}), 201
 
 
 @api.put('/campeonato')

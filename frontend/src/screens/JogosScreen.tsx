@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlarmClock, CalendarClock, History, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { AlarmClock, CalendarClock, History, RefreshCw, CheckCircle2, ListOrdered, Table2 } from 'lucide-react';
+import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
 import { Header } from '@/components/layout/Header';
 import { JogoLinha } from '@/components/jogos/JogoLinha';
 import { SeletorRodadas } from '@/components/rodadas/SeletorRodadas';
@@ -38,6 +39,7 @@ export function JogosScreen() {
   const [rodadaId, setRodadaId] = useState<number | null>(null);
   const { dados, carregando, erro, recarregar } = useRecurso<AgendaApi>(rodadaId ? `/jogos?rodada_id=${rodadaId}` : '/jogos');
   const [atualizando, setAtualizando] = useState(false);
+  const [visao, setVisao] = useState<'jogos' | 'tabela'>('jogos');
   const automatico = useRef(false);
 
   const atualizarHorarios = useCallback(async (forcar: boolean) => {
@@ -75,8 +77,8 @@ export function JogosScreen() {
     <div>
       <Header
         title="Jogos"
-        subtitle="Próxima rodada e jogos atrasados"
-        actions={dados?.horarios.configurado ? (
+        subtitle={visao === 'tabela' ? 'Classificação do campeonato agora' : 'Próxima rodada e jogos atrasados'}
+        actions={visao === 'jogos' && dados?.horarios.configurado ? (
           <button onClick={() => atualizarHorarios(true)} disabled={atualizando} title="Buscar horários oficiais na API"
             className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors">
             <RefreshCw className={`w-4 h-4 ${atualizando ? 'animate-spin' : ''}`} />
@@ -85,9 +87,18 @@ export function JogosScreen() {
         ) : undefined}
       />
       <div className="p-4 md:p-8 space-y-6 pb-28 md:pb-8">
-        {erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
-        {!dados && carregando && <Carregando linhas={4} />}
-        {dados && r && (
+        <div role="tablist" aria-label="Visualização" className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+          {([['jogos', 'Jogos', ListOrdered], ['tabela', 'Tabela agora', Table2]] as const).map(([id, label, Icon]) => (
+            <button key={id} role="tab" aria-selected={visao === id} onClick={() => setVisao(id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${visao === id ? 'bg-white dark:bg-gray-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+              <Icon className="w-4 h-4" />{label}
+            </button>
+          ))}
+        </div>
+        {visao === 'tabela' && <TabelaOficial />}
+        {visao === 'jogos' && erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
+        {visao === 'jogos' && !dados && carregando && <Carregando linhas={4} />}
+        {visao === 'jogos' && dados && r && (
           <>
             {/* Navegação rápida entre rodadas */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 min-w-0">
@@ -169,7 +180,7 @@ export function JogosScreen() {
             </p>
           </>
         )}
-        {dados && !r && <p className="text-sm text-gray-400 text-center py-12">Nenhuma rodada cadastrada neste campeonato.</p>}
+        {visao === 'jogos' && dados && !r && <p className="text-sm text-gray-400 text-center py-12">Nenhuma rodada cadastrada neste campeonato.</p>}
       </div>
     </div>
   );

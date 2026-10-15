@@ -31,12 +31,15 @@ def validar_dados(nome, campeonato_nome, campeonato_ano, codigo_api):
     return nome, campeonato_nome, campeonato_ano, codigo_api
 
 
-def criar_bolao(usuario, nome, campeonato_nome, campeonato_ano, codigo_api, pessoas, selecionados):
+def criar_bolao(usuario, nome, campeonato_nome, campeonato_ano, codigo_api, pessoas, selecionados, regras=None):
     """Cria bolão + campeonato próprio; o criador entra como responsável e os nomes marcados
     viram participantes ativos (sem conta, palpites ou pontos copiados). Faz commit."""
     campeonato = Campeonato(nome=campeonato_nome, ano=campeonato_ano, codigo_api=codigo_api)
     novo = Bolao(nome=nome, campeonato=campeonato, criador=usuario,
                  permite_palpite_proprio=False, permite_lancamento_por_responsavel=True)
+    if regras:
+        from services.regras_pontuacao import aplicar_regras
+        aplicar_regras(novo, regras)  # sem regras: valores padrão do modelo
     db.session.add(novo)
     db.session.add(Participacao(bolao=novo, usuario=usuario,
         nome_exibicao=usuario.nome, papel='responsavel', status='ativo'))

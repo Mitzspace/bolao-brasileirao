@@ -13,55 +13,38 @@ def selecionar(client, bolao_id):
     return client.post('/interface/selecionar', data={'bolao_id': bolao_id})
 
 
-def test_criar_e_alternar_campeonato_isolado(client, gestao):
-    usuario, boloes = gestao
-    principal = boloes[0]
-    coresp = Participante(nome='Co-responsável', email='co@example.com', senha=SENHA_TESTE)
-    ana = Participacao(bolao=principal, nome_exibicao='Ana', email='ana@example.com')
-    saiu = Participacao(bolao=principal, nome_exibicao='Saiu', status='removido')
-    r1 = Rodada(nome='Rodada 1', campeonato=principal.campeonato)
-    jogo = Jogo(time_casa='A', time_fora='B', rodada=r1)
-    db.session.add_all([coresp, ana, saiu, jogo,
-                        Participacao(bolao=principal, usuario=coresp, nome_exibicao='Co', papel='responsavel')])
-    db.session.flush()
-    db.session.add_all([Resultado(jogo=jogo, gols_casa_real=1, gols_fora_real=0),
-                        Palpite(participacao=ana, jogo=jogo, gols_casa=1, gols_fora=0)])
-    db.session.commit()
-
-    entrar(client, usuario)
-    selecionar(client, principal.id)
-    resposta = client.post('/interface/api/campeonatos', json={'nome': 'Copa do Brasil', 'ano': 2026, 'codigoApi': 'CDB'})
-    assert resposta.status_code == 201
-    novo = db.session.get(Bolao, resposta.get_json()['bolaoId'])
-    assert novo.grupo_id == principal.id and novo.nome == principal.nome
-    assert novo.campeonato_id != principal.campeonato_id
-    nomes = sorted((p.nome_exibicao, p.papel) for p in novo.participacoes)
-    assert nomes == [('Ana', 'participante'), ('Co', 'responsavel'), ('Responsável', 'responsavel')]
-
-    # O novo campeonato já fica selecionado e lista os dois campeonatos do bolão.
-    dados = client.get('/interface/api/campeonato').get_json()
-    assert dados['campeonato']['nome'] == 'Copa do Brasil' and dados['rodadas'] == []
-    assert [c['nome'] for c in dados['campeonatosDoBolao']] == [principal.campeonato.nome, 'Copa do Brasil']
-
-    # Palpites e classificação não se misturam.
-    top = client.get('/interface/api/dashboard').get_json()['top5']
-    assert all(i['pontos'] == 0 for i in top)
-    assert {i['participante'].nome: i['pontos'] for i in calcular_ranking(principal)}['Ana'] == 3
-
-    # O co-responsável também acessa o novo campeonato.
-    assert any(p.usuario_id == coresp.id for p in novo.participacoes)
-    # Volta ao campeonato original pela seleção normal.
-    selecionar(client, principal.id)
-    assert client.get('/interface/api/campeonato').get_json()['campeonato']['id'] == principal.campeonato_id
-
-
-def test_criar_campeonato_valida_dados(client, gestao):
+def test_interface_nao_cria_mais_campeonato_no_mesmo_bolao(client, gestao):
+    """Cada campeonato é um bolão separado: novos campeonatos nascem pelo "Novo bolão"."""
     usuario, boloes = gestao
     entrar(client, usuario)
     selecionar(client, boloes[0].id)
-    assert client.post('/interface/api/campeonatos', json={'nome': '', 'ano': 2026}).status_code == 400
-    assert client.post('/interface/api/campeonatos', json={'nome': 'X', 'ano': 'abc'}).status_code == 400
+    resposta = client.post('/interface/api/campeonatos', json={'nome': 'Copa do Brasil', 'ano': 2026})
+    assert resposta.status_code in (404, 405) and 'erro' in resposta.get_json()
     assert Bolao.query.count() == 3
+    assert [c['bolaoId'] for c in client.get('/interface/api/campeonato').get_json()['campeonatosDoBolao']] == [boloes[0].id]
+
+
+def test_migracao_separa_campeonatos_agrupados(app, gestao, tmp_path):
+    import sqlite3
+    from migrations.separar_campeonatos import migrar
+    banco = tmp_path / 'banco.db'
+    con = sqlite3.connect(banco)
+    con.executescript("""
+        CREATE TABLE campeonato (id INTEGER PRIMARY KEY, nome TEXT, ano INTEGER);
+        CREATE TABLE bolao (id INTEGER PRIMARY KEY, nome TEXT, campeonato_id INTEGER, grupo_id INTEGER);
+        INSERT INTO campeonato VALUES (1, 'Brasileirão', 2026), (2, 'Copa do Brasil', 2026), (3, 'Copa', NULL);
+        INSERT INTO bolao VALUES (1, 'Brasileirão 2026', 1, NULL), (2, 'Brasileirão 2026', 2, 1),
+                                 (3, 'Outro nome', 3, 1), (4, 'Sozinho', 1, NULL);
+    """)
+    con.commit()
+    con.close()
+    backup, renomeados = migrar(banco)
+    assert backup.exists() and renomeados == [('Brasileirão 2026', 'Copa do Brasil 2026')]
+    con = sqlite3.connect(banco)
+    assert con.execute('SELECT id, nome, grupo_id FROM bolao ORDER BY id').fetchall() == [
+        (1, 'Brasileirão 2026', None), (2, 'Copa do Brasil 2026', None), (3, 'Outro nome', None), (4, 'Sozinho', None)]
+    con.close()
+    assert migrar(banco) == (None, [])  # pode rodar de novo sem efeito
 
 
 def test_grupo_de_outro_responsavel_nao_aparece(client, gestao):

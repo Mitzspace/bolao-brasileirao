@@ -4,6 +4,11 @@ Cada campeonato do bolão é um registro Bolao próprio, com seus jogos, rodadas
 palpites e classificação totalmente isolados (todas as regras existentes já
 trabalham por bolão). Os campeonatos extras apontam para o bolão principal em
 grupo_id; a interface mostra o grupo como um único bolão com vários campeonatos.
+
+Hoje cada campeonato é um bolão separado: a interface não cria mais grupos e a
+migração migrations/separar_campeonatos.py desfez os existentes. A estrutura
+(coluna grupo_id e estas funções) fica para a ideia futura de vários campeonatos
+no mesmo bolão, que exigirá também trocar de campeonato na aba Jogos.
 """
 from database import db
 from models import Bolao, Campeonato, Participacao
@@ -29,6 +34,8 @@ def criar_campeonato_no_grupo(bolao, nome, ano, codigo_api, usuario):
                  permite_lancamento_por_responsavel=bolao.permite_lancamento_por_responsavel,
                  pontua_desde_entrada=bolao.pontua_desde_entrada,
                  politica_entrada_tardia=bolao.politica_entrada_tardia)
+    from services.regras_pontuacao import aplicar_regras, regras_do_bolao
+    aplicar_regras(novo, regras_do_bolao(bolao))
     db.session.add(novo)
     copiados = 0
     for pessoa in Participacao.query.filter_by(bolao_id=bolao.id, status='ativo').order_by(Participacao.id).all():

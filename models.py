@@ -54,6 +54,12 @@ class Bolao(db.Model):
     # Vários campeonatos no mesmo bolão: cada campeonato é um Bolao próprio (jogos,
     # palpites e classificação isolados) ligado ao bolão principal por grupo_id.
     grupo_id = db.Column(db.Integer, db.ForeignKey("bolao.id"), nullable=True)
+    # Regras de pontuação do bolão (valem para todas as rodadas, inclusive as já jogadas).
+    pontos_comum_exato = db.Column(db.Integer, nullable=False, default=3, server_default="3")
+    pontos_comum_resultado = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+    pontos_classico_exato = db.Column(db.Integer, nullable=False, default=5, server_default="5")
+    pontos_classico_resultado = db.Column(db.Integer, nullable=False, default=3, server_default="3")
+    pontos_primeiro_gol = db.Column(db.Integer, nullable=False, default=2, server_default="2")
     __table_args__ = (db.CheckConstraint(
         "politica_entrada_tardia IN ('zero', 'fora_da_conta')", name="bolao_entrada_tardia"),)
     campeonato = db.relationship("Campeonato", backref="boloes")

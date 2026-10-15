@@ -5,10 +5,11 @@ import { Input, Select } from '@/components/ui/Form';
 import { Avatar } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import type { FontesBolaoApi } from '@/types';
+import { REGRAS_PADRAO, type FontesBolaoApi } from '@/types';
+import { EditorRegras, paraEdicao, validarRegras } from './EditorRegras';
 
-const ETAPAS = ['Dados do bolão', 'Campeonato', 'Participantes'];
-const vazio = () => ({ nome: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: 'BSA', origemId: '', marcados: [] as number[] });
+const ETAPAS = ['Dados do bolão', 'Campeonato', 'Regras', 'Participantes'];
+const vazio = () => ({ nome: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: 'BSA', origemId: '', marcados: [] as number[], regras: paraEdicao(REGRAS_PADRAO) });
 
 /** Assistente do Bolt adaptado à criação real: nome, campeonato próprio e cópia opcional de nomes. */
 export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () => void }) {
@@ -29,6 +30,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
   const nomeOk = form.nome.trim().length >= 2 && form.nome.trim().length <= 100;
   const campeonatoOk = !!form.campeonato.trim() && /^\d{1,4}$/.test(form.ano) && Number(form.ano) >= 1;
   const pessoas = form.origemId ? fontes?.pessoas ?? [] : [];
+  const regras = validarRegras(form.regras);
   const todos = pessoas.length > 0 && pessoas.every(p => form.marcados.includes(p.id));
 
   const criar = async () => {
@@ -36,7 +38,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
     try {
       await api.post('/boloes', {
         nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.codigoApi,
-        origemId: form.origemId ? Number(form.origemId) : null, participacaoIds: form.marcados,
+        origemId: form.origemId ? Number(form.origemId) : null, participacaoIds: form.marcados, regras: regras.regras,
       });
       // Abre a interface já no bolão novo, na aba Participantes (como a tela atual).
       window.location.hash = 'participantes';
@@ -47,7 +49,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
     }
   };
 
-  const podeAvancar = etapa === 0 ? nomeOk : campeonatoOk;
+  const podeAvancar = etapa === 0 ? nomeOk : etapa === 1 ? campeonatoOk : !!regras.regras;
 
   return (
     <Modal open={aberto} onClose={fechar} title="Novo bolão" size="lg"
@@ -56,7 +58,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
         {etapa < ETAPAS.length - 1 ? (
           <button onClick={() => setEtapa(etapa + 1)} disabled={!podeAvancar} className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-50">Avançar</button>
         ) : (
-          <button onClick={criar} disabled={salvando || !nomeOk || !campeonatoOk} className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors flex items-center gap-2 disabled:opacity-60">
+          <button onClick={criar} disabled={salvando || !nomeOk || !campeonatoOk || !regras.regras} className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors flex items-center gap-2 disabled:opacity-60">
             <Check className="w-4 h-4" /> {salvando ? 'Criando…' : 'Criar bolão'}
           </button>
         )}
@@ -93,6 +95,14 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
       )}
 
       {etapa === 2 && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-400">Já vêm com as regras atuais. Dá para mudar depois em Bolões › Ver classificação › Regras.</p>
+          <EditorRegras valores={form.regras} onChange={v => setForm({ ...form, regras: v })} />
+          {regras.erro && <p role="alert" className="text-sm text-red-600">{regras.erro}</p>}
+        </div>
+      )}
+
+      {etapa === 3 && (
         <div className="space-y-3">
           <Select label="Copiar nomes de outro bolão (opcional)" value={form.origemId} onChange={e => setForm({ ...form, origemId: e.target.value, marcados: [] })}>
             <option value="">Começar sem copiar participantes</option>

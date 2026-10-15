@@ -31,7 +31,7 @@ export function ConfiguracoesScreen() {
     setAbaEstado(nova);
     try { localStorage.setItem(CHAVE, nova); } catch { /* a aba só não fica lembrada */ }
   };
-  const subtitulo = bolao ? `${bolao.nome} · ${bolao.chave}` : undefined;
+  const subtitulo = bolao ? `${bolao.nome} · ${bolao.campeonato} ${bolao.ano ?? ''}` : undefined;
 
   const abas = (
     <div role="tablist" aria-label="Seções das configurações" className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit max-w-full overflow-x-auto no-scrollbar">

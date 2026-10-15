@@ -62,7 +62,11 @@ export function BoloesScreen() {
                     </div>
                   </div>
                   <h3 className="font-bold text-gray-900 dark:text-white text-lg break-words">{principal.nome}</h3>
-                  <p className="text-sm text-gray-400 mb-4">{principal.chave} · {grupo.length} {grupo.length === 1 ? 'campeonato' : 'campeonatos'}</p>
+                  {(() => {
+                    const legenda = grupo.length === 1 ? `${principal.campeonato} ${principal.ano ?? ''}`.trim() : `${grupo.length} campeonatos`;
+                    // Sem repetir quando o nome do bolão já é o do campeonato.
+                    return <p className="text-sm text-gray-400 mb-4 min-h-[1.25rem]">{legenda !== principal.nome ? legenda : ''}</p>;
+                  })()}
 
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
@@ -86,7 +90,7 @@ export function BoloesScreen() {
                         <input type="hidden" name="bolao_id" value={b.id} />
                         <input type="hidden" name="view" value="dashboard" />
                         <button className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${b.id === dados.bolaoAtualId ? 'bg-brand-600 hover:bg-brand-700 text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-700'}`}>
-                          <span className="truncate">{b.id === dados.bolaoAtualId ? 'Gerenciando' : 'Gerenciar'} · {b.campeonato} {b.ano ?? ''}</span>
+                          <span className="truncate">{b.id === dados.bolaoAtualId ? 'Gerenciando' : 'Gerenciar'}{grupo.length > 1 ? ` · ${b.campeonato} ${b.ano ?? ''}` : ' este bolão'}</span>
                           <ArrowRight className="w-4 h-4 shrink-0" />
                         </button>
                       </form>

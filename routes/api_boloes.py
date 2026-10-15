@@ -1,14 +1,15 @@
 """Aba Bolões da nova interface: lista, classificação completa e criação de bolão."""
-from flask import abort, flash, g, jsonify, request
+from flask import abort, current_app, flash, g, jsonify, request
 from flask_login import current_user
 
+from database import db
 from routes.api import api, erro, requer_gestao
-from routes.api_serializacao import serializar_item_ranking
+from routes.api_serializacao import serializar_item_ranking, serializar_regras
 from services.contexto_bolao import lembrar_bolao, opcoes_rodadas
 from services.criacao_bolao import (criar_bolao, fontes_de_copia, mensagem_criacao,
                                     pessoas_da_origem, validar_dados)
 from services.ranking import calcular_ranking, ranking_com_variacao
-from services.regras_pontuacao import REGRAS_PONTUACAO
+from services.regras_pontuacao import aplicar_regras, validar_regras
 from services.responsaveis import bloquear_bolao
 from services.resumo_boloes import resumos_boloes
 from services.textos_whatsapp import texto_classificacao_compartilhar
@@ -40,6 +41,34 @@ def listar_boloes():
         'rodada': resumos[b.id]['rodada'].nome if resumos[b.id]['rodada'] else None,
         'palpitesFaltantes': resumos[b.id]['pendencias'],
     } for b in boloes]})
+
+
+def ler_regras(dados):
+    """Converte o JSON da interface (camelCase) e valida; levanta ValueError."""
+    dados = dados if isinstance(dados, dict) else {}
+    return validar_regras({'comum_exato': dados.get('comumExato'), 'comum_resultado': dados.get('comumResultado'),
+                           'classico_exato': dados.get('classicoExato'),
+                           'classico_resultado': dados.get('classicoResultado'),
+                           'primeiro_gol': dados.get('primeiroGol')})
+
+
+@api.put('/boloes/<int:id>/regras')
+@requer_gestao(precisa_bolao=False)
+def salvar_regras(id):
+    """Regras do bolão; valem para todas as rodadas, inclusive as já jogadas."""
+    bolao = _bolao_gerido(id)
+    try:
+        regras = ler_regras(request.get_json(silent=True))
+    except ValueError as e:
+        return erro(400, str(e))
+    bloquear_bolao(bolao.id)  # confirma de novo que é responsável, sob bloqueio
+    antes = serializar_regras(bolao)
+    aplicar_regras(bolao, regras)
+    db.session.commit()
+    current_app.logger.info('Regras do bolão %s alteradas por %s: %s -> %s', bolao.id, current_user.id,
+                            antes, serializar_regras(bolao))
+    return jsonify({'mensagem': 'Regras salvas. A classificação foi recalculada com os novos valores.',
+                    'regras': serializar_regras(bolao)})
 
 
 @api.get('/boloes/<int:id>/classificacao')
@@ -74,13 +103,7 @@ def classificacao_bolao(id):
         'variacaoReferencia': referencia,
         'ranking': [serializar_item_ranking(i) for i in ranking],
         'textoWhatsapp': texto_classificacao_compartilhar(bolao, ranking, rodada),
-        'regras': {
-            'comumExato': REGRAS_PONTUACAO['comum_exato'], 'comumResultado': REGRAS_PONTUACAO['comum_resultado'],
-            'classicoExato': REGRAS_PONTUACAO['classico_exato'],
-            'classicoResultado': REGRAS_PONTUACAO['classico_resultado'],
-            'primeiroGol': REGRAS_PONTUACAO['primeiro_gol'],
-            'politicaEntrada': bolao.politica_entrada_tardia,
-        },
+        'regras': {**serializar_regras(bolao), 'politicaEntrada': bolao.politica_entrada_tardia},
     })
 
 
@@ -128,9 +151,15 @@ def novo_bolao():
         dados = validar_dados(txt('nome'), txt('campeonato'), ano, txt('codigoApi'))
     except ValueError as e:
         return erro(400, str(e))
+    regras = None
+    if c.get('regras') is not None:
+        try:
+            regras = ler_regras(c.get('regras'))
+        except ValueError as e:
+            return erro(400, str(e))
     if origem:
         bloquear_bolao(origem.id)
-    novo = criar_bolao(current_user, *dados, pessoas, selecionados)
+    novo = criar_bolao(current_user, *dados, pessoas, selecionados, regras)
     lembrar_bolao(novo.id)
     mensagem = mensagem_criacao(selecionados)
     flash(mensagem, 'success')

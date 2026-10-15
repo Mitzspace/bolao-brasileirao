@@ -7,7 +7,7 @@ from sqlalchemy import func
 from database import db
 from models import Jogo, Palpite, Participacao, Rodada
 from routes.api import api, erro, requer_gestao
-from routes.api_serializacao import serializar_item_ranking, serializar_jogo
+from routes.api_serializacao import serializar_item_ranking, serializar_jogo, serializar_regras
 from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.elegibilidade import participa_na_rodada
 from services.pontuacao import normalizar_nome_jogador
@@ -88,6 +88,7 @@ def gestao_rodadas():
                       'grade': url_for('participante.ver_grade_palpites', id=rodada.id)},
         } if rodada else None,
         'jogos': [_detalhar(j, bolao.campeonato_id, palpites, bolao.id) for j in jogos],
+        'regras': serializar_regras(bolao),
     })
 
 

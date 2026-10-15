@@ -92,7 +92,13 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
 
     @app.context_processor
     def regras_pontuacao():
-        return {"regras_pontuacao": REGRAS_PONTUACAO}
+        # Telas antigas mostram as regras do bolão selecionado (ou as padrão).
+        from services.contexto_bolao import bolao_atual
+        from services.regras_pontuacao import regras_do_bolao
+        try:
+            return {"regras_pontuacao": regras_do_bolao(bolao_atual())}
+        except Exception:
+            return {"regras_pontuacao": REGRAS_PONTUACAO}
 
     from routes.auth import auth
     from routes.admin import admin
@@ -171,6 +177,8 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
                 raise RuntimeError('Migração pendente: execute python -m migrations.situacao_palpite CAMINHO_DO_BANCO. Consulte AJUSTES_PALPITES_SYNC.md.')
             if 'grupo_id' not in {c['name'] for c in inspector.get_columns('bolao')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.grupo_bolao CAMINHO_DO_BANCO. Consulte MULTIPLOS_CAMPEONATOS.md.')
+            if 'pontos_primeiro_gol' not in {c['name'] for c in inspector.get_columns('bolao')}:
+                raise RuntimeError('Migração pendente: execute python -m migrations.regras_bolao CAMINHO_DO_BANCO. Consulte REGRAS_POR_BOLAO.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')

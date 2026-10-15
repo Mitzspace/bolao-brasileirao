@@ -52,3 +52,11 @@ def serializar_item_ranking(item):
         'cravadas': item['cravadas'],
         'acertosVencedor': item['acertos_vencedor'],
     }
+
+
+def serializar_regras(bolao):
+    from services.regras_pontuacao import regras_do_bolao
+    r = regras_do_bolao(bolao)
+    return {'comumExato': r['comum_exato'], 'comumResultado': r['comum_resultado'],
+            'classicoExato': r['classico_exato'], 'classicoResultado': r['classico_resultado'],
+            'primeiroGol': r['primeiro_gol']}

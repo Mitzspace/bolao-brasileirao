@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Calendar, Check, Download, ExternalLink, Grid3x3, MoreVertical, Pencil, Plus, RefreshCw, Target, Trash2, Trophy } from 'lucide-react';
+import { Calendar, Download, ExternalLink, Grid3x3, MoreVertical, Pencil, Plus, RefreshCw, Target, Trash2, Trophy } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -32,8 +32,6 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
   const [novaRodada, setNovaRodada] = useState<{ nome: string; aberta: boolean } | null>(null);
   const [excluir, setExcluir] = useState<RodadaGestao | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const [novoCampeonato, setNovoCampeonato] = useState<{ nome: string; ano: string; codigoApi: string } | null>(null);
-  const { dados: bootstrap, view } = useApp();
 
   const executar = async <T extends { mensagem?: string }>(acao: () => Promise<T>) => {
     try {
@@ -68,20 +66,6 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
     catch { /* aviso já exibido */ } finally { setSalvando(false); }
   };
 
-  const criarCampeonato = async () => {
-    if (!novoCampeonato) return;
-    setSalvando(true);
-    try {
-      await api.post<{ bolaoId: number }>('/campeonatos', novoCampeonato);
-      // Recarrega a interface já no novo campeonato (o servidor mostra a mensagem de sucesso).
-      window.location.hash = 'configuracoes';
-      window.location.reload();
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Não foi possível criar o campeonato.', 'error');
-      setSalvando(false);
-    }
-  };
-
   const c = dados?.campeonato;
   const progresso = c && c.totalRodadas ? Math.round((c.rodadasConcluidas / c.totalRodadas) * 100) : 0;
 
@@ -105,28 +89,6 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
 
         {dados && c && (
           <>
-            {/* Campeonatos do bolão */}
-            <div className="flex flex-wrap items-center gap-2">
-              {dados.campeonatosDoBolao.map(cb => cb.atual ? (
-                <span key={cb.bolaoId} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold shadow-sm">
-                  <Check className="w-4 h-4" />{cb.nome} {cb.ano ?? ''}
-                </span>
-              ) : (
-                <form key={cb.bolaoId} action={bootstrap.links.selecionar} method="POST">
-                  <input type="hidden" name="csrf_token" value={bootstrap.csrfToken} />
-                  <input type="hidden" name="bolao_id" value={cb.bolaoId} />
-                  <input type="hidden" name="view" value={view} />
-                  <button className="px-3.5 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-brand-300 hover:text-brand-700 transition-colors">
-                    {cb.nome} {cb.ano ?? ''}
-                  </button>
-                </form>
-              ))}
-              <button onClick={() => setNovoCampeonato({ nome: '', ano: String(new Date().getFullYear()), codigoApi: 'BSA' })}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-dashed border-brand-300 dark:border-brand-700 text-sm font-semibold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors">
-                <Plus className="w-4 h-4" /> Novo campeonato
-              </button>
-            </div>
-
             {/* Card do campeonato, no estilo do Bolt */}
             <div className="grid lg:grid-cols-3 gap-4">
               <div className="lg:col-span-1 bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 relative animate-slide-up">
@@ -280,27 +242,6 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
         )}
       </Modal>
 
-      <Modal open={!!novoCampeonato} onClose={() => setNovoCampeonato(null)} title="Novo campeonato no bolão"
-        footer={<>
-          <button onClick={() => setNovoCampeonato(null)} className={botaoSecundario}>Cancelar</button>
-          <button onClick={criarCampeonato} disabled={salvando} className={botaoPrimario}>Criar campeonato</button>
-        </>}>
-        {novoCampeonato && (
-          <div className="space-y-4">
-            <Input label="Nome do campeonato" placeholder="Ex.: Copa do Brasil" value={novoCampeonato.nome} maxLength={100}
-              onChange={e => setNovoCampeonato({ ...novoCampeonato, nome: e.target.value })} />
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Temporada" type="number" value={novoCampeonato.ano} onChange={e => setNovoCampeonato({ ...novoCampeonato, ano: e.target.value })} />
-              <Input label="Código na API" value={novoCampeonato.codigoApi} maxLength={20} hint="Ex.: BSA, CDB, CL"
-                onChange={e => setNovoCampeonato({ ...novoCampeonato, codigoApi: e.target.value.toUpperCase() })} />
-            </div>
-            <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-              <p>Os participantes e responsáveis ativos deste bolão são copiados para o novo campeonato.</p>
-              <p>Jogos, rodadas, palpites e classificação são separados por campeonato. Depois de criar, cadastre as rodadas e os jogos{dados?.links.sync ? ' ou use Sincronizar com a API' : ''}.</p>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       <ConfirmDialog
         open={!!excluir}

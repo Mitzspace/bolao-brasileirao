@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, Share2, Shield, Trophy, Users } from 'lucide-react';
+import { Fragment, useEffect, useState } from 'react';
+import { BookOpen, Check, ChevronDown, ChevronRight, Share2, Shield, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -8,6 +8,10 @@ import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Switch } from '@/components/ui/Form';
 import { Variacao } from '@/components/ui/Variacao';
 import { useRecurso } from '@/lib/useRecurso';
+import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { EditorRegras, paraEdicao, validarRegras, type RegrasEditaveis } from './EditorRegras';
 import type { ClassificacaoBolaoApi } from '@/types';
 import { CompartilharClassificacao } from './CompartilharClassificacao';
 import { CORES_MEDALHA, Podio } from './Podio';
@@ -45,7 +49,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
     <div>
       <Header
         title={dados?.bolao.nome ?? 'Bolão'}
-        subtitle={dados ? `${dados.bolao.campeonato} ${dados.bolao.ano ?? ''} · ${dados.bolao.chave}` : undefined}
+        subtitle={dados ? `${dados.bolao.campeonato} ${dados.bolao.ano ?? ''}` : undefined}
         actions={dados ? (
           <button onClick={() => setCompartilhar(true)} aria-label="Compartilhar classificação"
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-sm font-semibold hover:bg-brand-100 transition-colors">
@@ -199,34 +203,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
               </div>
             )}
 
-            {aba === 'regras' && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-slide-up">
-                <h3 className="font-bold text-gray-900 dark:text-white mb-4">Regras de pontuação</h3>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Placar exato', desc: 'Jogo comum', pts: dados.regras.comumExato },
-                    { label: 'Vencedor ou empate', desc: 'Jogo comum, sem acertar o placar', pts: dados.regras.comumResultado },
-                    { label: 'Placar exato em clássico', desc: 'Jogo marcado como clássico', pts: dados.regras.classicoExato },
-                    { label: 'Vencedor ou empate em clássico', desc: 'Clássico, sem acertar o placar', pts: dados.regras.classicoResultado },
-                    { label: 'Primeiro gol', desc: 'Bônus no clássico ao acertar quem marcou primeiro (não vale em 0×0)', pts: dados.regras.primeiroGol, extra: true },
-                  ].map(r => (
-                    <div key={r.label} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{r.label}</p>
-                        <p className="text-xs text-gray-400">{r.desc}</p>
-                      </div>
-                      <span className="shrink-0 w-16 h-10 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-sm font-bold text-gray-900 dark:text-white">{r.extra ? '+' : ''}{r.pts} pts</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 flex gap-2">
-                  <Shield className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" />
-                  <p>Palpite marcado como "não enviou" ou "fora do prazo" vale 0. {dados.regras.politicaEntrada === 'fora_da_conta'
-                    ? 'Rodadas anteriores à entrada de um participante ficam fora da conta.'
-                    : 'Rodadas anteriores à entrada de um participante contam com zero pontos.'}</p>
-                </div>
-              </div>
-            )}
+            {aba === 'regras' && <AbaRegras bolaoId={bolaoId} dados={dados} onSalvo={recarregar} />}
 
             <button onClick={onVoltar} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
               <ChevronRight className="w-4 h-4 rotate-180" /> Voltar para bolões
@@ -236,6 +213,54 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+
+/** Regras do bolão, editáveis; a mudança vale para todas as rodadas (retroativa). */
+function AbaRegras({ bolaoId, dados, onSalvo }: { bolaoId: number; dados: ClassificacaoBolaoApi; onSalvo: () => Promise<void> }) {
+  const showToast = useToast();
+  const [valores, setValores] = useState<RegrasEditaveis>(() => paraEdicao(dados.regras));
+  const [confirmar, setConfirmar] = useState(false);
+  useEffect(() => { setValores(paraEdicao(dados.regras)); }, [dados.regras]);
+  const { regras, erro } = validarRegras(valores);
+  const alterado = JSON.stringify(valores) !== JSON.stringify(paraEdicao(dados.regras));
+
+  const salvar = async () => {
+    try {
+      const r = await api.put<{ mensagem: string }>(`/boloes/${bolaoId}/regras`, regras);
+      showToast(r.mensagem);
+      await onSalvo();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível salvar as regras.', 'error');
+      throw e;
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-slide-up">
+      <h3 className="font-bold text-gray-900 dark:text-white mb-1">Regras de pontuação</h3>
+      <p className="text-sm text-gray-400 mb-4">Valem só para este bolão e para todas as rodadas, inclusive as já jogadas.</p>
+      <EditorRegras valores={valores} onChange={setValores} />
+      {erro && <p role="alert" className="mt-3 text-sm text-red-600">{erro}</p>}
+      <div className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 flex gap-2">
+        <Shield className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" />
+        <p>Palpite marcado como "não enviou" ou "fora do prazo" vale 0. {dados.regras.politicaEntrada === 'fora_da_conta'
+          ? 'Rodadas anteriores à entrada de um participante ficam fora da conta.'
+          : 'Rodadas anteriores à entrada de um participante contam com zero pontos.'} Créditos de bônus importados do histórico não mudam.</p>
+      </div>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <button onClick={() => setConfirmar(true)} disabled={!regras || !alterado}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition-colors disabled:opacity-50">
+          <Check className="w-4 h-4" /> Salvar regras
+        </button>
+        {alterado && <button onClick={() => setValores(paraEdicao(dados.regras))} className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">Desfazer</button>}
+      </div>
+      <ConfirmDialog open={confirmar} onClose={() => setConfirmar(false)} onConfirm={salvar}
+        title="Recalcular a pontuação?"
+        message="As novas regras valem para todas as rodadas, inclusive as já jogadas. A classificação, a grade e o gráfico de todos os participantes serão recalculados. Nenhum palpite é alterado e dá para voltar aos valores antigos depois."
+        confirmLabel="Salvar e recalcular" />
     </div>
   );
 }
