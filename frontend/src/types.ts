@@ -225,3 +225,49 @@ export interface GradeApi {
   }[];
   textoWhatsapp: string;
 }
+
+/** GET /interface/api/participantes */
+export type StatusParticipacao = 'ativo' | 'desistente' | 'removido' | 'saiu';
+export interface ParticipanteApi {
+  id: number;
+  nome: string;
+  email: string;
+  observacao: string;
+  status: StatusParticipacao;
+  responsavel: boolean;
+  temConta: boolean;
+  rodadaEntrada: { id: number; nome: string } | null;
+  rodadaDesistencia: { id: number; nome: string } | null;
+  motivoDesistencia: string;
+  pontos: number;
+  palpites: number;
+  cravadas: number;
+  posicao: number | null;
+  variacao: number | null;
+  duplicado: boolean;
+  souEu: boolean;
+}
+export interface ParticipantesApi {
+  participantes: ParticipanteApi[];
+  contagens: { todos: number; ativos: number; desistentes: number };
+  rodadas: { id: number; nome: string }[];
+  rodadaPadraoId: number | null;
+  politicaEntrada: 'zero' | 'fora_da_conta' | string;
+  regraDesistencia: string;
+  variacaoReferencia: string | null;
+}
+
+export interface PalpiteGuardado { id: number; rodada: string; jogo: string; palpite: string; primeiroGol: string; jaGuardado: boolean }
+
+/** GET /interface/api/participantes/:id */
+export interface DetalheParticipanteApi {
+  evolucao: { rodadaId: number; rodada: string; curto: string; pontos: number | null; cravadas: number; palpites: number; acumulado: number; posicao: number; participa: boolean }[];
+  historico: { acao: string; autor: string; quando: string; mudancas: [string, string | null, string | null][] }[];
+  guardados: PalpiteGuardado[];
+}
+
+export type AcaoDesistencia = 'registrar' | 'corrigir' | 'reativar' | 'restaurar';
+export interface PreviaDesistencia {
+  previa: { acao: AcaoDesistencia; rodada: string | null; motivo: string; posteriores: PalpiteGuardado[]; restauraveis: PalpiteGuardado[] };
+  token: string;
+}

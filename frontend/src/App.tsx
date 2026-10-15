@@ -5,16 +5,15 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { BoloesScreen } from '@/screens/BoloesScreen';
-import { TelaEmMigracao } from '@/screens/TelaEmMigracao';
 import { Dashboard } from '@/screens/Dashboard';
 import { JogosScreen } from '@/screens/JogosScreen';
 import { ConfiguracoesScreen } from '@/screens/ConfiguracoesScreen';
 import { RodadasScreen } from '@/screens/RodadasScreen';
 import { PalpitesScreen } from '@/screens/PalpitesScreen';
+import { ParticipantesScreen } from '@/screens/ParticipantesScreen';
 
 function CurrentScreen() {
-  const { dados, bolao, view } = useApp();
-  const l = dados.links;
+  const { bolao, view } = useApp();
   // Sem bolão selecionado, todas as abas levam à escolha do bolão.
   if (view === 'boloes' || !bolao) return <BoloesScreen />;
   switch (view) {
@@ -27,8 +26,7 @@ function CurrentScreen() {
     case 'rodadas':
       return <RodadasScreen />;
     case 'participantes':
-      return <TelaEmMigracao titulo="Participantes" descricao="Cadastro, entrada, desistência e pontos dos participantes. Enquanto esta aba é migrada, use a tela atual."
-        atalhos={[{ label: 'Abrir participantes', href: l.participantes, destaque: true }]} />;
+      return <ParticipantesScreen />;
     case 'campeonatos': // endereço antigo: os campeonatos agora ficam em Configurações
     case 'configuracoes':
       return <ConfiguracoesScreen />;

@@ -150,23 +150,17 @@ def dashboard():
 @admin_required
 def criar_participacao():
     from services.responsaveis import bloquear_bolao
-    from services.gestao_participantes import validar_dados_participante, tela_participantes
+    from services.gestao_participantes import tela_participantes
+    from services.participacoes import criar
     bolao = bolao_atual()
     bloquear_bolao(bolao.id)
-    nome = request.form.get('nome_exibicao', '').strip()
-    observacao = request.form.get('observacao', '').strip() or None
-    email = request.form.get('email', '').strip().lower() or None
-    erros = validar_dados_participante(bolao.id, nome, email)
-    rodada_id = request.form.get('rodada_entrada_id', type=int)
-    rodada = Rodada.query.filter_by(id=rodada_id, campeonato_id=bolao.campeonato_id).first() if rodada_id else None
-    if rodada is None or len(request.form.getlist('rodada_entrada_id')) != 1:
-        erros['rodada_entrada_id'] = 'Selecione uma rodada de entrada deste campeonato.'
+    _, erros = criar(bolao, request.form.get('nome_exibicao', '').strip(),
+                     request.form.get('email', '').strip().lower() or None,
+                     request.form.get('observacao', '').strip() or None,
+                     request.form.getlist('rodada_entrada_id'))
     if erros:
         db.session.rollback()
         return tela_participantes(erros=erros, dados=request.form, status_http=422)
-    db.session.add(Participacao(bolao_id=bolao.id, nome_exibicao=nome,
-                               papel='participante', status='ativo', observacao=observacao, email=email,
-                               rodada_entrada_id=rodada.id))
     db.session.commit()
     flash('Participante cadastrado sem conta de acesso.')
     return redirect(url_for('admin.listar_participantes'))
@@ -176,30 +170,17 @@ def criar_participacao():
 @admin_required
 def editar_participacao(id):
     from services.responsaveis import bloquear_bolao
-    from services.gestao_participantes import validar_dados_participante, tela_participantes
+    from services.gestao_participantes import tela_participantes
+    from services.participacoes import editar
     bloquear_bolao(bolao_atual().id)
     pessoa = Participacao.query.filter_by(id=id, bolao_id=bolao_atual().id).first_or_404()
-    nome = request.form.get('nome_exibicao', '').strip()
-    email = request.form.get('email', pessoa.email or '').strip().lower() or None
-    erros = validar_dados_participante(bolao_atual().id, nome, email, id)
-    responsavel = request.form.get('responsavel')
-    if responsavel is not None and responsavel not in {'sim', 'nao'}:
-        erros['responsavel'] = 'Selecione Sim ou Não.'
-    if responsavel == 'sim' and pessoa.status != 'ativo':
-        erros['responsavel'] = 'Reative o participante antes de torná-lo responsável.'
+    erros = editar(bolao_atual(), pessoa, request.form.get('nome_exibicao', '').strip(),
+                   request.form.get('email', pessoa.email or '').strip().lower() or None,
+                   request.form.get('responsavel'),
+                   request.form.get('observacao', '') if 'observacao' in request.form else None)
     if erros:
         db.session.rollback()
         return tela_participantes(erros=erros, dados=request.form, edicao_id=id, status_http=422)
-    if responsavel == 'nao':
-        from services.responsaveis import validar_retirada
-        validar_retirada(pessoa)
-        pessoa.papel = 'participante'
-    elif responsavel == 'sim':
-        pessoa.papel = 'responsavel'
-    pessoa.email = email
-    pessoa.nome_exibicao = nome
-    if 'observacao' in request.form:
-        pessoa.observacao = request.form.get('observacao', '').strip() or None
     db.session.commit()
     flash('Participante atualizado somente neste bolão.')
     return redirect(url_for('admin.listar_participantes'))
@@ -208,26 +189,11 @@ def editar_participacao(id):
 @admin.route('/participacoes/<int:id>/status', methods=['POST'])
 @admin_required
 def alterar_status_participacao(id):
-    from services.responsaveis import bloquear_bolao, validar_retirada
+    from services.responsaveis import bloquear_bolao
+    from services.participacoes import alterar_status
     bloquear_bolao(bolao_atual().id)
     pessoa = Participacao.query.filter_by(id=id, bolao_id=bolao_atual().id).populate_existing().first_or_404()
-    if pessoa.status == 'desistente':
-        abort(409, description='Use a tela de desistência para corrigir ou reativar com revisão dos palpites.')
-    acao = request.form.get('acao')
-    if acao == 'remover':
-        validar_retirada(pessoa)
-        if pessoa.status == 'ativo':
-            pessoa.status = 'removido'
-            pessoa.saiu_em = agora_utc()
-    elif acao == 'reativar':
-        # Reativação do registro não concede acesso administrativo implicitamente.
-        # O papel de responsável volta apenas pela tela de Configurações.
-        if pessoa.status != 'ativo':
-            pessoa.papel = 'participante'
-            pessoa.status = 'ativo'
-            pessoa.saiu_em = None
-    else:
-        abort(400)
+    alterar_status(pessoa, request.form.get('acao'))
     propria_remocao = pessoa.usuario_id == current_user.id and pessoa.status != 'ativo'
     db.session.commit()
     flash('Status atualizado; palpites, pontos e histórico foram preservados.')
@@ -239,9 +205,8 @@ def alterar_status_participacao(id):
 @admin.route('/participacoes/<int:id>/desistencia', methods=['GET', 'POST'])
 @admin_required
 def gerenciar_desistencia(id):
-    import hmac
-    from itsdangerous import URLSafeTimedSerializer, BadSignature
-    from services.contexto_bolao import opcoes_rodadas, ordem_rodada
+    from services.contexto_bolao import opcoes_rodadas
+    from services.participacoes import confirmacao_valida, erro_rodada_desistencia, gerar_confirmacao
     from services.desistencias import preparar, aplicar, historico_visivel
     from services.elegibilidade import REGRA_DESISTENCIA
     from services.responsaveis import bloquear_bolao
@@ -262,21 +227,13 @@ def gerenciar_desistencia(id):
     codigo = 200
     token = None
     if request.method == 'POST':
-        if acao in {'registrar', 'corrigir'} and (rodada is None or len(request.form.getlist('rodada_desistencia_id')) != 1):
-            erro, codigo = 'Selecione uma rodada de desistência deste campeonato.', 422
-        elif acao in {'registrar', 'corrigir'} and pessoa.rodada_entrada and (
-                ordem_rodada(rodada) < ordem_rodada(pessoa.rodada_entrada)):
-            erro, codigo = 'A desistência não pode ser anterior à rodada de entrada.', 422
+        erro_rodada = erro_rodada_desistencia(pessoa, acao, rodada, len(request.form.getlist('rodada_desistencia_id')))
+        if erro_rodada:
+            erro, codigo = erro_rodada, 422
         else:
             plano = preparar(pessoa, acao, rodada, motivo)
-            assinador = URLSafeTimedSerializer(current_app.secret_key, salt='confirmacao-desistencia-v1')
             if request.form.get('confirmar') == 'sim':
-                try:
-                    payload = assinador.loads(request.form.get('confirmacao', ''), max_age=1800)
-                    valido = (payload.get('autor') == current_user.id and
-                              hmac.compare_digest(payload.get('estado', ''), plano.fingerprint))
-                except (BadSignature, TypeError, AttributeError):
-                    valido = False
+                valido = confirmacao_valida(request.form.get('confirmacao', ''), plano, current_user.id)
                 restaurar = request.form.get('restaurar_palpites')
                 if not valido:
                     erro, codigo = 'A prévia expirou ou os dados mudaram. Confira a lista atualizada e confirme novamente.', 409
@@ -289,7 +246,7 @@ def gerenciar_desistencia(id):
                         return redirect(url_for('auth.logout'))
                     return redirect(url_for('admin.gerenciar_desistencia', id=id,
                                             acao='corrigir' if pessoa.status == 'desistente' else 'restaurar'))
-            token = assinador.dumps({'autor': current_user.id, 'estado': plano.fingerprint})
+            token = gerar_confirmacao(plano, current_user.id)
         db.session.rollback()  # A prévia nunca grava dados, nem mantém bloqueio.
     from models import ParticipacaoLog
     logs = ParticipacaoLog.query.filter_by(participacao_id=id).order_by(ParticipacaoLog.id.desc()).all()

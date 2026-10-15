@@ -32,7 +32,7 @@ export function PalpitesScreen() {
   const showToast = useToast();
   const { parametros } = useApp();
   const [rodadaId, setRodadaId] = useState<number | null>(parametros.rodadaId ?? null);
-  const [pessoaId, setPessoaId] = useState<number | null>(null);
+  const [pessoaId, setPessoaId] = useState<number | null>(parametros.participacaoId ?? null);
   const caminho = `/palpites?${new URLSearchParams({
     ...(rodadaId ? { rodada_id: String(rodadaId) } : {}), ...(pessoaId ? { participacao_id: String(pessoaId) } : {}),
   })}`;

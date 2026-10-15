@@ -1,11 +1,23 @@
 {
+  "src/components/participantes/GraficoPontos.tsx": {
+    "file": "assets/GraficoPontos-D0h1EzT5.js",
+    "name": "GraficoPontos",
+    "src": "src/components/participantes/GraficoPontos.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
   "src/main.tsx": {
-    "file": "assets/main-CMeoXDQj.js",
+    "file": "assets/main-B7nFWB37.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
+    "dynamicImports": [
+      "src/components/participantes/GraficoPontos.tsx"
+    ],
     "css": [
-      "assets/main-DjCjUw31.css"
+      "assets/main-Bo3N2PCP.css"
     ]
   }
 }

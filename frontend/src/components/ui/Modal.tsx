@@ -20,16 +20,18 @@ const sizeClasses = {
 export function Modal({ open, onClose, title, children, size = 'md', footer }: ModalProps) {
   useEffect(() => {
     if (!open) return;
+    const anterior = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const fecharComEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', fecharComEsc);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', fecharComEsc); };
+    return () => { document.body.style.overflow = anterior; window.removeEventListener('keydown', fecharComEsc); };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    // z-[60]: janelas sempre ficam por cima do painel lateral (Drawer, z-50).
+    <div data-janela-modal className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-label={title} className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-900 rounded-2xl shadow-2xl animate-scale-in max-h-[90vh] flex flex-col`}>
         {title && (

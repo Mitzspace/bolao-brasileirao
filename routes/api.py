@@ -52,6 +52,12 @@ def erro_http(e):
     return erro(e.code or 500, mensagem)
 
 
+# O app tem páginas HTML para 403/409/429; dentro da API o handler por código
+# do app venceria o genérico acima, então os códigos são registrados aqui também.
+for _codigo in (400, 401, 403, 409, 413, 422, 429):
+    api.register_error_handler(_codigo, erro_http)
+
+
 @api.errorhandler(Exception)
 def erro_inesperado(e):
     current_app.logger.exception('Erro na API da interface')
@@ -115,3 +121,4 @@ from routes import api_jogos  # noqa: E402,F401
 from routes import api_campeonatos  # noqa: E402,F401
 from routes import api_rodadas  # noqa: E402,F401
 from routes import api_palpites  # noqa: E402,F401
+from routes import api_participantes  # noqa: E402,F401

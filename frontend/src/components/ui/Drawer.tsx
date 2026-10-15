@@ -13,10 +13,12 @@ interface DrawerProps {
 export function Drawer({ open, onClose, title, children, width = 'max-w-lg', footer }: DrawerProps) {
   useEffect(() => {
     if (!open) return;
+    const anterior = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const fecharComEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Com uma janela aberta por cima do painel, o Esc fecha só a janela.
+    const fecharComEsc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('[data-janela-modal]')) onClose(); };
     window.addEventListener('keydown', fecharComEsc);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', fecharComEsc); };
+    return () => { document.body.style.overflow = anterior; window.removeEventListener('keydown', fecharComEsc); };
   }, [open, onClose]);
 
   if (!open) return null;
