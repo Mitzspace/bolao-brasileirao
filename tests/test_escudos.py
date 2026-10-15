@@ -24,16 +24,15 @@ def test_arquivo_ausente_e_fontes_invalidas(app,monkeypatch):
         assert fonte_segura('javascript:alert(1)') is None
 
 
-def test_cache_por_campeonato_e_macro(app,campeonato_teste):
+def test_cache_por_campeonato_e_reserva(app,campeonato_teste):
     db.session.add(ClassificacaoCache(campeonato_id=campeonato_teste.id,dados_json=json.dumps({'standings':[{'table':[{'team':{'id':1783,'name':'Clube Sem Escudo Local','shortName':'Sem Escudo','crest':'https://example.com/fla.png'}}]}]})))
     db.session.commit()
     with app.test_request_context():
         assert escudo_time('Sem Escudo',campeonato_id=campeonato_teste.id)['fontes']==['https://example.com/fla.png']
         assert escudo_time('Sem Escudo',campeonato_id=999)['fontes']==[]
-        from flask import render_template_string
-        html=render_template_string("{% from 'partials/escudo.html' import escudo %}{{ escudo('Athletico-PR',1768,'https://example.com/antigo.png') }}")
-        assert '/static/escudos/athletico-pr.png' in html and 'onerror=' in html
-        assert 'https://example.com/antigo.png' in html and 'escudo-iniciais' in html
+        # Escudo local primeiro e o da API como reserva.
+        fontes = escudo_time('Athletico-PR', 1768, 'https://example.com/antigo.png')['fontes']
+        assert fontes[0] == '/static/escudos/athletico-pr.png' and 'https://example.com/antigo.png' in fontes
 
 
 def test_todos_os_times_do_campeonato_tem_escudo_local(app):

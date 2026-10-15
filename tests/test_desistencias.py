@@ -1,12 +1,11 @@
-import html
-import re
+"""Desistências pela API da interface: mesmas regras de prévia, confirmação e histórico."""
 from datetime import datetime
 
 import pytest
 from database import db
 from models import Bolao, Jogo, Palpite, PalpiteLog, Participacao, ParticipacaoLog, Resultado, Rodada
 from tests.test_acesso_gestao import gestao, sessao
-from tests.test_ranking_privacidade import contextos
+from services.ranking import calcular_ranking
 from services.elegibilidade import participa_na_rodada, entra_no_ranking_da_rodada
 from services.resumo_boloes import participantes_pendentes
 
@@ -34,18 +33,23 @@ def ciclo(gestao):
 
 def previa(ciclo, acao='registrar', indice=1):
     app, client, bolao, pessoa, rodadas = ciclo
-    url = f'/b/{bolao}/participacoes/{pessoa}/desistencia'
-    dados = {'acao': acao, 'rodada_desistencia_id': rodadas[indice], 'motivo_desistencia': 'Motivo de teste'}
-    resposta = client.post(url, data=dados)
+    url = f'/interface/api/participantes/{pessoa}/desistencia'
+    dados = {'acao': acao, 'rodadaId': rodadas[indice], 'motivo': 'Motivo de teste'}
+    resposta = client.post(url, json=dados)
     assert resposta.status_code == 200, resposta.text
-    dados.update(confirmar='sim', confirmacao=html.unescape(re.search(r'name="confirmacao" value="([^"]+)"', resposta.text)[1]))
+    dados.update(confirmar=True, token=resposta.get_json()['token'])
     return url, dados
 
 
 def confirmar(ciclo, acao='registrar', indice=1, restaurar='sim'):
     url, dados = previa(ciclo, acao, indice)
-    dados['restaurar_palpites'] = restaurar
-    assert ciclo[1].post(url, data=dados).status_code == 302
+    dados['restaurar'] = restaurar
+    assert ciclo[1].post(url, json=dados).status_code == 200
+
+
+def ranking(bolao, rodada=None, ocultar=False):
+    alvo = db.session.get(Bolao, bolao)
+    return calcular_ranking(alvo, db.session.get(Rodada, rodada) if rodada else None, ocultar)
 
 
 def test_previa_preserva_e_confirmacao_exclui_apenas_futuro(ciclo):
@@ -55,7 +59,7 @@ def test_previa_preserva_e_confirmacao_exclui_apenas_futuro(ciclo):
     url, dados = previa(ciclo)
     assert db.session.get(Participacao, pessoa).status == 'ativo'
     assert PalpiteLog.query.count() == quantidade
-    assert client.post(url, data=dados).status_code == 302
+    assert client.post(url, json=dados).status_code == 200
     part = db.session.get(Participacao, pessoa)
     assert part.status == 'desistente' and part.rodada_desistencia_id == rodadas[1]
     assert part.desistencia_registrada_em and part.desistencia_registrada_por
@@ -63,16 +67,13 @@ def test_previa_preserva_e_confirmacao_exclui_apenas_futuro(ciclo):
     assert [p.excluido_por_desistencia for p in Palpite.query.order_by(Palpite.id)] == [False, True, True]
     assert PalpiteLog.query.count() == quantidade + 2
     assert ParticipacaoLog.query.filter_by(participacao_id=pessoa, acao='desistencia').count() == 1
-    ranking = contextos(app, client, f'/b/{bolao}/ranking')['ranking']
-    assert next(r for r in ranking if r['participante'].id == pessoa)['pontos'] == 3
+    assert next(r for r in ranking(bolao) if r['participante'].id == pessoa)['pontos'] == 3
     for rodada, presente in [(rodadas[0], True), (rodadas[1], False), (rodadas[2], False)]:
-        ranking = contextos(app, client, f'/b/{bolao}/ranking?rodada_id={rodada}')['ranking']
-        assert (pessoa in [r['participante'].id for r in ranking]) == presente
-    ranking = contextos(app, client, f'/b/{bolao}/ranking?ocultar_desistentes=1')['ranking']
-    assert pessoa not in [r['participante'].id for r in ranking]
+        assert (pessoa in [r['participante'].id for r in ranking(bolao, rodada)]) == presente
+    assert pessoa not in [r['participante'].id for r in ranking(bolao, ocultar=True)]
     assert not participa_na_rodada(part, db.session.get(Rodada, rodadas[1]))
     assert pessoa not in [r['participacao'].id for r in participantes_pendentes(part.bolao, db.session.get(Rodada, rodadas[1]))]
-    assert client.post(f'/b/{bolao}/palpites', data={'participante_id': pessoa, 'rodada_id': rodadas[1]}).status_code == 409
+    assert client.post('/interface/api/palpites', json={'participacaoId': pessoa, 'rodadaId': rodadas[1]}).status_code == 409
 
 
 def test_corrigir_rodada_e_reativar_com_resultado_oficial(ciclo):
@@ -87,17 +88,16 @@ def test_corrigir_rodada_e_reativar_com_resultado_oficial(ciclo):
     assert not any(p.excluido_por_desistencia for p in Palpite.query.all())
     Resultado.query.first().gols_casa_real = 0
     db.session.commit()
-    ranking = contextos(ciclo[0], ciclo[1], f'/b/{ciclo[2]}/ranking')['ranking']
-    assert next(r for r in ranking if r['participante'].id == part.id)['pontos'] == 6
+    assert next(r for r in ranking(ciclo[2]) if r['participante'].id == part.id)['pontos'] == 6
     assert ParticipacaoLog.query.filter_by(participacao_id=part.id, acao='reativacao').count() == 1
 
 
 def test_reativar_exige_decisao_e_permite_restauracao_posterior(ciclo):
     confirmar(ciclo)
     url, dados = previa(ciclo, 'reativar')
-    assert ciclo[1].post(url, data=dados).status_code == 422
-    dados['restaurar_palpites'] = 'nao'
-    assert ciclo[1].post(url, data=dados).status_code == 302
+    assert ciclo[1].post(url, json=dados).status_code == 422
+    dados['restaurar'] = 'nao'
+    assert ciclo[1].post(url, json=dados).status_code == 200
     assert Palpite.query.filter_by(excluido_por_desistencia=True).count() == 2
     confirmar(ciclo, 'restaurar')
     assert Palpite.query.filter_by(excluido_por_desistencia=True).count() == 0
@@ -107,13 +107,13 @@ def test_reativar_exige_decisao_e_permite_restauracao_posterior(ciclo):
 def test_previa_adulterada_ou_desatualizada_nao_grava(ciclo, mudanca):
     url, dados = previa(ciclo)
     if mudanca == 'token':
-        dados['confirmacao'] = 'invalido'
+        dados['token'] = 'invalido'
     elif mudanca == 'rodada':
-        dados['rodada_desistencia_id'] = ciclo[4][2]
+        dados['rodadaId'] = ciclo[4][2]
     else:
         Palpite.query.first().gols_casa = 4
         db.session.commit()
-    assert ciclo[1].post(url, data=dados).status_code == 409
+    assert ciclo[1].post(url, json=dados).status_code == 409
     assert db.session.get(Participacao, ciclo[3]).status == 'ativo'
     assert not any(p.excluido_por_desistencia for p in Palpite.query.all())
 
@@ -122,8 +122,8 @@ def test_validacao_entrada_permissao_e_importacao(ciclo):
     part = db.session.get(Participacao, ciclo[3])
     part.rodada_entrada_id = ciclo[4][1]
     db.session.commit()
-    url = f'/b/{ciclo[2]}/participacoes/{part.id}/desistencia'
-    assert ciclo[1].post(url, data={'acao': 'registrar', 'rodada_desistencia_id': ciclo[4][0]}).status_code == 422
+    url = f'/interface/api/participantes/{part.id}/desistencia'
+    assert ciclo[1].post(url, json={'acao': 'registrar', 'rodadaId': ciclo[4][0]}).status_code == 422
     for politica in ('zero', 'fora_da_conta'):
         part.bolao.politica_entrada_tardia = politica
         db.session.commit()
@@ -136,4 +136,4 @@ def test_validacao_entrada_permissao_e_importacao(ciclo):
     db.session.rollback()
     comum = Participacao.query.filter_by(nome_exibicao='comum').one().usuario_id
     sessao(ciclo[1], comum)
-    assert ciclo[1].get(url).status_code == 403
+    assert ciclo[1].post(url, json={'acao': 'registrar'}).status_code == 403

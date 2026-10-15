@@ -65,9 +65,8 @@ def test_log_nome_desistencia_correcao_reativacao_e_rollback(pessoa):
 def test_log_tem_autor_real_da_rota(gestao):
     client = gestao[0].test_client()
     sessao(client, gestao[1]["responsavel"])
-    response = client.post(f"/b/{gestao[2]}/participacoes/{gestao[3]}/editar",
-                           data={"nome_exibicao": "Nome editado"})
-    assert response.status_code == 302
+    response = client.put(f"/interface/api/participantes/{gestao[3]}", json={"nome": "Nome editado"})
+    assert response.status_code == 200
     log = ParticipacaoLog.query.filter_by(participacao_id=gestao[3]).order_by(ParticipacaoLog.id.desc()).first()
     assert log.alterado_por == gestao[1]["responsavel"]
 

@@ -17,7 +17,6 @@ const colorMap = {
 const medalColors = ['#fbbf24', '#cbd5e1', '#d97706'];
 
 export function Dashboard() {
-  const { dados: bootstrap } = useApp();
   const { dados, carregando, erro, recarregar } = useRecurso<DashboardApi>('/dashboard');
 
   return (
@@ -26,13 +25,13 @@ export function Dashboard() {
       <div className="p-4 md:p-8 space-y-6 pb-28 md:pb-8">
         {erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
         {!dados && carregando && <Carregando linhas={4} />}
-        {dados && <Conteudo dados={dados} links={bootstrap.links} />}
+        {dados && <Conteudo dados={dados} />}
       </div>
     </div>
   );
 }
 
-function Conteudo({ dados, links }: { dados: DashboardApi; links: ReturnType<typeof useApp>['dados']['links'] }) {
+function Conteudo({ dados }: { dados: DashboardApi }) {
   const { setView, dados: { bolaoAtualId } } = useApp();
   const { rodada } = dados;
   const stats = [

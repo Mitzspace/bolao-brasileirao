@@ -1,7 +1,7 @@
 """Aba Rodadas: jogos e resultados de cada rodada (cadastro, edição, resultado, encerramento)."""
 from datetime import datetime
 
-from flask import jsonify, request, url_for
+from flask import jsonify, request
 from sqlalchemy import func
 
 from database import db
@@ -52,7 +52,6 @@ def _detalhar(jogo, campeonato_id, palpites, bolao_id):
         'palpites': palpites.get(jogo.id, 0),
         'podeExcluir': palpites.get(jogo.id, 0) == 0 and not jogo.palpites,
         'sugestoesPrimeiroGol': sugestoes_primeiro_gol(jogo, bolao_id) if jogo.classico else [],
-        'links': {'editarAntigo': url_for('admin.editar_jogo', id=jogo.id)},
     }
 
 
@@ -84,8 +83,6 @@ def gestao_rodadas():
         'rodada': {
             'id': rodada.id, 'nome': rodada.nome, **estados[rodada.id],
             'participantes': participantes,
-            'links': {'palpites': url_for('admin.gerenciar_palpites', rodada_id=rodada.id),
-                      'grade': url_for('participante.ver_grade_palpites', id=rodada.id)},
         } if rodada else None,
         'jogos': [_detalhar(j, bolao.campeonato_id, palpites, bolao.id) for j in jogos],
         'regras': serializar_regras(bolao),

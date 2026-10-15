@@ -19,7 +19,5 @@ services:
         value: "true"
       - key: TRUST_PROXY
         value: "true"
-      - key: FEATURE_PARTICIPANTE_LOGIN
-        value: "false"
       - key: SYNC_ENABLED
         value: "false"

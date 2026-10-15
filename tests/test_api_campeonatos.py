@@ -32,9 +32,7 @@ def test_listagem_do_campeonato(client, gestao):
     assert rodadas['Rodada 1']['podeExcluir'] is False  # tem palpite
     assert rodadas['Rodada 2']['podeExcluir'] is True and rodadas['Rodada 2']['estado'] == 'sem_jogos'
     assert rodadas['Rodada 1']['estado'] == 'fechada'
-    assert rodadas['Rodada 1']['links']['palpites'].startswith(f'/b/{bolao.id}/')
-    assert dados['adminGlobal'] is False and 'sync' not in dados['links']
-    assert not any('importar' in k.lower() for k in dados['links'])
+    assert dados['adminGlobal'] is False and dados['links'] == {}
     assert dados['campeonatosDoBolao'] == [{'bolaoId': bolao.id, 'nome': bolao.campeonato.nome,
                                             'ano': bolao.campeonato.ano, 'atual': True}]
 
@@ -100,12 +98,21 @@ def test_tabela_oficial_pelo_cache(client, gestao, app):
     assert linha['escudo']['fontes'][0] == '/static/escudos/flamengo.png'
 
 
-def test_tela_antiga_continua_funcionando(client, gestao):
-    """Rotas antigas agora usam o mesmo serviço; o comportamento é o mesmo."""
-    bolao, r1, r2 = preparar(client, gestao)
-    resposta = client.post(f'/b/{bolao.id}/rodada/{r1.id}/excluir')
-    assert resposta.status_code == 302 and db.session.get(Rodada, r1.id) is not None
-    client.post(f'/b/{bolao.id}/rodada/{r2.id}/toggle-aberta')
-    assert db.session.get(Rodada, r2.id).aberta is True
-    client.post(f'/b/{bolao.id}/campeonato/{bolao.campeonato_id}/editar', data={'nome': 'Novo nome', 'ano': '2030'})
-    assert bolao.campeonato.nome == 'Novo nome' and bolao.campeonato.ano == 2030
+def test_sincronizar_com_a_api_so_admin_geral_e_usa_campeonato_do_bolao(client, gestao, monkeypatch):
+    usuario, boloes = gestao
+    bolao, *_ = preparar(client, gestao)
+    bolao.campeonato.codigo_api = 'BSA'
+    db.session.commit()
+    assert client.post('/interface/api/campeonato/sincronizar', json={'acao': 'resultados', 'token': 't'}).status_code == 403
+    usuario.admin_global = True
+    db.session.commit()
+    chamadas = []
+    def falso(**kw):
+        chamadas.append(kw)
+        return {'atualizados': 3, 'horarios_atualizados': 1, 'resultados_salvos': 2, 'ignorados': 0}
+    monkeypatch.setattr('services.sync.sync_informacoes_jogos', falso)
+    r = client.post('/interface/api/campeonato/sincronizar', json={'acao': 'informacoes', 'token': 't'})
+    assert r.status_code == 200 and '3 jogos' in r.get_json()['mensagem']
+    assert chamadas[0]['campeonato_id'] == bolao.campeonato_id and chamadas[0]['competicao'] == 'BSA'
+    assert chamadas[0]['temporada'] == str(bolao.campeonato.ano)
+    assert client.get('/interface/api/campeonato').get_json()['adminGlobal'] is True

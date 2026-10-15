@@ -5,6 +5,7 @@ from urllib.error import URLError
 from database import db
 from models import ClassificacaoCache
 from services import classificacao
+from tests.test_interface import gestao  # noqa: F401
 
 
 def payload(codigo="BSA", tipo="LEAGUE", grupo=None):
@@ -65,12 +66,18 @@ def test_grupos_champions_sem_zona_da_fase_liga():
     assert resultado["legendas"] == []
 
 
-def test_copa_carrega_confrontos_e_renderiza(client, campeonato_teste, participante_teste, monkeypatch):
-    from tests.test_seletor_bolao import estrutura, login
-    estrutura(participante_teste, campeonato_teste, 'Copa')
-    campeonato_teste.codigo_api = "WC"
+def _entrar_no_bolao(client, gestao, codigo='BSA'):
+    from tests.test_interface import entrar
+    usuario, boloes = gestao
+    boloes[0].campeonato.codigo_api = codigo
     db.session.commit()
-    login(client, participante_teste)
+    entrar(client, usuario)
+    client.post('/interface/selecionar', data={'bolao_id': boloes[0].id})
+
+
+def test_copa_carrega_confrontos_e_renderiza(client, gestao, app, monkeypatch):
+    _entrar_no_bolao(client, gestao, 'WC')
+    app.config['FOOTBALL_DATA_TOKEN'] = 'teste'
     chamadas = []
     def buscar(token, competicao, temporada=None, recurso="standings"):
         chamadas.append(recurso)
@@ -80,22 +87,22 @@ def test_copa_carrega_confrontos_e_renderiza(client, campeonato_teste, participa
                              "homeTeam": {"name": "Clube A"}, "awayTeam": {"name": "Clube B"},
                              "status": "FINISHED", "score": {"fullTime": {"home": 0, "away": 0}}}]}
     monkeypatch.setattr(classificacao, "_requisitar_api", buscar)
-    response = client.get("/tabela")
+    response = client.get("/interface/api/tabela")
     assert response.status_code == 200
     assert chamadas == ["standings", "matches"]
     assert "Final" in response.text and "Clube A" in response.text
     assert "15:00 de 20/07" in response.text
-    client.get("/tabela")
+    client.get("/interface/api/tabela")
     assert len(chamadas) == 2
 
 
-def test_indisponibilidade_sem_cache(client, campeonato_teste, participante_teste, monkeypatch):
-    from tests.test_seletor_bolao import estrutura, login
-    estrutura(participante_teste, campeonato_teste, 'Amigos')
-    login(client, participante_teste)
+def test_indisponibilidade_sem_cache(client, gestao, app, monkeypatch):
+    _entrar_no_bolao(client, gestao)
+    app.config['FOOTBALL_DATA_TOKEN'] = 'teste'
     def falha(*args, **kwargs):
         raise URLError("offline")
     monkeypatch.setattr(classificacao, "_requisitar_api", falha)
-    response = client.get("/tabela")
-    assert response.status_code == 200
-    assert "Não foi possível carregar" in response.text
+    dados = client.get("/interface/api/tabela").get_json()
+    assert not dados["sucesso"] and "Não foi possível carregar" in dados["erro"]
+
+

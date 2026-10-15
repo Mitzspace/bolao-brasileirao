@@ -109,19 +109,3 @@ def test_isolamento_e_csrf(client, gestao, app):
     assert client.post('/interface/api/palpites', json={'participacaoId': alheia.id, 'rodadaId': r1.id}).status_code == 404
     app.config['WTF_CSRF_ENABLED'] = True
     assert client.post('/interface/api/palpites', json={'participacaoId': ana.id, 'rodadaId': r1.id}).status_code == 403
-
-
-def test_mesmo_resultado_da_tela_antiga(client, gestao):
-    """O mesmo lote enviado pela tela atual e pela API produz os mesmos palpites."""
-    bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
-    client.post(f'/b/{bolao.id}/palpites', data={'participante_id': ana.id, 'rodada_id': r1.id, 'acao': 'ficar',
-                f'casa_{j1.id}': '4', f'fora_{j1.id}': '2', f'primeiro_{j1.id}': 'Arrascaeta',
-                f'situacao_{j2.id}': 'fora_prazo'})
-    client.post('/interface/api/palpites', json={'participacaoId': bia.id, 'rodadaId': r1.id, 'acao': 'ficar',
-                'jogos': {str(j1.id): {'casa': '4', 'fora': '2', 'primeiroGol': 'Arrascaeta'},
-                          str(j2.id): {'situacao': 'fora_prazo'}}})
-    def resumo(pessoa):
-        return sorted((p.jogo_id, p.gols_casa, p.gols_fora, p.primeiro_gol, p.situacao, p.origem)
-                      for p in Palpite.query.filter_by(participacao_id=pessoa.id))
-    # Ana já tinha 1x0 no jogo 1; Bia não. Ambos acabam com o mesmo conteúdo.
-    assert resumo(ana) == resumo(bia)

@@ -73,18 +73,6 @@ def test_criar_editar_e_validar(client, gestao):
     assert ParticipacaoLog.query.filter_by(participacao_id=caio.id).count() >= 2  # auditoria continua
 
 
-def test_mesmo_resultado_da_tela_antiga(client, gestao):
-    bolao, rodadas, jogos, ana, bia = preparar(client, gestao)
-    client.post('/b/%d/participacoes/nova' % bolao.id, data={'nome_exibicao': 'Velho', 'email': 'v@x.com',
-                'rodada_entrada_id': rodadas[1].id, 'observacao': 'obs'})
-    client.post('/interface/api/participantes', json={'nome': 'Novo', 'email': 'n@x.com',
-                'rodadaEntradaId': rodadas[1].id, 'observacao': 'obs'})
-    velho = Participacao.query.filter_by(nome_exibicao='Velho').one()
-    novo = Participacao.query.filter_by(nome_exibicao='Novo').one()
-    campos = lambda p: (p.papel, p.status, p.rodada_entrada_id, p.observacao, p.usuario_id)
-    assert campos(velho) == campos(novo)
-
-
 def test_remover_e_reativar(client, gestao):
     bolao, rodadas, jogos, ana, bia = preparar(client, gestao)
     r = client.post(f'/interface/api/participantes/{ana.id}/status', json={'acao': 'remover'})

@@ -1,5 +1,5 @@
 """Lançamento de palpites na nova interface (mesmo serviço da tela atual)."""
-from flask import jsonify, request, url_for
+from flask import jsonify, request
 from flask_login import current_user
 from werkzeug.datastructures import MultiDict
 
@@ -69,8 +69,7 @@ def tela_palpites():
     anterior, proxima = vizinhos(elegiveis, pessoa.id if pessoa else None)
     return jsonify({
         'rodadas': [{'id': r.id, 'numero': i, 'nome': r.nome, **estados[r.id]} for i, r in enumerate(rodadas, 1)],
-        'rodada': {'id': rodada.id, 'nome': rodada.nome, **estados[rodada.id],
-                   'links': {'grade': url_for('participante.ver_grade_palpites', id=rodada.id)}},
+        'rodada': {'id': rodada.id, 'nome': rodada.nome, **estados[rodada.id]},
         'participantes': [{'id': p.id, 'nome': p.nome, 'status': p.status, 'faltantes': faltantes.get(p.id, 0)}
                           for p in elegiveis],
         'pessoa': {'id': pessoa.id, 'nome': pessoa.nome, 'status': pessoa.status,

@@ -2,10 +2,8 @@
 from datetime import datetime, timedelta
 
 from database import db
-from models import Bolao, Jogo, Palpite, Participacao, Participante, Resultado, Rodada
+from models import Bolao, Jogo, Palpite, Participacao, Resultado, Rodada
 from services.estado_rodadas import estados_das_rodadas
-from services.ranking import calcular_ranking
-from tests.conftest import SENHA_TESTE
 from tests.test_interface import entrar, gestao  # noqa: F401
 
 

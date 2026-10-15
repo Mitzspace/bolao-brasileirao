@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Calendar, Download, ExternalLink, Grid3x3, MoreVertical, Pencil, Plus, RefreshCw, Target, Trash2, Trophy } from 'lucide-react';
+import { Calendar, Grid3x3, MoreVertical, Pencil, Plus, RefreshCw, Target, Trash2, Trophy } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
 import { GradeModal } from '@/components/palpites/GradeModal';
+import { SincronizarApi } from '@/components/campeonatos/SincronizarApi';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
@@ -32,6 +33,8 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
   const [novaRodada, setNovaRodada] = useState<{ nome: string; aberta: boolean } | null>(null);
   const [excluir, setExcluir] = useState<RodadaGestao | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [sincronizar, setSincronizar] = useState(false);
+  const { setView } = useApp();
 
   const executar = async <T extends { mensagem?: string }>(acao: () => Promise<T>) => {
     try {
@@ -129,25 +132,21 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
                 </div>
               </div>
 
-              {/* Atalhos para telas ainda não migradas */}
+              {/* Jogos: cadastro manual fica na aba Rodadas; a API só para o administrador geral */}
               <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
                 <h3 className="font-bold text-gray-900 dark:text-white mb-1">Jogos</h3>
-                <p className="text-xs text-gray-400 mb-4">Estas ferramentas abrem as telas atuais do sistema.</p>
+                <p className="text-xs text-gray-400 mb-4">Cadastre jogos e resultados na aba Rodadas{dados.adminGlobal ? ' ou busque tudo na API football-data.org' : ''}.</p>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  {[
-                    { href: dados.links.novoJogo, label: 'Cadastrar jogo avulso', icon: Plus },
-                    { href: dados.links.sync, label: 'Sincronizar com a API', icon: RefreshCw },
-                    { href: dados.links.importarJogos, label: 'Importar jogos da API', icon: Download },
-                  ].filter(a => a.href).map(a => {
-                    const Icon = a.icon;
-                    return (
-                      <a key={a.label} href={a.href} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                        <span className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 flex items-center justify-center"><Icon className="w-4 h-4" /></span>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">{a.label}</span>
-                        <ExternalLink className="w-4 h-4 text-gray-300" />
-                      </a>
-                    );
-                  })}
+                  <button onClick={() => setView('rodadas')} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
+                    <span className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 flex items-center justify-center"><Plus className="w-4 h-4" /></span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">Cadastrar jogo ou resultado</span>
+                  </button>
+                  {dados.adminGlobal && (
+                    <button onClick={() => setSincronizar(true)} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
+                      <span className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 flex items-center justify-center"><RefreshCw className="w-4 h-4" /></span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">Sincronizar com a API</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -242,6 +241,8 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
         )}
       </Modal>
 
+
+      {c && <SincronizarApi aberto={sincronizar} onClose={() => setSincronizar(false)} codigoApi={c.codigoApi} ano={c.ano} onConcluido={() => void recarregar()} />}
 
       <ConfirmDialog
         open={!!excluir}

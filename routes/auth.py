@@ -1,111 +1,52 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+"""Entrada e saída dos responsáveis. A tela de login é a da nova interface (/interface/)."""
+from flask import Blueprint, flash, redirect, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf.csrf import CSRFError
 from werkzeug.security import check_password_hash
 
-from database import db
+from extensions import limiter
 from models import Participante
 from services.acesso import pode_acessar_gestao
-from extensions import limiter
-from utils import validar_email, validar_senha, validar_nome, hash_senha
+from utils import validar_email
 
 auth = Blueprint("auth", __name__)
 
 
+def _voltar():
+    return redirect(url_for("interface.index"))
+
+
 @auth.errorhandler(CSRFError)
 def handle_csrf_error(e):
-    flash("Erro de segurança: sessão inválida. Tente novamente.")
-    return redirect(url_for("auth.login"))
-
-
-@auth.route("/cadastro", methods=["GET", "POST"])
-@limiter.limit("5 per hour")
-def cadastro():
-
-    if current_user.is_authenticated:
-        return redirect(url_for("participante.escolher_bolao", continuar=1))
-
-    if request.method == "POST":
-
-        nome = request.form.get("nome", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        senha = request.form.get("senha", "")
-
-        # Validações
-        if not validar_nome(nome):
-            flash("Nome inválido. Deve ter pelo menos 2 caracteres.")
-            return redirect(url_for("auth.cadastro"))
-
-        if not validar_email(email):
-            flash("Email inválido.")
-            return redirect(url_for("auth.cadastro"))
-
-        senha_valida, senha_msg = validar_senha(senha)
-        if not senha_valida:
-            flash(senha_msg)
-            return redirect(url_for("auth.cadastro"))
-
-        if Participante.query.filter_by(email=email).first():
-            flash("Este email ja esta cadastrado.")
-            return redirect(url_for("auth.cadastro"))
-
-        participante = Participante(
-            nome=nome,
-            email=email,
-            senha=hash_senha(senha),
-            admin=False,
-        )
-
-        db.session.add(participante)
-        db.session.commit()
-
-        login_user(participante)
-
-        return redirect(url_for("participante.escolher_bolao", continuar=1))
-
-    return render_template("cadastro.html")
+    flash("Sessão de segurança expirada. Tente novamente.")
+    return _voltar()
 
 
 @auth.route("/login", methods=["GET", "POST"])
-@limiter.limit("10 per hour")
+@limiter.limit("10 per hour", methods=["POST"])
 def login():
+    if request.method == "GET" or current_user.is_authenticated:
+        return _voltar()
 
-    nova_interface = request.form.get('nova_interface') == '1'
-    destino_login = 'interface.index' if nova_interface else 'auth.login'
-    destino_sucesso = (url_for('interface.index') if nova_interface
-                       else url_for('participante.escolher_bolao', continuar=1))
-    if current_user.is_authenticated:
-        return redirect(destino_sucesso)
+    email = request.form.get("email", "").strip().lower()
+    senha = request.form.get("senha", "")
+    if not validar_email(email):
+        flash("Email inválido.")
+        return _voltar()
+    if not senha:
+        flash("Digite sua senha.")
+        return _voltar()
 
-    if request.method == "POST":
+    p = Participante.query.filter_by(email=email).first()
+    if not p or not p.conta_ativa or not p.senha or not check_password_hash(p.senha, senha):
+        flash("Email ou senha invalidos.")
+        return _voltar()
+    if not pode_acessar_gestao(p):
+        flash("Acesso disponível somente para responsáveis por bolões.")
+        return _voltar()
 
-        email = request.form.get("email", "").strip().lower()
-        senha = request.form.get("senha", "")
-
-        # Validações
-        if not validar_email(email):
-            flash("Email inválido.")
-            return redirect(url_for(destino_login))
-
-        if not senha:
-            flash("Digite sua senha.")
-            return redirect(url_for(destino_login))
-
-        p = Participante.query.filter_by(email=email).first()
-
-        if not p or not p.conta_ativa or not p.senha or not check_password_hash(p.senha, senha):
-            flash("Email ou senha invalidos.")
-            return redirect(url_for(destino_login))
-
-        if not current_app.config["FEATURE_PARTICIPANTE_LOGIN"] and not pode_acessar_gestao(p):
-            flash("Acesso disponível somente para responsáveis por bolões.")
-            return redirect(url_for(destino_login))
-
-        login_user(p)
-
-        return redirect(destino_sucesso)
-
-    return render_template("login.html")
+    login_user(p)
+    return _voltar()
 
 
 @auth.route("/logout")
@@ -114,14 +55,4 @@ def logout():
     logout_user()
     session.pop('bolao_id', None)
     session.pop('bolao_usuario_id', None)
-    return redirect(url_for('interface.index' if request.args.get('nova_interface') == '1' else 'auth.login'))
-
-
-@auth.route("/resetar-senha", methods=["GET", "POST"])
-def resetar_senha():
-    """Orientação até haver recuperação com comprovação de posse da conta."""
-    if request.method == "POST":
-        # Mesmo comportamento para qualquer e-mail; nunca consulta ou altera contas.
-        flash("Para recuperar o acesso, entre em contato com o administrador do sistema.")
-        return redirect(url_for("auth.resetar_senha"))
-    return render_template("resetar_senha.html")
+    return _voltar()

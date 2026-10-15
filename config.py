@@ -33,10 +33,6 @@ def uri_rate_limit(ambiente=None):
 class Config:
     """Configuração base da aplicação."""
 
-    FEATURE_PARTICIPANTE_LOGIN = os.environ.get(
-        "FEATURE_PARTICIPANTE_LOGIN", "false"
-    ).strip().lower() in {"true", "1", "yes", "on"}
-
     SECRET_KEY = os.environ.get("SECRET_KEY", None)
 
     # Segurança de sessão (base)

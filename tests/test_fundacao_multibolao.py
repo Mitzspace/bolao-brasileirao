@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+
 from types import SimpleNamespace
 from flask import g
 
@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from database import db
 from models import Bolao, Participacao, Palpite, PalpiteLog, Participante, Resultado
 from services.pontuacao import calcular_pontuacao
+from tests.apoio_lancamento import enviar
 
 
 def autorizar_responsavel(usuario, jogo):
@@ -29,9 +30,10 @@ def test_auditoria_criacao_correcao_e_rollback(client, admin_teste, participante
     with client.session_transaction() as sess:
         sess["_user_id"] = str(admin_teste.id)
     g.pop("_login_user", None)
-    form = {"participante_id": participante_teste.id, "rodada_id": jogo_teste.rodada_id,
+    pessoa = Participacao.query.filter_by(participante_legado_id=participante_teste.id).one()
+    form = {"participante_id": pessoa.id, "rodada_id": jogo_teste.rodada_id,
             f"casa_{jogo_teste.id}": "2", f"fora_{jogo_teste.id}": "1"}
-    assert client.post("/admin/palpites", data=form).status_code == 302
+    assert enviar(client, form).status_code == 200
     palpite = Palpite.query.one()
     assert palpite.participacao.usuario_id is None
     assert palpite.origem == "responsavel"
@@ -41,7 +43,7 @@ def test_auditoria_criacao_correcao_e_rollback(client, admin_teste, participante
     assert log.acao == "criacao" and log.alterado_por == admin_teste.id
     assert json.loads(log.valores_novos)["participacao_id"] == palpite.participacao_id
     form[f"casa_{jogo_teste.id}"] = "3"
-    client.post("/admin/palpites", data=form)
+    enviar(client, form)
     logs = PalpiteLog.query.order_by(PalpiteLog.id).all()
     assert len(logs) == 2
     assert json.loads(logs[1].valores_anteriores)["gols_casa"] == 2
@@ -53,23 +55,6 @@ def test_auditoria_criacao_correcao_e_rollback(client, admin_teste, participante
     db.session.rollback()
     assert PalpiteLog.query.count() == 2
     assert db.session.get(Palpite, palpite.id).gols_casa == 3
-
-
-def test_lancamento_proprio_identificado(app, client, participante_teste, jogo_teste):
-    with client.session_transaction() as sess:
-        sess["_user_id"] = str(participante_teste.id)
-    g.pop("_login_user", None)
-    # Nova participação vinculada explicitamente: não cria uma identidade diferente.
-    bolao = Bolao(nome="Teste", campeonato=jogo_teste.rodada.campeonato, criador=participante_teste)
-    part = Participacao(bolao=bolao, usuario=participante_teste,
-                        participante_legado_id=participante_teste.id, nome_exibicao="Nome no bolão")
-    db.session.add(part)
-    db.session.commit()
-    g.pop("_login_user", None)
-    response = client.post(f"/rodada/{jogo_teste.rodada_id}", data={f"casa_{jogo_teste.id}": "1", f"fora_{jogo_teste.id}": "0"})
-    assert response.status_code == 302
-    palpite = Palpite.query.one()
-    assert palpite.participacao_id == part.id and palpite.origem == "proprio"
 
 
 def test_multiplas_pessoas_sem_conta_e_unicidade_usuario(app, participante_teste, campeonato_teste):
@@ -132,30 +117,17 @@ def test_logs_e_pessoas_nao_sao_apagados(app, participante_teste, jogo_teste):
         Palpite.query.update({"gols_casa": 7})
 
 
-def test_remocao_preserva_historico(client, admin_teste, participante_teste, jogo_teste):
-    autorizar_responsavel(admin_teste, jogo_teste)
-    db.session.add(Palpite(participante_id=participante_teste.id, jogo=jogo_teste, gols_casa=1, gols_fora=0))
-    db.session.commit()
-    with client.session_transaction() as sess:
-        sess["_user_id"] = str(admin_teste.id)
-    g.pop("_login_user", None)
-    assert client.post(f"/admin/participante/{participante_teste.id}/excluir").status_code == 302
-    assert Participante.query.count() == 2 and Palpite.query.count() == 1
-    assert Participacao.query.filter_by(participante_legado_id=participante_teste.id).one().status == "removido" and PalpiteLog.query.count() == 1
-
-
-@pytest.mark.parametrize("entidade", ["jogo", "rodada", "campeonato"])
+@pytest.mark.parametrize("entidade", ["jogos", "rodadas"])
 def test_exclusao_de_dados_globais_com_historico_e_recusada(client, admin_teste, participante_teste, jogo_teste, entidade):
     autorizar_responsavel(admin_teste, jogo_teste)
     db.session.add(Palpite(participante_id=participante_teste.id, jogo=jogo_teste, gols_casa=1, gols_fora=0))
     db.session.commit()
-    ids = {"jogo": jogo_teste.id, "rodada": jogo_teste.rodada_id,
-           "campeonato": jogo_teste.rodada.campeonato_id}
+    ids = {"jogos": jogo_teste.id, "rodadas": jogo_teste.rodada_id}
     with client.session_transaction() as sess:
         sess["_user_id"] = str(admin_teste.id)
     g.pop("_login_user", None)
-    response = client.post(f"/admin/{entidade}/{ids[entidade]}/excluir")
-    assert response.status_code == 302
+    response = client.delete(f"/interface/api/{entidade}/{ids[entidade]}")
+    assert response.status_code == 409
     assert Palpite.query.count() == 1 and PalpiteLog.query.count() == 1
 
 

@@ -1,6 +1,8 @@
 # Bolão v2
 
-Sistema de bolão de futebol em Flask com sincronização automática via API football-data.org.
+Gestão de bolões de futebol: Flask (API JSON) + interface React/TypeScript/Tailwind em
+`frontend/`, servida em `/interface/`. Só responsáveis entram; eles lançam os palpites
+dos participantes. Jogos, horários e resultados podem vir da API football-data.org.
 
 ## Publicação na nuvem
 
@@ -19,21 +21,17 @@ até você conectar o repositório e aprovar a criação no painel.
 - Impede uso de chave de desenvolvimento em produção
 
 ### 2. Proteção CSRF
-- Tokens CSRF adicionados em todos os formulários
-- Proteção contra ataques de falsificação de requisição entre sites
-- Página de erro 403 para erros de CSRF
+- Token CSRF no login e no cabeçalho X-CSRFToken de toda gravação da API
 
 ### 3. Rate Limiting
-- Limite global: 200 requisições por dia, 50 por hora
-- Limite específico para cadastro: 5 por hora
-- Limite específico para login: 10 por hora
-- Página de erro 429 para limite excedido
+- Visitantes sem login: 1000 requisições/hora por IP; responsáveis logados sem limite geral
+- API da interface: 6000/hora por IP (só contra laços acidentais)
+- Login: 10 por hora; troca de e-mail ou senha: 10 por hora
 
 ### 4. Validação de Inputs
 - Validação de email com regex
 - Validação de senha (mínimo 6 caracteres)
 - Validação de nome (mínimo 2 caracteres)
-- Validação de extensão de arquivos upload
 - Módulo `utils.py` com funções reutilizáveis
 
 ## 📦 Instalação
@@ -54,7 +52,6 @@ SECRET_KEY=SEU_TOKEN_SECRETO_AQUI
 DATABASE_URL=sqlite:///banco.db
 FOOTBALL_DATA_TOKEN=SEU_TOKEN_FOOTBALL_DATA_AQUI
 APP_ENV=development  # ou production
-DOWNLOADS_FOLDER=c:\Users\SeuUsuario\Downloads
 ```
 
 ## 🧪 Testes
@@ -79,34 +76,26 @@ pytest --cov=. --cov-report=html
 
 - **test_utils.py**: Testes de validação (email, senha, nome, arquivos)
 - **test_pontuacao.py**: Testes do sistema de pontuação e cálculo de pontos
-- **test_auth.py**: Testes de autenticação (cadastro, login, logout)
+- **test_auth.py**: Login, logout e endereços antigos
+- **test_api_*.py**: Cada aba da interface (dashboard, jogos, palpites, rodadas, participantes, bolões, configurações)
 
 ## 🏗️ Estrutura do Projeto
 
 ```
 bolao2/
 ├── app.py                  # Factory da aplicação Flask
-├── config.py               # Configurações (dev, prod, test)
-├── database.py             # Inicialização do SQLAlchemy
-├── models.py               # Modelos do banco de dados
-├── utils.py                # Funções utilitárias compartilhadas
-├── requirements.txt        # Dependências
-├── routes/                 # Rotas da aplicação
-│   ├── auth.py            # Autenticação
-│   ├── admin.py           # Painel administrativo
-│   └── participante.py   # Área do participante
-├── services/               # Serviços de negócio
-│   ├── pontuacao.py       # Cálculo de pontos
-│   ├── sync.py            # Sincronização API
-│   ├── importador_jogos.py
-│   └── importador_planilha.py
-├── templates/              # Templates HTML
-├── static/                 # Arquivos estáticos
-└── tests/                  # Testes
-    ├── conftest.py        # Fixtures do pytest
-    ├── test_utils.py
-    ├── test_pontuacao.py
-    └── test_auth.py
+├── config.py, models.py, utils.py, extensions.py
+├── routes/
+│   ├── auth.py            # Login e logout
+│   ├── interface.py       # Página da interface React (/interface/)
+│   └── api*.py            # API JSON de cada aba (/interface/api/...)
+├── services/               # Regras de negócio (pontuação, ranking, palpites, sync...)
+├── migrations/             # Migrações (SQLite: python -m migrations.X; Neon: migrations/sql)
+├── frontend/               # Interface React + TS + Tailwind (npm ci && npm run build)
+├── static/interface/       # Interface compilada (gerada pelo build)
+├── static/escudos/         # Escudos locais dos clubes
+├── templates/              # interface.html e erro.html
+└── tests/
 ```
 
 ## 🔐 Geração de SECRET_KEY
@@ -125,13 +114,14 @@ Copie o resultado e use como `SECRET_KEY` no `.env`.
 - SQLite permanece no desenvolvimento. Migre com `migrations.sqlite_para_postgres` conforme `DEPLOY.md`.
 - Configure `DATABASE_URL` apropriadamente
 - Use `APP_ENV=production` em produção
-- Configure `DOWNLOADS_FOLDER` se usar importação de planilhas locais
 
 ## 🚀 Execução
 
 ```bash
-# Desenvolvimento
+# Desenvolvimento (abra http://127.0.0.1:5000/)
 python app.py
+# Interface: depois de mudar algo em frontend/
+cd frontend && npm ci && npm run build
 
 # Produção com gunicorn
 python -m services.servidor

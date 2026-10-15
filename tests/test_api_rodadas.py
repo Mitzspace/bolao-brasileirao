@@ -89,13 +89,6 @@ def test_classificacao_da_rodada(client, gestao):
     assert dados['ranking'][0]['nome'] == 'Ana' and dados['ranking'][0]['pontos'] == 5
 
 
-def test_resultado_pela_tela_antiga_continua_igual(client, gestao):
-    bolao, r1, classico, comum, ana = preparar(client, gestao)
-    client.post(f'/b/{bolao.id}/resultados', data={'jogo_id': classico.id, 'gols_casa_real': '1',
-                                                   'gols_fora_real': '1', 'primeiro_gol_real': 'Fulano'})
-    assert (classico.resultado.gols_casa_real, classico.resultado.primeiro_gol_real) == (1, 'Fulano')
-
-
 def test_classico_sugere_primeiro_gol_dos_palpites(client, gestao):
     bolao, r1, classico, comum, ana = preparar(client, gestao)
     bia = Participacao(bolao=bolao, nome_exibicao='Bia')
@@ -110,15 +103,6 @@ def test_classico_sugere_primeiro_gol_dos_palpites(client, gestao):
     client.post(f'/interface/api/jogos/{classico.id}/resultado', json={'golsCasa': 1, 'golsFora': 0, 'primeiroGol': 'BRAITHWAITE'})
     pontos = {i['participante'].nome: (i['pontos'], i['bonus_primeiro_gol']) for i in calcular_ranking(bolao)}
     assert pontos['Bia'] == (5 + 2, 2) and pontos['Ana'] == (3 + 2, 2)
-
-
-def test_importar_jogos_via_api_continua_para_admin_geral(client, gestao):
-    usuario, boloes = gestao
-    usuario.admin_global = True
-    db.session.commit()
-    preparar(client, gestao)
-    links = client.get('/interface/api/campeonato').get_json()['links']
-    assert 'importarJogos' in links and 'importarPlanilha' not in links
 
 
 def test_grade_da_rodada(client, gestao):

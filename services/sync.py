@@ -161,10 +161,12 @@ def sync_jogos(token, campeonato_id, competicao,
             rodadas_db[nome_rod] = rodada
             rodadas_criadas += 1
 
-        # Verifica se o jogo já existe
-        jogo = Jogo.query.filter_by(
-            external_fonte="football-data.org",
-            external_id=item["external_id"],
+        # Verifica se o jogo já existe neste campeonato (cada bolão tem o seu campeonato:
+        # dois bolões do mesmo torneio não podem "roubar" os jogos um do outro).
+        jogo = Jogo.query.join(Rodada, Rodada.id == Jogo.rodada_id).filter(
+            Rodada.campeonato_id == campeonato_id,
+            Jogo.external_fonte == "football-data.org",
+            Jogo.external_id == item["external_id"],
         ).first()
 
         novo_jogo = False

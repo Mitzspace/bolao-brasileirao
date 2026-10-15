@@ -33,28 +33,28 @@ def test_alias_ordem_repeticao_ambiguidade_e_desconhecido():
 def test_previa_nao_grava_e_texto_original_fica_no_log(gestao):
     app, usuarios, bolao, pessoa, rodada, jogo = gestao
     client=app.test_client(); sessao(client,usuarios['responsavel'])
-    dados={'participante_id':pessoa,'rodada_id':rodada,'texto':'A 2x1 B'}
-    resposta=client.post(f'/b/{bolao}/palpites/previa-whatsapp',data=dados)
+    dados={'participacaoId':pessoa,'rodadaId':rodada,'texto':'A 2x1 B'}
+    resposta=client.post('/interface/api/palpites/previa-whatsapp',json=dados)
     assert resposta.status_code == 200
     assert Palpite.query.count() == PalpiteLog.query.count() == 0
     token=resposta.json['token']
-    salvar={'participante_id':pessoa,'rodada_id':rodada,f'casa_{jogo}':'2',f'fora_{jogo}':'1',
-            'whatsapp_token':token,'whatsapp_jogos':str(jogo)}
-    assert client.post(f'/b/{bolao}/palpites',data=salvar).status_code == 302
+    salvar={'participacaoId':pessoa,'rodadaId':rodada,'jogos':{str(jogo):{'casa':'2','fora':'1'}},
+            'whatsappToken':token,'whatsappJogos':str(jogo)}
+    assert client.post('/interface/api/palpites',json=salvar).status_code == 200
     assert json.loads(PalpiteLog.query.one().valores_novos)['texto_original_whatsapp'] == dados['texto']
-    assert client.post(f'/b/{bolao}/palpites',data=salvar).status_code == 302
+    assert client.post('/interface/api/palpites',json=salvar).status_code == 200
     assert PalpiteLog.query.count() == 2  # Mesmo placar, nova mensagem auditada.
     assert json.loads(PalpiteLog.query.order_by(PalpiteLog.id.desc()).first().valores_anteriores)['gols_casa'] == 2
-    salvar['whatsapp_token']='adulterado'
-    salvar[f'casa_{jogo}']='4'
-    assert client.post(f'/b/{bolao}/palpites',data=salvar).status_code == 422
+    salvar['whatsappToken']='adulterado'
+    salvar['jogos'][str(jogo)]['casa']='4'
+    assert client.post('/interface/api/palpites',json=salvar).status_code == 422
     assert Palpite.query.one().gols_casa == 2
 
 
 def test_previa_exige_responsavel_e_limita_texto(gestao):
     app, usuarios, bolao, pessoa, rodada, jogo = gestao
     client=app.test_client(); sessao(client,usuarios['responsavel'])
-    dados={'participante_id':pessoa,'rodada_id':rodada,'texto':'x'*20001}
-    assert client.post(f'/b/{bolao}/palpites/previa-whatsapp',data=dados).status_code == 422
+    dados={'participacaoId':pessoa,'rodadaId':rodada,'texto':'x'*20001}
+    assert client.post('/interface/api/palpites/previa-whatsapp',json=dados).status_code == 422
     sessao(client,usuarios['comum'])
-    assert client.post(f'/b/{bolao}/palpites/previa-whatsapp',data=dados).status_code == 403
+    assert client.post('/interface/api/palpites/previa-whatsapp',json=dados).status_code == 403

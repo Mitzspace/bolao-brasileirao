@@ -93,7 +93,7 @@ export function LoginScreen() {
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-5">
-            <a href={dados.links.recuperarSenha} className="hover:underline">Esqueceu sua senha?</a>
+            Esqueceu a senha? Peça ao administrador do sistema para redefinir.
           </p>
         </form>
       </div>

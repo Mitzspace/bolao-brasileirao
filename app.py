@@ -47,9 +47,6 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
         return response
 
     # Inicializa extensões
-    from services.acesso import restringir_acesso_participante
-    # Rotas desativadas retornam 404 também em POST, antes da validação CSRF.
-    app.before_request(restringir_acesso_participante)
     db.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
@@ -86,56 +83,53 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
         return user if user and user.conta_ativa else None
 
     from services import auditoria  # registra auditoria transacional dos escritores existentes
-    from services.regras_pontuacao import REGRAS_PONTUACAO
-    from services.escudos import escudo_time
-    app.jinja_env.globals['escudo_time'] = escudo_time
-
-    @app.context_processor
-    def regras_pontuacao():
-        # Telas antigas mostram as regras do bolão selecionado (ou as padrão).
-        from services.contexto_bolao import bolao_atual
-        from services.regras_pontuacao import regras_do_bolao
-        try:
-            return {"regras_pontuacao": regras_do_bolao(bolao_atual())}
-        except Exception:
-            return {"regras_pontuacao": REGRAS_PONTUACAO}
 
     from routes.auth import auth
-    from routes.admin import admin
-    from routes.participante import participante
     from routes.interface import interface
     from routes.api import api
 
     app.register_blueprint(auth)
-    app.register_blueprint(admin)
-    app.register_blueprint(participante)
     app.register_blueprint(interface)
     app.register_blueprint(api)
 
-    from services.urls_bolao import registrar_urls_bolao, redirecionar_url_antiga
-    registrar_urls_bolao(app)
-
-    from services.contexto_bolao import carregar_contexto, contexto_templates, contexto_nas_urls
+    from services.contexto_bolao import carregar_contexto
     app.before_request(carregar_contexto)
-    app.before_request(redirecionar_url_antiga)
-    app.context_processor(contexto_templates)
-    app.url_defaults(contexto_nas_urls)
+
+    @app.get('/')
+    def inicio():
+        # A nova interface é a entrada do sistema.
+        from flask import redirect, url_for
+        return redirect(url_for('interface.index'))
+
+    # Páginas de erro simples (a API da interface responde em JSON pelos próprios handlers).
+    def pagina_erro(codigo, titulo, texto):
+        from flask import request
+        from routes.api import api as api_bp, erro
+        if request.path.startswith(api_bp.url_prefix + '/'):
+            return erro(codigo)
+        return render_template('erro.html', codigo=codigo, titulo=titulo, texto=texto), codigo
 
     @app.errorhandler(403)
     def acesso_negado(e):
-        return render_template("403.html"), 403
+        return pagina_erro(403, 'Acesso não permitido', 'Esta área é só para responsáveis pelo bolão.')
+
+    # Endereços das telas antigas (favoritos, links salvos) levam à interface nova.
+    ENDERECOS_ANTIGOS = ('/b/', '/admin', '/boloes', '/ranking', '/jogos', '/rodada', '/meus-palpites', '/tabela')
+
+    @app.errorhandler(404)
+    def nao_encontrado(e):
+        from flask import redirect, request, url_for
+        if request.method == 'GET' and request.path.startswith(ENDERECOS_ANTIGOS):
+            return redirect(url_for('interface.index'))
+        return pagina_erro(404, 'Página não encontrada', 'O endereço não existe ou mudou.')
 
     @app.errorhandler(429)
     def rate_limit_exceeded(e):
-        return render_template("429.html"), 429
-
-    @app.errorhandler(409)
-    def conflito_gestao(e):
-        return render_template('conflito_gestao.html', mensagem=e.description), 409
+        return pagina_erro(429, 'Muitas tentativas', 'Aguarde alguns minutos e tente novamente.')
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(e):
-        return render_template("403.html"), 403
+        return pagina_erro(403, 'Sessão expirada', 'Recarregue a página e tente novamente.')
 
     with app.app_context():
         from sqlalchemy import inspect

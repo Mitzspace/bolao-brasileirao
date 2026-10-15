@@ -1,7 +1,8 @@
 import json
 from types import SimpleNamespace
 import pytest
-from tests.test_lancamento_rapido import lote, gestao
+from tests.apoio_lancamento import enviar
+from tests.test_lancamento_rapido import lote, gestao  # noqa: F401
 from models import Palpite, PalpiteLog, Resultado
 from database import db
 from services.pontuacao import calcular_pontuacao
@@ -10,33 +11,34 @@ from services.classificacao import nome_time_tabela
 
 def test_ausencia_em_massa_e_correcao(lote):
     client, url, dados, a, b = lote
-    assert client.post(url, data={**dados, 'nao_enviou_rodada': '1'}).status_code == 302
+    assert enviar(client, {**dados, 'nao_enviou_rodada': '1'}).status_code == 200
     assert Palpite.query.count() == 2
     assert all(p.situacao == 'nao_enviado' for p in Palpite.query.all())
     assert PalpiteLog.query.count() == 2
-    assert client.post(url, data={**dados, f'situacao_{a}': 'valido'}).status_code == 422
-    assert client.post(url, data={**dados, f'situacao_{a}': 'valido', f'casa_{a}': '2', f'fora_{a}': '1'}).status_code == 302
+    assert enviar(client, {**dados, f'situacao_{a}': 'valido'}).status_code == 422
+    assert enviar(client, {**dados, f'situacao_{a}': 'valido', f'casa_{a}': '2', f'fora_{a}': '1'}).status_code == 200
     assert Palpite.query.filter_by(jogo_id=a).one().situacao == 'valido'
     assert Palpite.query.filter_by(jogo_id=b).one().situacao == 'nao_enviado'
 
 
 def test_atraso_anula_pontos_e_audita(lote):
     client, url, dados, a, b = lote
-    assert client.post(url, data={**dados, f'casa_{a}': '2', f'fora_{a}': '1'}).status_code == 302
+    assert enviar(client, {**dados, f'casa_{a}': '2', f'fora_{a}': '1'}).status_code == 200
     p = Palpite.query.one()
     db.session.add(Resultado(jogo_id=a, gols_casa_real=2, gols_fora_real=1))
     db.session.commit()
     assert calcular_pontuacao(p, p.jogo, p.jogo.resultado).total > 0
-    assert client.post(url, data={**dados, f'situacao_{a}': 'fora_prazo'}).status_code == 302
+    assert enviar(client, {**dados, f'situacao_{a}': 'fora_prazo'}).status_code == 200
     assert calcular_pontuacao(p, p.jogo, p.jogo.resultado).total == 0
     assert json.loads(PalpiteLog.query.order_by(PalpiteLog.id.desc()).first().valores_novos)['situacao'] == 'fora_prazo'
-    tela = client.get(url, query_string=dados)
-    assert '0 ponto(s)' in tela.text and 'Não pontuou' in tela.text
+    tela = client.get(f"/interface/api/palpites?rodada_id={dados['rodada_id']}&participacao_id={dados['participante_id']}").get_json()
+    palpite = next(j for j in tela['jogos'] if j['id'] == a)['palpite']
+    assert palpite['situacao'] == 'fora_prazo' and palpite['pontos'] == 0
 
 
 def test_situacao_invalida_nao_grava(lote):
     client, url, dados, a, b = lote
-    assert client.post(url, data={**dados, f'situacao_{a}': 'invalido', f'casa_{b}': '1', f'fora_{b}': '0'}).status_code == 422
+    assert enviar(client, {**dados, f'situacao_{a}': 'invalido', f'casa_{b}': '1', f'fora_{b}': '0'}).status_code == 422
     assert Palpite.query.count() == 0
 
 

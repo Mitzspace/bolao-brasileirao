@@ -8,8 +8,6 @@ from utils import (
     validar_nome,
     hash_senha,
     verificar_senha,
-    validar_arquivo_upload,
-    normalizar_texto,
 )
 
 
@@ -72,40 +70,3 @@ class TestHashSenha:
         assert hash_gerado != senha
         assert verificar_senha(senha, hash_gerado) is True
         assert verificar_senha("senha_errada", hash_gerado) is False
-
-
-class TestValidarArquivoUpload:
-    """Testes de validação de arquivo upload."""
-
-    def test_arquivo_valido(self):
-        valido, msg = validar_arquivo_upload("planilha.xlsx", ["xlsx", "xls"])
-        assert valido is True
-        assert msg == ""
-
-    def test_arquivo_sem_extensao(self):
-        valido, msg = validar_arquivo_upload("arquivo", ["xlsx", "xls"])
-        assert valido is False
-        assert "sem extensão" in msg
-
-    def test_arquivo_extensao_invalida(self):
-        valido, msg = validar_arquivo_upload("documento.pdf", ["xlsx", "xls"])
-        assert valido is False
-        assert "Extensão não permitida" in msg
-
-    def test_arquivo_vazio(self):
-        valido, msg = validar_arquivo_upload("", ["xlsx", "xls"])
-        assert valido is False
-        assert "Nenhum arquivo" in msg
-
-
-class TestNormalizarTexto:
-    """Testes de normalização de texto."""
-
-    def test_normalizar_valido(self):
-        assert normalizar_texto("  texto  ") == "texto"
-        assert normalizar_texto("  João Silva  ") == "João Silva"
-
-    def test_normalizar_vazio(self):
-        assert normalizar_texto("") == ""
-        assert normalizar_texto("   ") == ""
-        assert normalizar_texto(None) == ""

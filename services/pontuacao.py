@@ -1,6 +1,5 @@
 import unicodedata
 from dataclasses import dataclass
-from types import SimpleNamespace
 from services.regras_pontuacao import regras_do_palpite
 
 
@@ -46,9 +45,3 @@ def calcular_pontuacao(palpite, jogo, resultado, regras=None):
     oficial = normalizar_nome_jogador(jogo.primeiro_marcador)
     bonus = regras["primeiro_gol"] if gc + gf > 0 and previsto and oficial and previsto == oficial else 0
     return Pontuacao(placar, bonus, exato, acerto)
-
-
-def calcular_pontos(palpite, resultado, especial=False):
-    """Adaptador dos scripts antigos; a função principal recebe palpite, jogo e resultado."""
-    jogo = SimpleNamespace(classico=especial, primeiro_marcador=resultado.primeiro_gol_real)
-    return calcular_pontuacao(palpite, jogo, resultado).total

@@ -1,7 +1,7 @@
 """Aba Campeonatos: campeonato do bolão, rodadas e tabela oficial."""
 import os
 
-from flask import current_app, g, jsonify, request, url_for
+from flask import current_app, g, jsonify, request
 from flask_login import current_user
 
 from models import Rodada
@@ -28,10 +28,6 @@ def _serializar_rodada(rodada, estado):
         'estado': estado['estado'], 'faltantes': estado['faltantes'],
         'jogos': len(jogos), 'comResultado': com_resultado,
         'podeExcluir': not rodada_tem_historico(rodada),
-        'links': {
-            'grade': url_for('participante.ver_grade_palpites', id=rodada.id),
-            'palpites': url_for('admin.gerenciar_palpites', rodada_id=rodada.id),
-        },
     }
 
 
@@ -48,11 +44,8 @@ def ver_campeonato():
     rodadas = [r for r, _ in opcoes_rodadas(camp.id)]
     estados = estados_das_rodadas(bolao, rodadas)
     concluidas = sum(1 for r in rodadas if estados[r.id]['estado'] == 'fechada')
-    global_ = bool(current_user.admin_global) or current_app.config['FEATURE_PARTICIPANTE_LOGIN']
-    links = {'novoJogo': url_for('admin.cadastrar_jogo')}
-    if global_:
-        links['sync'] = url_for('admin.sync')
-        links['importarJogos'] = url_for('admin.importar_jogos')  # importação via API football-data
+    global_ = bool(current_user.admin_global)
+    links = {}
     return jsonify({
         'campeonato': {'id': camp.id, 'nome': camp.nome, 'ano': camp.ano, 'codigoApi': camp.codigo_api or '',
                        'totalRodadas': len(rodadas), 'rodadasConcluidas': concluidas},
@@ -126,3 +119,73 @@ def tabela_oficial():
         'legendas': [zona(z) for z in r.get('legendas', [])],
         'mataMata': r.get('mata_mata', []),
     })
+
+
+def _opcional(c, chave, limite=20):
+    valor = c.get(chave)
+    if valor is None or valor == '':
+        return None
+    valor = str(valor).strip()
+    if len(valor) > limite:
+        raise ValueError('Valor muito longo em um dos campos.')
+    return valor or None
+
+
+@api.post('/campeonato/sincronizar')
+@requer_gestao()
+def sincronizar_campeonato():
+    """Ferramentas da football-data.org (só administrador geral), no campeonato do bolão atual.
+
+    jogos: importa/atualiza jogos (rodada ou campeonato completo) e resultados já finalizados;
+    informacoes: atualiza horários e resultados dos jogos já cadastrados (não cria jogos);
+    resultados: grava os placares finalizados dos jogos ligados à API.
+    """
+    from urllib.error import HTTPError, URLError
+    from services.sync import sync_informacoes_jogos, sync_jogos, sync_resultados
+    from services.validacao_formularios import texto
+    if not current_user.admin_global:
+        return erro(403, 'Disponível só para o administrador geral.')
+    c = request.get_json(silent=True)
+    c = c if isinstance(c, dict) else {}
+    camp = bolao_atual().campeonato
+    token = (c.get('token') if isinstance(c.get('token'), str) else '').strip() or os.environ.get('FOOTBALL_DATA_TOKEN')
+    if not token:
+        return erro(400, 'Informe o token da API ou configure FOOTBALL_DATA_TOKEN.')
+    acao = c.get('acao')
+    try:
+        if acao not in {'jogos', 'informacoes', 'resultados'}:
+            raise ValueError('Selecione uma ação de sincronização válida.')
+        competicao = texto(_opcional(c, 'competicao') or camp.codigo_api or '', 'Competição', 20).upper()
+        temporada = _opcional(c, 'temporada') or (str(camp.ano) if camp.ano else None)
+        data_inicio, data_fim = _opcional(c, 'dataInicio'), _opcional(c, 'dataFim')
+        completo = c.get('campeonatoCompleto') is True
+        rodada_api = _opcional(c, 'rodadaApi')
+        nome_rodada = _opcional(c, 'nomeRodada', 100)
+        if acao == 'jogos' and not completo and not nome_rodada and not rodada_api:
+            raise ValueError('Informe o número da rodada na API, o nome da rodada ou marque o campeonato completo.')
+    except ValueError as e:
+        return erro(400, str(e))
+    try:
+        if acao == 'jogos':
+            r = sync_jogos(token=token, campeonato_id=camp.id, competicao=competicao,
+                           nome_rodada=None if completo else nome_rodada, temporada=temporada,
+                           rodada_api=None if completo else rodada_api, data_inicio=data_inicio,
+                           data_fim=data_fim, campeonato_completo=completo)
+            mensagem = (f"Sincronização concluída: {r['criados']} jogos novos, {r['atualizados']} atualizados, "
+                        f"{r['resultados_salvos']} resultados salvos e {r['rodadas_criadas']} rodadas criadas.")
+        elif acao == 'informacoes':
+            r = sync_informacoes_jogos(token=token, campeonato_id=camp.id, competicao=competicao,
+                                       temporada=temporada, data_inicio=data_inicio, data_fim=data_fim)
+            mensagem = (f"Informações atualizadas: {r['atualizados']} jogos, {r['horarios_atualizados']} horários, "
+                        f"{r['resultados_salvos']} resultados salvos, {r['ignorados']} ignorados.")
+            if r.get('nao_casados'):
+                mensagem += ' Sem correspondência: ' + '; '.join(r['nao_casados'][:5])
+        else:
+            r = sync_resultados(token=token, competicao=competicao, temporada=temporada,
+                                rodada_api=rodada_api, data_inicio=data_inicio, data_fim=data_fim)
+            mensagem = f"Resultados sincronizados: {r['atualizados']} atualizados, {r['ignorados']} ignorados."
+    except HTTPError as e:
+        return erro(502, f'Erro da API ({e.code}): verifique o token e os parâmetros informados.')
+    except URLError:
+        return erro(502, 'Não foi possível conectar à API. Tente novamente em instantes.')
+    return jsonify({'mensagem': mensagem})

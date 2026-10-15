@@ -15,8 +15,6 @@ from models import Participante, Campeonato, Rodada, Jogo, Palpite, Resultado
 def app():
     """Cria uma aplicação Flask para testes."""
     app = create_app("testing")
-    # A suíte legada continua verificando o fluxo reativável de participantes.
-    app.config["FEATURE_PARTICIPANTE_LOGIN"] = True
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
 

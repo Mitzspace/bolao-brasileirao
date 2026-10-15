@@ -2,8 +2,8 @@ from flask import g
 from database import db
 from models import Bolao, Campeonato, Jogo, Palpite, Participacao, Resultado, Rodada
 from services.resumo_boloes import resumos_boloes, rodadas_de_referencia
-from tests.test_seletor_bolao import estrutura, login
-from tests.test_ranking_privacidade import contextos
+from tests.apoio import estrutura, login
+from tests.test_interface import dados_renderizados
 from utils import hash_senha
 
 
@@ -50,39 +50,33 @@ def test_referencia_numerica_resultados_e_campeonatos(app, campeonato_teste):
     assert ref['ultima'] and ref['rodada'].id == r10.id
 
 
-def test_meus_boloes_login_memoria_e_menu(app, client, participante_teste, campeonato_teste):
-    app.config['FEATURE_PARTICIPANTE_LOGIN'] = False
+def test_meus_boloes_login_e_memoria(app, client, participante_teste, campeonato_teste):
     a, pa = estrutura(participante_teste, campeonato_teste, 'Gerenciado A')
     b, pb = estrutura(participante_teste, campeonato_teste, 'Gerenciado B')
     excluido, pe = estrutura(participante_teste, campeonato_teste, 'Somente participante')
-    pa.papel = pb.papel = 'responsavel'
     pe.papel = 'participante'
     participante_teste.senha = hash_senha('senha123')
     db.session.commit()
     login(client, participante_teste)
-    ctx = contextos(app, client, '/boloes')
-    assert {b.id for b in ctx['boloes_disponiveis']} == {a.id, b.id}
-    assert ctx['bolao_atual'] is None
-    html = client.get('/boloes').text
-    header = html.split('<header', 1)[1].split('</header>', 1)[0]
-    assert '/admin/palpites' not in header and '/ranking' not in header
-    assert 'Sem jogos cadastrados' in html
-    assert excluido.nome not in html
-    client.post('/boloes/selecionar', data={'bolao_id': b.id})
+    with dados_renderizados(app) as dados:
+        client.get('/interface/')
+    assert {x['id'] for x in dados[0]['boloes']} == {a.id, b.id}  # só onde é responsável
+    assert dados[0]['bolaoAtualId'] is None  # vários: precisa escolher
+    client.post('/interface/selecionar', data={'bolao_id': b.id})
     client.get('/logout')
     g.pop('_login_user', None)
-    resposta = client.post('/login', data={'email': participante_teste.email, 'senha': 'senha123'}, follow_redirects=True)
-    assert resposta.request.path == '/boloes'
-    assert 'Bolão selecionado' in resposta.text
-    with client.session_transaction() as s:
-        assert s['bolao_id'] == b.id
+    client.post('/login', data={'email': participante_teste.email, 'senha': 'senha123'})
+    with dados_renderizados(app) as dados:
+        client.get('/interface/')
+    assert dados[0]['bolaoAtualId'] == b.id  # lembra o último bolão no novo login
 
 
 def test_um_bolao_seleciona_automaticamente(app, client, participante_teste, campeonato_teste):
-    app.config['FEATURE_PARTICIPANTE_LOGIN'] = False
     b, p = estrutura(participante_teste, campeonato_teste, 'Único')
-    p.papel = 'responsavel'
     participante_teste.senha = hash_senha('senha123')
     db.session.commit()
-    resposta = client.post('/login', data={'email': participante_teste.email, 'senha': 'senha123'}, follow_redirects=True)
-    assert resposta.request.path == f'/b/{b.id}/'
+    resposta = client.post('/login', data={'email': participante_teste.email, 'senha': 'senha123'})
+    assert resposta.location.endswith('/interface/')
+    with dados_renderizados(app) as dados:
+        client.get('/interface/')
+    assert dados[0]['bolaoAtualId'] == b.id

@@ -106,7 +106,6 @@ provedor. A implantação preparada só pede uma web Free; não inclui recurso p
    MIGRATION_DATABASE_URL=COLE_A_MESMA_URL_DIRETA_DO_DESTINO
    RATELIMIT_STORAGE_URI=memory://
    RATELIMIT_SINGLE_PROCESS=true
-   FEATURE_PARTICIPANTE_LOGIN=false
    ~~~
 
    Gere a SECRET_KEY uma vez com:
@@ -204,8 +203,8 @@ cria/zera o banco automaticamente durante deploys.
    Se houver monorepo, Root Directory deve ser bolao2 (a pasta do Dockerfile).
 2. Escolha instância **Free**, região próxima do Neon, uma única instância.
    Não crie disco ou serviço de banco. Não configure pre-deploy command.
-3. Use o Dockerfile existente. Ele compila CSS/Alpine com npm ci e instala as
-   dependências Python de produção. O comando de início já está na imagem.
+3. Use o Dockerfile existente. Ele compila a interface (frontend/, npm ci e
+   npm run build) e instala as dependências Python de produção. O comando de início já está na imagem.
    A porta é lida de PORT fornecida pelo Render.
 4. Desative auto-deploy para controlar mudanças e consumo de builds. Configure
    Health Check Path como **/healthz**.
@@ -218,7 +217,6 @@ cria/zera o banco automaticamente durante deploys.
    | DATABASE_URL | URL **pooled** Neon, com TLS |
    | RATELIMIT_STORAGE_URI | memory:// |
    | RATELIMIT_SINGLE_PROCESS | true |
-   | FEATURE_PARTICIPANTE_LOGIN | false |
    | TRUST_PROXY | true |
    | TRUSTED_HOSTS | Hostname exato onrender.com, sem https:// nem caminho |
    | SYNC_ENABLED | false |
@@ -267,9 +265,9 @@ contratou recursos remotos.
   logados não têm limite geral (a API da nova interface tem teto de 6000/h por IP
   só contra laços acidentais). Login (10/h) e cadastro (5/h) continuam baixos
   contra tentativa de senha. A recuperação pública de senha continua desativada.
-- O modelo de entrada é gestão por administradores/responsáveis existentes.
-  FEATURE_PARTICIPANTE_LOGIN=false bloqueia o fluxo de cadastro/participante;
-  não muda os papéis ou amplia permissões de contas importadas.
+- Só responsáveis (e o administrador geral) entram no sistema; não há cadastro
+  público nem login de participantes. A variável FEATURE_PARTICIPANTE_LOGIN
+  deixou de existir e pode ser apagada do Render.
 
 ## 8. Backup e restauração do PostgreSQL
 
@@ -332,7 +330,7 @@ ou criado automaticamente nesta preparação.
 
 O .env de desenvolvimento continua com APP_ENV=development, SQLite local e
 limiter em memória. A instalação básica e python app.py continuam funcionando.
-Para preparar a interface: npm ci e npm run build:css.
+Para preparar a interface: na pasta frontend, npm ci e npm run build.
 
 ~~~powershell
 .venv\Scripts\python.exe -m pytest -q

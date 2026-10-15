@@ -1,4 +1,4 @@
-"""Entrada gradual do visual React, reutilizando sessão e autorização existentes."""
+"""Entrada do sistema: a interface React (login, gestão e escolha do bolão)."""
 import json
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from services.acesso import pode_acessar_gestao
 from services.contexto_bolao import bolao_atual, lembrar_bolao
 
 interface = Blueprint('interface', __name__, url_prefix='/interface')
-VIEWS = {'dashboard', 'jogos', 'palpites', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
+VIEWS = {'dashboard', 'jogos', 'palpites', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
 
 
 def assets_interface():
@@ -51,15 +51,6 @@ def index():
     if atual is None and boloes and len({b.grupo_raiz_id for b in boloes}) == 1:
         atual = min(boloes, key=lambda b: (b.grupo_id is not None, b.id))
         lembrar_bolao(atual.id)
-    links = {}
-    if atual:
-        endpoints = {
-            'dashboard': 'admin.dashboard', 'campeonatos': 'admin.listar_campeonatos',
-            'rodadas': 'participante.listar_jogos', 'participantes': 'admin.listar_participantes',
-            'configuracoes': 'admin.responsaveis', 'palpites': 'admin.gerenciar_palpites',
-            'ranking': 'participante.ranking', 'tabela': 'participante.tabela',
-        }
-        links = {nome: url_for(endpoint, bolao_id=atual.id) for nome, endpoint in endpoints.items()}
     dados = {
         'usuario': {'nome': current_user.nome, 'email': current_user.email} if authed else None,
         'boloes': [{
@@ -73,12 +64,9 @@ def index():
                       for categoria, texto in get_flashed_messages(with_categories=True)],
         'apiBase': url_for('interface.index') + 'api',
         'links': {
-            **links, 'login': url_for('auth.login'),
-            'logout': url_for('auth.logout', nova_interface='1'),
+            'login': url_for('auth.login'),
+            'logout': url_for('auth.logout'),
             'selecionar': url_for('interface.selecionar'),
-            'boloes': url_for('participante.escolher_bolao'),
-            'criarBolao': url_for('participante.criar_bolao'),
-            'recuperarSenha': url_for('auth.resetar_senha'),
         },
     }
     response = current_app.make_response(render_template(

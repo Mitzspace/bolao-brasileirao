@@ -86,7 +86,6 @@ def test_importacao_postgres_login_gestao_sequencias(sqlite_atual, pg_engine):
     with pytest.raises(ErroMigracao, match='não vazio'):
         importar(dados, pg_engine)
     app = create_app('testing', database_uri=pg_engine.url.render_as_string(hide_password=False))
-    app.config['FEATURE_PARTICIPANTE_LOGIN'] = False
     client = app.test_client()
     assert client.post('/login', data={'email': 'admin@example.com', 'senha': 'Senha-forte-123'}).status_code == 302
     for rota in ['gestao', 'ranking', 'participantes', 'palpites', 'resultados']:

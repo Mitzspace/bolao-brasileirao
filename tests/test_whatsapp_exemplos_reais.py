@@ -48,19 +48,19 @@ def test_cabecalho_divergente_e_primeiro_gol_auditado(gestao):
     app,usuarios,bolao,pessoa,rodada,jogo=gestao
     client=app.test_client(); sessao(client,usuarios['responsavel'])
     texto='*Rodada-30*\nA 2x0 B ★ Carlos Vinícius'
-    dados={'texto':texto,'participante_id':pessoa,'rodada_id':rodada}
-    url=f'/b/{bolao}/palpites/previa-whatsapp'
-    assert client.post(url,data=dados).status_code==422
+    dados={'texto':texto,'participacaoId':pessoa,'rodadaId':rodada}
+    url='/interface/api/palpites/previa-whatsapp'
+    assert client.post(url,json=dados).status_code==422
     assert Palpite.query.count()==0
     db.session.get(Rodada,rodada).nome='30ª Rodada'
     db.session.get(Jogo,jogo).especial=True
     db.session.commit()
-    resposta=client.post(url,data=dados)
+    resposta=client.post(url,json=dados)
     assert resposta.status_code==200
     assert resposta.json['linhas'][0]['primeiro_gol']=='Carlos Vinícius'
     assert resposta.json['jogos'][0]['primeiro_gol_permitido']
-    salvar={'participante_id':pessoa,'rodada_id':rodada,f'casa_{jogo}':'2',f'fora_{jogo}':'0',
-            f'primeiro_{jogo}':'Carlos Vinícius','whatsapp_token':resposta.json['token'],'whatsapp_jogos':str(jogo)}
-    assert client.post(f'/b/{bolao}/palpites',data=salvar).status_code==302
+    salvar={'participacaoId':pessoa,'rodadaId':rodada,'jogos':{str(jogo):{'casa':'2','fora':'0','primeiroGol':'Carlos Vinícius'}},
+            'whatsappToken':resposta.json['token'],'whatsappJogos':str(jogo)}
+    assert client.post('/interface/api/palpites',json=salvar).status_code==200
     assert Palpite.query.one().primeiro_gol=='Carlos Vinícius'
     assert json.loads(PalpiteLog.query.one().valores_novos)['texto_original_whatsapp']==texto

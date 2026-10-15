@@ -11,7 +11,6 @@ from tests.conftest import SENHA_TESTE
 
 @pytest.fixture
 def gestao(app):
-    app.config['FEATURE_PARTICIPANTE_LOGIN'] = False
     usuario = Participante(nome='Responsável', email='gestor@example.com', senha=SENHA_TESTE)
     outro = Participante(nome='Outro', email='outro@example.com', senha=SENHA_TESTE)
     db.session.add_all([usuario, outro])
@@ -78,7 +77,7 @@ def test_selecao_isola_boloes_e_links(client, app, gestao):
     with dados_renderizados(app) as dados:
         client.get('/interface/')
     assert dados[0]['bolaoAtualId'] == boloes[1].id
-    assert dados[0]['links']['palpites'].startswith(f'/b/{boloes[1].id}/')
+    assert set(dados[0]['links']) == {'login', 'logout', 'selecionar'}
     assert client.post('/interface/selecionar', data={'bolao_id': boloes[2].id}).status_code == 403
     assert client.post('/interface/selecionar', data={'bolao_id': 'invalido'}).status_code == 403
 
@@ -107,3 +106,15 @@ def test_selecao_csrf_logout_e_destino_fixo(client, app, gestao):
     assert client.get('/logout?nova_interface=1').location.endswith('/interface/')
     with client.session_transaction() as sess:
         assert '_user_id' not in sess and 'bolao_id' not in sess
+
+
+def test_admin_global_sem_participacao_nao_ve_boloes(client, app, gestao):
+    usuario, boloes = gestao
+    chefe = Participante(nome='Global', email='global@example.com', senha=usuario.senha, admin_global=True)
+    db.session.add(chefe)
+    db.session.commit()
+    entrar(client, chefe)
+    with dados_renderizados(app) as dados:
+        assert client.get('/interface/').status_code == 200
+    assert dados[0]['boloes'] == [] and dados[0]['bolaoAtualId'] is None
+    assert client.post('/interface/selecionar', data={'bolao_id': boloes[0].id}).status_code == 403

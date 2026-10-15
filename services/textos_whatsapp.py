@@ -10,23 +10,6 @@ def cabecalho(bolao, titulo):
             f'{linha(bolao.campeonato.nome)} · Temporada {bolao.campeonato.ano or "não informada"}', '']
 
 
-def texto_ranking(bolao, ranking, rodada=None):
-    linhas = cabecalho(bolao, f'Ranking · {linha(rodada.nome)}' if rodada else 'Ranking geral')
-    for posicao, item in enumerate(ranking, 1):
-        bonus = item['bonus_primeiro_gol']
-        historico = item['bonus']
-        pessoa = item['participante']
-        situacao = (f" · desistente ({linha(pessoa.rodada_desistencia.nome)})"
-                    if getattr(pessoa, 'status', None) == 'desistente' and pessoa.rodada_desistencia else '')
-        linhas.append(f"{posicao}º · {linha(pessoa.nome)}{situacao} · {item['pontos']} pts "
-                      f"(bônus 1º gol: {bonus}; créditos históricos: {historico})")
-    if not ranking:
-        linhas.append('Nenhum participante cadastrado.')
-    linhas.extend(['', 'Bônus e créditos já estão incluídos no total.',
-                   'Desempate: pontos, placares exatos, acertos de resultado e nome.'])
-    return '\n'.join(linhas)
-
-
 # Faixas do texto de classificação para o WhatsApp (modelo do bolão):
 # 1º–4º verde, 5º amarelo, 6º–10º azul, últimos 4 vermelho e o restante branco.
 FAIXAS_COMPARTILHAR = ((1, 4, '🟩'), (5, 5, '🟨'), (6, 10, '🟦'))

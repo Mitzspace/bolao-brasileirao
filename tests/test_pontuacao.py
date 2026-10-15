@@ -2,8 +2,16 @@
 Testes para o sistema de pontuação.
 """
 import pytest
-from services.pontuacao import calcular_pontos, normalizar_nome_jogador
+from types import SimpleNamespace
+
+from services.pontuacao import calcular_pontuacao, normalizar_nome_jogador
 from models import Palpite, Resultado
+
+
+def calcular_pontos(palpite, resultado, especial=False):
+    """Atalho dos testes: jogo comum ou clássico com o primeiro gol do resultado."""
+    jogo = SimpleNamespace(classico=especial, primeiro_marcador=resultado.primeiro_gol_real)
+    return calcular_pontuacao(palpite, jogo, resultado).total
 
 
 class TestNormalizarNomeJogador:

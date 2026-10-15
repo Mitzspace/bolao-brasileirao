@@ -38,12 +38,6 @@ def criar_rodada(campeonato_id, nome, aberta=True):
     return rodada
 
 
-def alternar_rodada(rodada):
-    rodada.aberta = not rodada.aberta
-    db.session.commit()
-    return rodada.aberta
-
-
 def rodada_tem_historico(rodada):
     return bool(rodada.bonus_list or any(jogo.palpites for jogo in rodada.jogos))
 

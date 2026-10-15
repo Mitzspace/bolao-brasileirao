@@ -12,7 +12,6 @@ from models import Bolao, Campeonato, Jogo, Palpite, PalpiteLog, Participacao, P
 @pytest.fixture
 def gestao():
     app = create_app('testing', database_uri='sqlite:///:memory:')
-    app.config['FEATURE_PARTICIPANTE_LOGIN'] = False
     with app.app_context():
         senha = generate_password_hash('senha123')
         usuarios = [Participante(nome=n, email=n + '@teste.com', senha=senha,
@@ -47,12 +46,12 @@ def sessao(client, usuario):
 
 
 @pytest.mark.parametrize('path', ['/cadastro', '/meus-palpites', '/rodada/1'])
-@pytest.mark.parametrize('method', ['get', 'post'])
-def test_rotas_desativadas_antes_do_csrf(gestao, path, method):
+def test_rotas_de_participante_nao_existem(gestao, path):
     app = gestao[0]
     app.config['WTF_CSRF_ENABLED'] = True
     client = app.test_client()
-    assert getattr(client, method)(path).status_code == 404
+    assert client.post(path).status_code == 404  # sem gravar nada, antes mesmo do CSRF
+    assert client.get(path).status_code in (302, 404)  # endereço antigo só leva à interface
 
 
 @pytest.mark.parametrize('nome,permitido', [('responsavel', True), ('global', True),
@@ -69,47 +68,29 @@ def test_sessao_existente_e_revogacao(gestao):
     app, usuarios, *_ = gestao
     client = app.test_client()
     sessao(client, usuarios['comum'])
-    assert client.get('/ranking').status_code == 403
-    assert client.get('/boloes').status_code == 403
+    assert client.get('/interface/').status_code == 403
+    assert client.get('/interface/api/dashboard').status_code == 403
     assert client.get('/logout').status_code == 302
     sessao(client, usuarios['responsavel'])
-    assert client.get('/ranking', follow_redirects=True).status_code == 200
+    assert client.get('/interface/api/dashboard').status_code == 200
     Participacao.query.filter_by(usuario_id=usuarios['responsavel']).one().status = 'removido'
     db.session.commit()
-    assert client.get('/ranking').status_code == 403
+    assert client.get('/interface/api/dashboard').status_code == 403
 
 
-def test_lancamento_sem_conta_menu_e_preservacao(gestao):
+def test_lancamento_sem_conta_e_preservacao(gestao):
     app, usuarios, bolao, pessoa, rodada, jogo = gestao
     client = app.test_client()
     sessao(client, usuarios['responsavel'])
-    for path in ['/', '/boloes', '/jogos', '/ranking', '/admin/palpites']:
-        response = client.get(path, follow_redirects=True)
-        assert response.status_code == 200
-        html = response.get_data(as_text=True)
-        assert '/meus-palpites' not in html
-        assert '/cadastro' not in html
-        assert 'Meus Palpites' not in html
-    response = client.post(f'/b/{bolao}/palpites', data={
-        'participante_id': pessoa, 'rodada_id': rodada,
-        f'casa_{jogo}': '2', f'fora_{jogo}': '1'})
-    assert response.status_code == 302
+    response = client.post('/interface/api/palpites', json={
+        'participacaoId': pessoa, 'rodadaId': rodada, 'jogos': {str(jogo): {'casa': '2', 'fora': '1'}}})
+    assert response.status_code == 200
     palpite = Palpite.query.one()
     assert palpite.participacao_id == pessoa
     assert palpite.origem == 'responsavel'
     assert palpite.lancado_por == usuarios['responsavel']
     assert PalpiteLog.query.count() == 1
     assert db.session.get(Participacao, pessoa).usuario_id is None
+    # A tela antiga de palpite do próprio participante não existe mais.
     assert client.post(f'/rodada/{rodada}', data={f'casa_{jogo}': '9'}).status_code == 404
     assert Palpite.query.one().gols_casa == 2
-
-
-def test_flag_reativa_fluxo_legado(gestao):
-    app, usuarios, _, _, rodada, _ = gestao
-    app.config['FEATURE_PARTICIPANTE_LOGIN'] = True
-    client = app.test_client()
-    assert client.get('/cadastro').status_code == 200
-    client.post('/login', data={'email': 'comum@teste.com', 'senha': 'senha123'})
-    assert client.get('/meus-palpites').status_code == 200
-    assert client.get(f'/rodada/{rodada}').status_code == 200
-    assert 'Meus Palpites' in client.get('/').get_data(as_text=True)

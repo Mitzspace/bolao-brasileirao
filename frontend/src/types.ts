@@ -26,10 +26,7 @@ export interface Bootstrap {
   csrfToken: string;
   apiBase: string;
   mensagens: Mensagem[];
-  links: Partial<Record<View | 'palpites' | 'ranking' | 'tabela', string>> & {
-    login: string; logout: string; selecionar: string; criarBolao: string;
-    recuperarSenha: string; boloes: string;
-  };
+  links: { login: string; logout: string; selecionar: string };
 }
 
 /** Resultado de services/escudos.escudo_time. */
@@ -131,7 +128,6 @@ export interface RodadaGestao {
   jogos: number;
   comResultado: number;
   podeExcluir: boolean;
-  links: { grade: string; palpites: string };
 }
 
 /** GET /interface/api/campeonato */
@@ -140,7 +136,7 @@ export interface CampeonatoApi {
   rodadas: RodadaGestao[];
   campeonatosDoBolao: { bolaoId: number; nome: string; ano: number | null; atual: boolean }[];
   adminGlobal: boolean;
-  links: { sync?: string; importarJogos?: string; novoJogo: string };
+  links: Record<string, never>;
 }
 
 export interface ZonaTabela { nome: string; cor: string; de: number; ate: number }
@@ -180,7 +176,7 @@ export interface JogoGestao extends JogoApi {
 export interface GestaoRodadasApi {
   rodadas: RodadaResumo[];
   rodadaAtualId: number | null;
-  rodada: (RodadaResumo & { participantes: number; links: { palpites: string; grade: string } }) | null;
+  rodada: (RodadaResumo & { participantes: number }) | null;
   jogos: JogoGestao[];
   regras: Regras;
 }
@@ -206,7 +202,7 @@ export interface JogoLancamento extends JogoApi {
 /** GET /interface/api/palpites */
 export interface LancamentoApi {
   rodadas: RodadaResumo[];
-  rodada: (RodadaResumo & { id: number; links: { grade: string } }) | null;
+  rodada: (RodadaResumo & { id: number }) | null;
   participantes: { id: number; nome: string; status: string; faltantes: number }[];
   pessoa: { id: number; nome: string; status: string; anteriorId: number | null; proximaId: number | null } | null;
   jogos: JogoLancamento[];

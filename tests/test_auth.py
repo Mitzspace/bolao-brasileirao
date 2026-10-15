@@ -7,93 +7,30 @@ from models import Participante
 from database import db
 
 
-class TestCadastro:
-    """Testes para rota de cadastro."""
+class TestSemCadastroPublico:
+    """Só responsáveis entram; não há cadastro nem recuperação pública de senha."""
 
-    def test_cadastro_get(self, client):
-        """Testa acesso à página de cadastro."""
-        response = client.get("/cadastro")
-        assert response.status_code == 200
-        assert b"Criar conta" in response.data
-
-    def test_cadastro_sucesso(self, client, init_db):
-        """Testa cadastro com dados válidos."""
-        response = client.post("/cadastro", data={
-            "nome": "Novo Usuario",
-            "email": "novo@example.com",
-            "senha": "123456",
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-
-        # Verifica se usuário foi criado
-        participante = Participante.query.filter_by(email="novo@example.com").first()
-        assert participante is not None
-        assert participante.nome == "Novo Usuario"
-        assert participante.admin is False
-
-    def test_cadastro_email_duplicado(self, client, participante_teste):
-        """Testa cadastro com email já existente."""
-        response = client.post("/cadastro", data={
-            "nome": "Outro Usuario",
-            "email": participante_teste.email,
-            "senha": "123456",
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b"ja esta cadastrado" in response.data
-
-    def test_cadastro_nome_invalido(self, client):
-        """Testa cadastro com nome muito curto."""
-        response = client.post("/cadastro", data={
-            "nome": "A",
-            "email": "teste@example.com",
-            "senha": "123456",
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b"Nome inv" in response.data
-
-    def test_cadastro_email_invalido(self, client):
-        """Testa cadastro com email inválido."""
-        response = client.post("/cadastro", data={
-            "nome": "Teste",
-            "email": "email_invalido",
-            "senha": "123456",
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b"Email inv" in response.data
-
-    def test_cadastro_senha_curta(self, client):
-        """Testa cadastro com senha muito curta."""
-        response = client.post("/cadastro", data={
-            "nome": "Teste",
-            "email": "teste@example.com",
-            "senha": "123",
-        }, follow_redirects=True)
-
-        assert response.status_code == 200
-        assert b"senha deve ter" in response.data
+    @pytest.mark.parametrize('rota', ['/cadastro', '/resetar-senha'])
+    @pytest.mark.parametrize('metodo', ['get', 'post'])
+    def test_rotas_removidas(self, client, init_db, rota, metodo):
+        assert getattr(client, metodo)(rota).status_code == 404
+        assert Participante.query.count() == 0
 
 
 class TestLogin:
     """Testes para rota de login."""
 
-    def test_login_get(self, client):
-        """Testa acesso à página de login."""
+    def test_login_get_abre_a_interface(self, client):
+        """A tela de login é a da interface; /login só recebe o formulário."""
         response = client.get("/login")
-        assert response.status_code == 200
-        assert b"Entrar" in response.data
+        assert response.status_code == 302 and response.location.endswith("/interface/")
+        assert client.get("/").location.endswith("/interface/")
 
-    def test_login_get_includes_csrf_token_when_enabled(self, app, client):
-        """Testa que o formulário renderiza o token CSRF quando a proteção está ativa."""
+    def test_interface_inclui_token_csrf(self, app, client):
         app.config["WTF_CSRF_ENABLED"] = True
-
-        response = client.get("/login")
-
+        response = client.get("/interface/")
         assert response.status_code == 200
-        assert b'name="csrf_token"' in response.data
+        assert b'name="csrf-token"' in response.data and b'"csrfToken"' in response.data
 
     def test_login_sucesso(self, client, participante_teste):
         """Testa login com credenciais válidas."""
@@ -163,18 +100,14 @@ class TestLogout:
         assert response.status_code == 200
 
 
-class TestResetarSenha:
-    def test_orientacao_sem_formulario_de_reset(self, client):
-        response = client.get('/resetar-senha')
-        assert response.status_code == 200
-        assert b'administrador do sistema' in response.data
-        assert b'<form' not in response.data
+@pytest.mark.parametrize('rota', ['/b/1/ranking', '/admin/palpites', '/boloes', '/ranking', '/jogos/3'])
+def test_enderecos_antigos_levam_a_interface(client, rota):
+    resposta = client.get(rota)
+    assert resposta.status_code == 302 and resposta.location.endswith('/interface/')
+    assert client.post(rota).status_code == 404
 
-    @pytest.mark.parametrize('email', ['teste@example.com', 'naoexiste@example.com', 'invalido', ''])
-    def test_reset_publico_nunca_altera_senha(self, client, participante_teste, email):
-        anterior = participante_teste.senha
-        response = client.post('/resetar-senha', data={'email': email}, follow_redirects=True)
-        db.session.refresh(participante_teste)
-        assert response.status_code == 200
-        assert participante_teste.senha == anterior
-        assert b'administrador do sistema' in response.data
+
+def test_erro_404_comum_e_json_na_api(client):
+    assert client.get('/nao-existe').status_code == 404
+    resposta = client.get('/interface/api/nao-existe')
+    assert resposta.status_code == 404 and 'erro' in resposta.get_json()
