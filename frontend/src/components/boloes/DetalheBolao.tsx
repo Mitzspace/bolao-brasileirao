@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, Share2, Shield, Star, Trophy, Users } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, Share2, Shield, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -126,8 +126,8 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                           <tr className="border-b border-gray-100 dark:border-gray-800">
                             <th className="text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase">#</th>
                             <th className="text-left py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase">Participante</th>
-                            <th className="hidden sm:table-cell text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase" title="Pontos dos palpites (com bônus de primeiro gol)">Pontos</th>
-                            <th className="hidden sm:table-cell text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase" title="Créditos históricos">Bônus</th>
+                            <th className="hidden sm:table-cell text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase" title="Pontos dos placares, sem o bônus">Pontos</th>
+                            <th className="hidden sm:table-cell text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase" title="Bônus de primeiro gol">Bônus</th>
                             <th className="text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase" title="Placares exatos">Cravadas</th>
                             <th className="hidden sm:table-cell text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase" title="Vencedor ou empate correto, sem placar exato">Resultados</th>
                             <th className="text-center py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase">Total</th>
@@ -138,6 +138,9 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                         <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                           {dados.ranking.map((p, i) => {
                             const expandida = aberta === p.participacaoId;
+                            // Bônus = primeiro gol (lançado no sistema + créditos importados); Pontos + Bônus = Total.
+                            const bonus = p.bonus + p.bonusPrimeiroGol;
+                            const pontosPlacar = p.pontosPalpites - p.bonusPrimeiroGol;
                             return (
                             <Fragment key={p.participacaoId}>
                             <tr onClick={() => setAberta(expandida ? null : p.participacaoId)} aria-expanded={expandida}
@@ -154,10 +157,9 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                                 </div>
                               </td>
                               <td className="hidden sm:table-cell py-3 px-1.5 sm:px-3 text-center text-sm text-gray-600 dark:text-gray-400">
-                                {p.pontosPalpites}
-                                {p.bonusPrimeiroGol > 0 && <span className="ml-1 inline-flex items-center gap-0.5 text-xs text-gold-600" title="Inclui bônus de primeiro gol"><Star className="w-3 h-3" />{p.bonusPrimeiroGol}</span>}
+                                {pontosPlacar}
                               </td>
-                              <td className="hidden sm:table-cell py-3 px-1.5 sm:px-3 text-center text-sm">{p.bonus > 0 ? <span className="font-bold text-gold-600">+{p.bonus}</span> : <span className="text-gray-400">0</span>}</td>
+                              <td className="hidden sm:table-cell py-3 px-1.5 sm:px-3 text-center text-sm">{bonus > 0 ? <span className="font-bold text-gold-600">+{bonus}</span> : <span className="text-gray-400">0</span>}</td>
                               <td className="py-3 px-1.5 sm:px-3 text-center text-sm text-gray-600 dark:text-gray-400">{p.cravadas}</td>
                               <td className="hidden sm:table-cell py-3 px-1.5 sm:px-3 text-center text-sm text-gray-600 dark:text-gray-400">{p.acertosVencedor}</td>
                               <td className="py-3 px-1.5 sm:px-3 text-center"><span className="text-sm font-bold text-brand-600 dark:text-brand-400">{p.pontos}</span></td>
@@ -171,9 +173,9 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                                 <td colSpan={geral ? 6 : 5} className="px-3 py-3 max-w-0">
                                   <dl className="grid grid-cols-2 gap-2 text-xs animate-fade-in">
                                     {[
-                                      ['Pontos', p.pontosPalpites, 'dos palpites'],
-                                      ['Bônus', p.bonus > 0 ? `+${p.bonus}` : '0', 'créditos históricos'],
-                                      ['Bônus 1º gol', p.bonusPrimeiroGol > 0 ? `+${p.bonusPrimeiroGol}` : '0', 'já nos pontos'],
+                                      ['Pontos', pontosPlacar, 'dos placares'],
+                                      ['Bônus', bonus > 0 ? `+${bonus}` : '0', 'primeiro gol'],
+                                      ['Cravadas', p.cravadas, 'placar exato'],
                                       ['Resultados', p.acertosVencedor, 'vencedor ou empate'],
                                     ].map(([rotulo, valor, dica]) => (
                                       <div key={rotulo} className="min-w-0 rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-3 py-2">
@@ -191,7 +193,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                         </tbody>
                       </table>
                     </div>
-                    <p className="px-5 py-3 text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800"><span className="sm:hidden">Toque em um participante para ver pontos e bônus. </span>Desempate: pontos, placares exatos, acertos de resultado e nome. Bônus e créditos já estão no total.</p>
+                    <p className="px-5 py-3 text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800"><span className="sm:hidden">Toque em um participante para ver pontos e bônus. </span>Total = pontos + bônus. Desempate: total, cravadas, resultados e nome.</p>
                   </>
                 )}
               </div>

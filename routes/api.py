@@ -123,3 +123,4 @@ from routes import api_rodadas  # noqa: E402,F401
 from routes import api_palpites  # noqa: E402,F401
 from routes import api_participantes  # noqa: E402,F401
 from routes import api_boloes  # noqa: E402,F401
+from routes import api_configuracoes  # noqa: E402,F401

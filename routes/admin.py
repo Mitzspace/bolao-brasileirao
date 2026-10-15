@@ -53,66 +53,18 @@ def admin_required(f):
 @admin.route('/responsaveis', methods=['GET', 'POST'])
 @admin_required
 def responsaveis():
-    from services.responsaveis import bloquear_bolao, validar_retirada
+    from services.responsaveis import adicionar_responsavel, bloquear_bolao, remover_responsavel
     bolao = bolao_atual()
     if request.method == 'POST':
         bloquear_bolao(bolao.id)
         acao = request.form.get('acao')
         if acao == 'adicionar':
-            email = request.form.get('email', '').strip().lower()
-            if not validar_email(email):
-                abort(400, description='Informe um e-mail válido.')
-            usuario = Participante.query.filter_by(email=email).first()
-            if usuario is None:
-                nome = request.form.get('nome', '').strip()
-                senha = request.form.get('senha', '')
-                valida, mensagem = validar_senha(senha)
-                if not validar_nome(nome) or not valida:
-                    abort(400, description='Para uma nova conta, informe nome e senha válida (mínimo de 6 caracteres).')
-                usuario = Participante(nome=nome, email=email, senha=hash_senha(senha),
-                                       admin=False, admin_global=False, conta_ativa=True)
-                db.session.add(usuario)
-                db.session.flush()
-            if not usuario.conta_ativa or not usuario.senha:
-                abort(400, description='A conta precisa estar ativa e ter senha para receber acesso.')
-            vinculada = Participacao.query.filter_by(bolao_id=bolao.id, usuario_id=usuario.id).first()
-            legada = Participacao.query.filter_by(bolao_id=bolao.id, participante_legado_id=usuario.id).first()
-            if vinculada and legada and vinculada.id != legada.id:
-                abort(409, description='Há dois registros para essa conta no bolão; revise o vínculo antes de conceder acesso.')
-            part = vinculada or legada
-            selecionada_id = request.form.get('participacao_id', '').strip()
-            if selecionada_id:
-                if not selecionada_id.isdecimal() or len(request.form.getlist('participacao_id')) != 1:
-                    abort(400)
-                selecionada = Participacao.query.filter_by(id=int(selecionada_id), bolao_id=bolao.id).first_or_404()
-                if part and part.id != selecionada.id:
-                    abort(409, description='Essa conta já está vinculada a outro participante.')
-                part = selecionada
-            if part and part.usuario_id not in (None, usuario.id):
-                abort(409, description='O registro já está vinculado a outra conta.')
-            if part and part.status == 'desistente':
-                abort(409, description='Reative a participação pela tela de desistência antes de conceder acesso.')
-            if part is None:
-                from services.gestao_participantes import validar_dados_participante
-                erros = validar_dados_participante(bolao.id, usuario.nome, email)
-                if erros:
-                    db.session.rollback()
-                    abort(409, description='Já existe participante com esse nome ou e-mail. Selecione o registro existente para vincular a conta.')
-                part = Participacao(bolao=bolao, usuario=usuario, nome_exibicao=usuario.nome, email=email)
-                db.session.add(part)
-            part.usuario = usuario
-            part.papel = 'responsavel'
-            part.status = 'ativo'
-            part.saiu_em = None
-            db.session.commit()
+            adicionar_responsavel(bolao, request.form.get('email', ''), request.form.get('nome', ''),
+                                  request.form.get('senha', ''), request.form.get('participacao_id', ''),
+                                  len(request.form.getlist('participacao_id')))
             flash('Responsável adicionado a este bolão. Os demais bolões não foram alterados.')
         elif acao == 'remover':
-            part = Participacao.query.filter_by(id=request.form.get('participacao_id', type=int),
-                bolao_id=bolao.id, papel='responsavel', status='ativo').populate_existing().first_or_404()
-            validar_retirada(part)
-            propria = part.usuario_id == current_user.id
-            part.papel = 'participante'
-            db.session.commit()
+            propria = remover_responsavel(bolao, request.form.get('participacao_id', type=int))
             flash('Acesso de responsável removido; participação e histórico preservados.')
             if propria:
                 return redirect(url_for('auth.logout'))

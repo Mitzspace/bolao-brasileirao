@@ -300,3 +300,9 @@ export interface FontesBolaoApi {
   fontes: { id: number; nome: string; campeonato: string; ano: number | null }[];
   pessoas: { id: number; nome: string; status: string }[];
 }
+
+/** GET /interface/api/responsaveis */
+export interface ResponsaveisApi {
+  responsaveis: { id: number; nome: string; email: string; souEu: boolean; semAcesso: boolean }[];
+  participantesSemConta: { id: number; nome: string }[];
+}
