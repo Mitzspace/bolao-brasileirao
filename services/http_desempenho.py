@@ -4,7 +4,7 @@
   navegador aceita gzip (o JS de ~350 KB cai para ~100 KB).
 - Arquivos da interface têm o hash no nome (main-XXXX.js): ficam guardados no
   navegador por 1 ano e só são baixados de novo quando um deploy muda o arquivo.
-- Escudos ficam guardados por 7 dias.
+- Escudos e ícones da aba ficam guardados por 7 dias.
 - A versão comprimida de cada arquivo estático é guardada em memória, para não
   recomprimir a cada acesso (o processador do Render Free é pequeno).
 """
@@ -52,7 +52,7 @@ def cabecalhos_cache(response):
     if response.status_code in (200, 304):
         if caminho.startswith('/static/interface/assets/'):
             response.headers['Cache-Control'] = CACHE_ASSETS
-        elif caminho.startswith('/static/escudos/'):
+        elif caminho.startswith(('/static/escudos/', '/static/icones/')):
             response.headers['Cache-Control'] = CACHE_ESCUDOS
     return response
 

@@ -49,3 +49,17 @@ def test_escudos_ficam_em_cache_e_nao_sao_recomprimidos(client, app):
     r = client.get('/static/escudos/' + escudos[0].name, headers={'Accept-Encoding': 'gzip'})
     assert r.status_code == 200 and 'max-age=604800' in r.headers['Cache-Control']
     assert 'Content-Encoding' not in r.headers  # PNG já é comprimido
+
+
+def test_icone_da_aba_em_todas_as_paginas(client):
+    for url, esperado in (('/interface/', 200), ('/pagina-que-nao-existe', 404)):
+        r = client.get(url)
+        assert r.status_code == esperado
+        html = r.get_data(as_text=True)
+        assert 'icones/favicon.svg' in html and 'apple-touch-icon' in html and 'theme-color' in html
+    ico = client.get('/favicon.ico')
+    assert ico.status_code == 200 and ico.mimetype == 'image/x-icon' and ico.data[:4] == b'\x00\x00\x01\x00'
+    for arquivo in ('favicon.svg', 'favicon-32.png', 'apple-touch-icon.png', 'icone-192.png', 'icone-512.png', 'site.webmanifest'):
+        r = client.get('/static/icones/' + arquivo)
+        assert r.status_code == 200, arquivo
+        assert 'max-age=604800' in r.headers['Cache-Control'], arquivo

@@ -68,6 +68,14 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
         # Sondas frequentes não devem acordar o Neon nem consumir compute.
         return {'status': 'ok'}
 
+    @app.get('/favicon.ico')
+    @limiter.exempt
+    def favicon():
+        # Navegadores e favoritos pedem /favicon.ico direto na raiz.
+        from flask import send_from_directory
+        return send_from_directory(app.static_folder, 'icones/favicon.ico', mimetype='image/x-icon',
+                                   max_age=604800)
+
     @app.get('/readyz')
     @limiter.exempt
     def readyz():
