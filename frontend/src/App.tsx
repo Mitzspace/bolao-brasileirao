@@ -3,6 +3,7 @@ import { AppProvider, useApp } from '@/context/AppContext';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { BarraProgresso } from '@/components/layout/BarraProgresso';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { BoloesScreen } from '@/screens/BoloesScreen';
 import { Dashboard } from '@/screens/Dashboard';
@@ -56,6 +57,7 @@ function AppContent() {
 export default function App() {
   return (
     <ToastProvider>
+      <BarraProgresso />
       <AppProvider>
         <AppContent />
       </AppProvider>

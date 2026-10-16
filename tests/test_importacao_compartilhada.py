@@ -35,6 +35,8 @@ def test_importacao_compartilhada_repetida_e_bonus(app, campeonato_teste):
     assert Resultado.query.count() == 2
     assert BonusRodada.query.one().pontos == 3
     assert Jogo.query.filter_by(time_casa='Time A').one().classico
+    # A posição na aba vira a ordem fixa do jogo na rodada.
+    assert [(j.time_casa, j.ordem) for j in Jogo.query.order_by(Jogo.id)] == [('Time A', 1), ('Time C', 2)]
     assert not Participante.query.filter_by(nome='Pessoa Nova').one().conta_ativa
 
 

@@ -11,7 +11,8 @@ from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.estado_rodadas import estados_das_rodadas
 from services.grupos_bolao import campeonatos_do_grupo
 from services.escudos import escudo_time
-from services.gestao_campeonato import criar_rodada, editar_campeonato, excluir_rodada, rodada_tem_historico
+from services.gestao_campeonato import (criar_rodada, editar_campeonato, excluir_rodada, rodada_tem_historico,
+                                        rodadas_com_historico)
 
 
 def _rodada_do_bolao(id):
@@ -20,14 +21,14 @@ def _rodada_do_bolao(id):
     return rodada
 
 
-def _serializar_rodada(rodada, estado):
+def _serializar_rodada(rodada, estado, tem_historico=None):
     jogos = rodada.jogos
     com_resultado = sum(1 for j in jogos if j.resultado is not None)
     return {
         'id': rodada.id, 'nome': rodada.nome, 'aberta': bool(rodada.aberta),
         'estado': estado['estado'], 'faltantes': estado['faltantes'],
         'jogos': len(jogos), 'comResultado': com_resultado,
-        'podeExcluir': not rodada_tem_historico(rodada),
+        'podeExcluir': not (rodada_tem_historico(rodada) if tem_historico is None else tem_historico),
     }
 
 
@@ -43,13 +44,14 @@ def ver_campeonato():
     camp = bolao.campeonato
     rodadas = [r for r, _ in opcoes_rodadas(camp.id)]
     estados = estados_das_rodadas(bolao, rodadas)
+    historico = rodadas_com_historico(r.id for r in rodadas)
     concluidas = sum(1 for r in rodadas if estados[r.id]['estado'] == 'fechada')
     global_ = bool(current_user.admin_global)
     links = {}
     return jsonify({
         'campeonato': {'id': camp.id, 'nome': camp.nome, 'ano': camp.ano, 'codigoApi': camp.codigo_api or '',
                        'totalRodadas': len(rodadas), 'rodadasConcluidas': concluidas},
-        'rodadas': [_serializar_rodada(r, estados[r.id]) for r in rodadas],
+        'rodadas': [_serializar_rodada(r, estados[r.id], r.id in historico) for r in rodadas],
         'campeonatosDoBolao': campeonatos_do_bolao(bolao),
         'adminGlobal': global_,
         'links': links,

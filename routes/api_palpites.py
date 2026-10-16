@@ -1,8 +1,10 @@
 """Lançamento de palpites na nova interface (mesmo serviço da tela atual)."""
 from flask import jsonify, request
 from flask_login import current_user
+from sqlalchemy.exc import IntegrityError
 from werkzeug.datastructures import MultiDict
 
+from database import db
 from models import Participacao, Rodada
 from routes.api import api, erro, requer_gestao
 from routes.api_serializacao import serializar_jogo
@@ -112,7 +114,14 @@ def salvar_palpites():
     bloquear_bolao(bolao.id)
     rodada = _rodada(rodada_id)
     pessoa = pessoa_do_lancamento(bolao, pessoa_id, rodada)
-    quantidade, erros = salvar_lote(bolao, pessoa, rodada, _formulario(corpo), current_user.id)
+    try:
+        quantidade, erros = salvar_lote(bolao, pessoa, rodada, _formulario(corpo), current_user.id)
+    except IntegrityError:
+        # O banco aceita um único palpite por pessoa e jogo. Se dois envios chegarem
+        # juntos, o segundo é recusado aqui em vez de virar erro 500.
+        db.session.rollback()
+        return erro(409, 'Estes palpites acabaram de ser gravados por outro envio. '
+                         'Confira a tela antes de salvar de novo.')
     if erros:
         return erro(422, 'Nada foi salvo. Corrija os campos indicados e salve novamente.',
                     erros={str(k): v for k, v in erros.items()})

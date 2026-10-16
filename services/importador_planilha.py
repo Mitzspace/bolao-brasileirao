@@ -114,7 +114,8 @@ def _importar_workbook(wb, campeonato_id, importar_bonus):
 
             col_para_participante[col_idx] = participantes_db[part_key]
 
-        # Linhas de jogos
+        # Linhas de jogos (a posição na aba define a ordem fixa do jogo na rodada)
+        posicao = 0
         for idx in range(1, len(linhas)):
             col0 = linhas[idx][0]
             if not col0:
@@ -130,6 +131,7 @@ def _importar_workbook(wb, campeonato_id, importar_bonus):
             time_casa, time_fora, gols_casa_real, gols_fora_real, especial = parse_placar(str_col0)
             if not time_casa or not time_fora:
                 continue
+            posicao += 1
             if gols_casa_real is None and len(linhas[idx]) > 27:
                 placar_extra = padrao_palpite.search(str(linhas[idx][27] or ''))
                 if placar_extra:
@@ -148,12 +150,14 @@ def _importar_workbook(wb, campeonato_id, importar_bonus):
                     time_casa=time_casa,
                     time_fora=time_fora,
                     especial=especial,
+                    ordem=posicao,
                     encerrado=(gols_casa_real is not None and gols_fora_real is not None),
                 )
                 db.session.add(jogo)
                 db.session.flush()
                 total_jogos += 1
             else:
+                jogo.ordem = posicao
                 if especial:
                     jogo.especial = True
                 if gols_casa_real is not None and gols_fora_real is not None:

@@ -121,7 +121,7 @@ class Participacao(db.Model):
 
 class ParticipacaoLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    participacao_id = db.Column(db.Integer, db.ForeignKey("participacao.id"), nullable=False)
+    participacao_id = db.Column(db.Integer, db.ForeignKey("participacao.id"), nullable=False, index=True)
     alterado_por = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
     alterado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
     acao = db.Column(db.String(32), nullable=False)
@@ -163,10 +163,17 @@ class Rodada(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     aberta = db.Column(db.Boolean, default=True)
     campeonato_id = db.Column(
-        db.Integer, db.ForeignKey("campeonato.id"), nullable=False
+        db.Integer, db.ForeignKey("campeonato.id"), nullable=False, index=True
     )
 
-    jogos = db.relationship("Jogo", backref="rodada", lazy=True)
+    # Ordem fixa: jogos com posição da planilha primeiro (na ordem da planilha);
+    # os demais (vindos da API ou cadastrados à mão) por data e horário.
+    jogos = db.relationship("Jogo", backref="rodada", lazy=True, order_by=lambda: ordem_dos_jogos())
+
+
+def ordem_dos_jogos():
+    """Posição da planilha; sem posição, data e horário (sem horário por último); depois id."""
+    return (Jogo.ordem.is_(None), Jogo.ordem, Jogo.data.is_(None), Jogo.data, Jogo.id)
 
 
 class Jogo(db.Model):
@@ -182,8 +189,10 @@ class Jogo(db.Model):
     data = db.Column(db.DateTime)
     external_fonte = db.Column(db.String(50))
     external_id = db.Column(db.String(100))
+    # Posição do jogo na aba da planilha importada (nula para jogos da API).
+    ordem = db.Column(db.Integer, nullable=True)
     rodada_id = db.Column(
-        db.Integer, db.ForeignKey("rodada.id"), nullable=False
+        db.Integer, db.ForeignKey("rodada.id"), nullable=False, index=True
     )
 
     resultado = db.relationship("Resultado", backref="jogo", uselist=False)
@@ -237,7 +246,7 @@ class Palpite(db.Model):
     participacao = db.relationship("Participacao", backref="palpites")
     autor = db.relationship("Participante", foreign_keys=[lancado_por])
     jogo_id = db.Column(
-        db.Integer, db.ForeignKey("jogo.id"), nullable=False
+        db.Integer, db.ForeignKey("jogo.id"), nullable=False, index=True
     )
 
     __table_args__ = (
@@ -249,7 +258,7 @@ class Palpite(db.Model):
 
 class PalpiteLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    palpite_id = db.Column(db.Integer, db.ForeignKey("palpite.id"), nullable=False)
+    palpite_id = db.Column(db.Integer, db.ForeignKey("palpite.id"), nullable=False, index=True)
     alterado_por = db.Column(db.Integer, db.ForeignKey("participante.id"), nullable=True)
     alterado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
     acao = db.Column(db.String(20), nullable=False)

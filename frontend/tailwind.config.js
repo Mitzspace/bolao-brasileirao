@@ -39,6 +39,7 @@ export default {
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-in-right': 'slideInRight 0.3s ease-out',
         'scale-in': 'scaleIn 0.2s ease-out',
+        progresso: 'progresso 1.1s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -56,6 +57,10 @@ export default {
         scaleIn: {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        progresso: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(350%)' },
         },
       },
     },

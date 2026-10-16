@@ -14,8 +14,9 @@ def preparar(client, gestao):
     r2 = Rodada(nome='Rodada 2', campeonato=bolao.campeonato)
     db.session.add_all([r1, r2])
     db.session.flush()
-    j1 = Jogo(time_casa='Flamengo', time_fora='Vasco', rodada=r1, classico=True)
-    j2 = Jogo(time_casa='Santos', time_fora='Bahia', rodada=r1, data=datetime.now() - timedelta(hours=1))
+    # Jogos com posição da planilha: a tela segue essa ordem.
+    j1 = Jogo(time_casa='Flamengo', time_fora='Vasco', rodada=r1, classico=True, ordem=1)
+    j2 = Jogo(time_casa='Santos', time_fora='Bahia', rodada=r1, data=datetime.now() - timedelta(hours=1), ordem=2)
     ana = Participacao(bolao=bolao, nome_exibicao='Ana')
     bia = Participacao(bolao=bolao, nome_exibicao='Bia')
     tardio = Participacao(bolao=bolao, nome_exibicao='Tardio', rodada_entrada=r2)
@@ -109,3 +110,85 @@ def test_isolamento_e_csrf(client, gestao, app):
     assert client.post('/interface/api/palpites', json={'participacaoId': alheia.id, 'rodadaId': r1.id}).status_code == 404
     app.config['WTF_CSRF_ENABLED'] = True
     assert client.post('/interface/api/palpites', json={'participacaoId': ana.id, 'rodadaId': r1.id}).status_code == 403
+
+
+def test_ordem_dos_jogos_planilha_primeiro_e_api_por_data(client, gestao):
+    """Planilha: ordem da aba. API (sem posição): data e horário; sem horário por último."""
+    usuario, boloes = gestao
+    bolao = boloes[0]
+    agora = datetime(2026, 10, 18, 16, 0)
+    planilha = Rodada(nome='Rodada 1', campeonato=bolao.campeonato)
+    api_rodada = Rodada(nome='Rodada 2', campeonato=bolao.campeonato)
+    db.session.add_all([planilha, api_rodada])
+    db.session.flush()
+    # Cadastro fora da ordem: a posição da planilha prevalece sobre id e data.
+    db.session.add_all([
+        Jogo(time_casa='C', time_fora='c', rodada=planilha, ordem=3, data=agora),
+        Jogo(time_casa='A', time_fora='a', rodada=planilha, ordem=1, data=agora + timedelta(days=1)),
+        Jogo(time_casa='B', time_fora='b', rodada=planilha, ordem=2, data=agora - timedelta(days=1)),
+        Jogo(time_casa='Sem horário', time_fora='x', rodada=api_rodada),
+        Jogo(time_casa='Domingo', time_fora='x', rodada=api_rodada, data=agora + timedelta(days=1)),
+        Jogo(time_casa='Sábado 18h', time_fora='x', rodada=api_rodada, data=agora + timedelta(hours=2)),
+        Jogo(time_casa='Sábado 16h', time_fora='x', rodada=api_rodada, data=agora),
+    ])
+    pessoa = Participacao(bolao=bolao, nome_exibicao='Ana')
+    db.session.add(pessoa)
+    db.session.commit()
+    entrar(client, usuario)
+    client.post('/interface/selecionar', data={'bolao_id': bolao.id})
+    casas = lambda r: [j['casa'] for j in client.get(
+        f'/interface/api/palpites?rodada_id={r.id}&participacao_id={pessoa.id}').get_json()['jogos']]
+    assert casas(planilha) == ['A', 'B', 'C']
+    assert casas(api_rodada) == ['Sábado 16h', 'Sábado 18h', 'Domingo', 'Sem horário']
+
+
+def test_tela_de_palpites_nao_faz_consulta_por_jogo(client, gestao, app):
+    """Estado das rodadas carregado em lote: o número de consultas não cresce com as rodadas."""
+    from sqlalchemy import event
+    usuario, boloes = gestao
+    bolao = boloes[0]
+    for n in range(1, 13):
+        rodada = Rodada(nome=f'Rodada {n}', campeonato=bolao.campeonato)
+        db.session.add(rodada)
+        db.session.add_all([Jogo(time_casa=f'T{n}{i}', time_fora='X', rodada=rodada) for i in range(10)])
+    db.session.add(Participacao(bolao=bolao, nome_exibicao='Ana'))
+    db.session.commit()
+    entrar(client, usuario)
+    client.post('/interface/selecionar', data={'bolao_id': bolao.id})
+    consultas = []
+    contar = lambda *a, **k: consultas.append(1)
+    event.listen(db.engine, 'before_cursor_execute', contar)
+    try:
+        for rota in ('/interface/api/palpites', '/interface/api/jogos', '/interface/api/rodadas'):
+            consultas.clear()
+            assert client.get(rota).status_code == 200
+            assert len(consultas) < 30, (rota, len(consultas))
+    finally:
+        event.remove(db.engine, 'before_cursor_execute', contar)
+
+
+def test_envio_repetido_nao_duplica_palpites(client, gestao):
+    bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
+    corpo = {'participacaoId': bia.id, 'rodadaId': r1.id, 'acao': 'ficar',
+             'jogos': {str(j1.id): {'casa': '2', 'fora': '1', 'situacao': 'valido'},
+                       str(j2.id): {'casa': '0', 'fora': '0', 'situacao': 'valido'}}}
+    for _ in range(3):  # cliques repetidos / reenvio após timeout
+        assert client.post('/interface/api/palpites', json=corpo).status_code == 200
+    palpites = Palpite.query.filter_by(participacao_id=bia.id).all()
+    assert len(palpites) == 2
+    assert {(p.jogo_id, p.gols_casa, p.gols_fora) for p in palpites} == {(j1.id, 2, 1), (j2.id, 0, 0)}
+
+
+def test_conflito_de_gravacao_responde_409_sem_erro_500(client, gestao, monkeypatch):
+    from sqlalchemy.exc import IntegrityError
+    import routes.api_palpites as rota
+    bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
+
+    def concorrente(*args, **kwargs):
+        raise IntegrityError('INSERT', {}, Exception('unique_palpite_participacao'))
+    monkeypatch.setattr(rota, 'salvar_lote', concorrente)
+    resposta = client.post('/interface/api/palpites', json={
+        'participacaoId': bia.id, 'rodadaId': r1.id, 'acao': 'ficar',
+        'jogos': {str(j1.id): {'casa': '1', 'fora': '1', 'situacao': 'valido'}}})
+    assert resposta.status_code == 409
+    assert 'outro envio' in resposta.get_json()['erro']

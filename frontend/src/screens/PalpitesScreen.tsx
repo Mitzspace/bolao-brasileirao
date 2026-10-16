@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Grid3x3, History, Save, SkipForward, Star, UserCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Grid3x3, History, Loader2, Save, SkipForward, Star, UserCheck } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
@@ -44,13 +44,23 @@ export function PalpitesScreen() {
   const [automatico, setAutomatico] = useState(true);
   const [whatsapp, setWhatsapp] = useState<{ token: string; jogos: number[] } | null>(null);
   const [erros, setErros] = useState<Record<string, string>>({});
-  const [salvando, setSalvando] = useState(false);
+  const [salvando, setSalvando] = useState<'ficar' | 'proximo' | null>(null);
+  // Trava síncrona: o Enter e o clique podem disparar antes de o estado atualizar.
+  const salvandoAgora = useRef(false);
   const [verPendencias, setVerPendencias] = useState(false);
   const [grade, setGrade] = useState<number | null>(null);
   const campos = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Ao carregar outra pessoa/rodada, o formulário volta aos palpites gravados.
-  const chaveForm = dados ? `${dados.rodada?.id}-${dados.pessoa?.id}` : '';
+  // Ao carregar outra pessoa/rodada (ou quando os palpites gravados mudam, ex.: depois de
+  // salvar), o formulário volta aos palpites gravados.
+  const assinatura = dados ? JSON.stringify(dados.jogos.map(j => [j.id, j.palpite])) : '';
+  const chaveForm = dados ? `${dados.rodada?.id}-${dados.pessoa?.id}-${assinatura}` : '';
+  // Enquanto a pessoa/rodada pedida não chega, o formulário na tela é de outra pessoa:
+  // tudo fica bloqueado para nada ser digitado ou salvo no lugar errado.
+  const trocando = !!dados && ((rodadaId !== null && dados.rodada?.id !== rodadaId)
+    || (pessoaId !== null && !!dados.pessoa && dados.pessoa.id !== pessoaId));
+  const bloqueado = carregando || salvando !== null;
+  const nomeAlvo = dados?.participantes.find(p => p.id === pessoaId)?.nome;
   useEffect(() => {
     if (!dados) return;
     setValores(Object.fromEntries(dados.jogos.map(j => [j.id, valorInicial(j)])));
@@ -71,8 +81,9 @@ export function PalpitesScreen() {
   };
 
   const salvar = async (acao: 'ficar' | 'proximo') => {
-    if (!dados?.pessoa || !dados.rodada) return;
-    setSalvando(true);
+    if (!dados?.pessoa || !dados.rodada || salvandoAgora.current || carregando) return;
+    salvandoAgora.current = true;
+    setSalvando(acao);
     const jogos: Record<string, Partial<Valor>> = {};
     for (const j of editaveis) {
       const v = valores[j.id];
@@ -91,8 +102,12 @@ export function PalpitesScreen() {
       if (e instanceof ApiError && e.status === 422) {
         setErros((e.dados.erros as Record<string, string>) ?? {});
         showToast(e.message, 'error');
-      } else showToast(e instanceof Error ? e.message : 'Não foi possível salvar.', 'error');
-    } finally { setSalvando(false); }
+      } else {
+        showToast(e instanceof Error ? e.message : 'Não foi possível salvar.', 'error');
+        // Conflito ou resposta que não chegou: mostra o que de fato ficou gravado.
+        if (e instanceof ApiError && (e.status === 409 || e.semResposta)) void recarregar();
+      }
+    } finally { salvandoAgora.current = false; setSalvando(null); }
   };
 
   const aplicarWhatsapp = (linhas: LinhaAplicada[], token: string) => {
@@ -142,7 +157,7 @@ export function PalpitesScreen() {
 
         {dados?.rodada && (
           <>
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 min-w-0">
+            <div className={`bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 min-w-0 ${salvando ? 'pointer-events-none opacity-60' : ''}`}>
               <SeletorRodadas rodadas={dados.rodadas} selecionadaId={rodadaId ?? dados.rodada.id} atualId={null}
                 onSelecionar={id => { setRodadaId(id); setPessoaId(null); }} />
             </div>
@@ -150,15 +165,15 @@ export function PalpitesScreen() {
             {/* Participante */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 space-y-3">
               <div className="flex items-center gap-2">
-                <button onClick={() => pessoa?.anteriorId && setPessoaId(pessoa.anteriorId)} disabled={!pessoa?.anteriorId} aria-label="Participante anterior"
+                <button onClick={() => pessoa?.anteriorId && setPessoaId(pessoa.anteriorId)} disabled={!pessoa?.anteriorId || salvando !== null || trocando} aria-label="Participante anterior"
                   className="shrink-0 w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-800"><ChevronLeft className="w-5 h-5" /></button>
-                <select value={pessoa?.id ?? ''} onChange={e => setPessoaId(Number(e.target.value))} aria-label="Participante"
+                <select value={trocando ? (pessoaId ?? '') : (pessoa?.id ?? '')} onChange={e => setPessoaId(Number(e.target.value))} aria-label="Participante" disabled={salvando !== null}
                   className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/40">
                   {dados.participantes.map(p => (
                     <option key={p.id} value={p.id}>{p.nome}{p.status === 'desistente' ? ' (desistente)' : ''} · {p.faltantes ? `${p.faltantes} faltando` : 'completo ✓'}</option>
                   ))}
                 </select>
-                <button onClick={() => pessoa?.proximaId && setPessoaId(pessoa.proximaId)} disabled={!pessoa?.proximaId} aria-label="Próximo participante"
+                <button onClick={() => pessoa?.proximaId && setPessoaId(pessoa.proximaId)} disabled={!pessoa?.proximaId || salvando !== null || trocando} aria-label="Próximo participante"
                   className="shrink-0 w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-800"><ChevronRight className="w-5 h-5" /></button>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -170,7 +185,7 @@ export function PalpitesScreen() {
               {verPendencias && pendentes.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 animate-fade-in">
                   {pendentes.map(p => (
-                    <button key={p.id} onClick={() => setPessoaId(p.id)}
+                    <button key={p.id} onClick={() => setPessoaId(p.id)} disabled={salvando !== null}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border ${p.id === pessoa?.id ? 'bg-brand-600 border-brand-600 text-white' : 'border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:border-red-300'}`}>
                       {p.nome} · {p.faltantes}
                     </button>
@@ -180,7 +195,16 @@ export function PalpitesScreen() {
             </div>
 
             {pessoa && (
-              <>
+              <div className="relative" aria-busy={bloqueado}>
+                {bloqueado && (
+                  <div className="absolute inset-0 z-20 flex items-start justify-center rounded-2xl bg-white/60 dark:bg-gray-950/60 backdrop-blur-[1px] animate-fade-in">
+                    <div role="status" className="sticky top-24 mt-6 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-100 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                      {salvando ? 'Salvando palpites…' : trocando ? `Carregando palpites${nomeAlvo ? ` de ${nomeAlvo}` : ''}…` : 'Atualizando…'}
+                    </div>
+                  </div>
+                )}
+                <fieldset disabled={bloqueado} className="space-y-4 min-w-0">
                 <PreviaWhatsapp key={chaveForm} participacaoId={pessoa.id} rodadaId={dados.rodada.id} nome={pessoa.nome} rodadaNome={dados.rodada.nome} onAplicar={aplicarWhatsapp} />
 
                 {/* Opções do lote */}
@@ -270,7 +294,8 @@ export function PalpitesScreen() {
                   })}
                   {dados.jogos.length === 0 && <p className="text-sm text-gray-400 text-center py-8">Esta rodada não possui jogos cadastrados.</p>}
                 </div>
-              </>
+                </fieldset>
+              </div>
             )}
           </>
         )}
@@ -282,11 +307,11 @@ export function PalpitesScreen() {
           <p className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 flex-1 min-w-0">
             {whatsapp ? <><CheckCircle2 className="w-4 h-4 text-brand-500" /> Preenchido pela mensagem do WhatsApp</> : <>Enter salva e fica · o próximo pula quem já está completo</>}
           </p>
-          <button onClick={() => salvar('ficar')} disabled={salvando} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60">
-            <Save className="w-4 h-4" /> Salvar
+          <button onClick={() => salvar('ficar')} disabled={bloqueado} aria-busy={salvando === 'ficar'} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed">
+            {salvando === 'ficar' ? <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" /> : <Save className="w-4 h-4" />} {salvando === 'ficar' ? 'Salvando…' : 'Salvar'}
           </button>
-          <button onClick={() => salvar('proximo')} disabled={salvando} className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-60">
-            {salvando ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SkipForward className="w-4 h-4" />} Salvar e próximo
+          <button onClick={() => salvar('proximo')} disabled={bloqueado} aria-busy={salvando === 'proximo'} className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed">
+            {salvando === 'proximo' ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SkipForward className="w-4 h-4" />} {salvando === 'proximo' ? 'Salvando…' : 'Salvar e próximo'}
           </button>
         </div>
       ) : null}

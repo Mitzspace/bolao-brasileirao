@@ -5,7 +5,7 @@ Extraído de routes/admin.py sem mudança de comportamento.
 import re
 
 from database import db
-from models import Rodada
+from models import BonusRodada, Jogo, Palpite, Rodada
 from services.validacao_formularios import inteiro, texto
 
 
@@ -40,6 +40,17 @@ def criar_rodada(campeonato_id, nome, aberta=True):
 
 def rodada_tem_historico(rodada):
     return bool(rodada.bonus_list or any(jogo.palpites for jogo in rodada.jogos))
+
+
+def rodadas_com_historico(rodada_ids):
+    """Mesma regra de rodada_tem_historico para várias rodadas, em 2 consultas."""
+    ids = list(rodada_ids)
+    if not ids:
+        return set()
+    com_palpites = db.session.query(Jogo.rodada_id).join(Palpite, Palpite.jogo_id == Jogo.id).filter(
+        Jogo.rodada_id.in_(ids)).distinct()
+    com_creditos = db.session.query(BonusRodada.rodada_id).filter(BonusRodada.rodada_id.in_(ids)).distinct()
+    return {r for (r,) in com_palpites} | {r for (r,) in com_creditos}
 
 
 def excluir_rodada(rodada):

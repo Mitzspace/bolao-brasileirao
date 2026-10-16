@@ -1,6 +1,6 @@
 {
   "src/components/participantes/GraficoPontos.tsx": {
-    "file": "assets/GraficoPontos-DnvenDVN.js",
+    "file": "assets/GraficoPontos-CbRz4UEz.js",
     "name": "GraficoPontos",
     "src": "src/components/participantes/GraficoPontos.tsx",
     "isDynamicEntry": true,
@@ -9,7 +9,7 @@
     ]
   },
   "src/main.tsx": {
-    "file": "assets/main-Dbm9RCIk.js",
+    "file": "assets/main-C1fNKPgl.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
@@ -17,7 +17,7 @@
       "src/components/participantes/GraficoPontos.tsx"
     ],
     "css": [
-      "assets/main-CHAZgJw7.css"
+      "assets/main-LXVXYILn.css"
     ]
   }
 }

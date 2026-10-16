@@ -7,8 +7,8 @@ depois acumulados. A ordem de desempate é a mesma do ranking geral.
 from models import Jogo, Resultado, Rodada
 from services.contexto_bolao import ordem_rodada
 from services.elegibilidade import dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel
-from services.pontuacao import calcular_pontuacao
-from services.ranking import _chave_nome, carregar_participantes
+from services.ranking import _chave_nome, carregar_participantes, pontuacao_palpite
+from services.regras_pontuacao import regras_do_bolao
 
 
 def rodadas_com_resultado(campeonato_id):
@@ -30,6 +30,7 @@ def evolucao(bolao, todos=None):
         todos = carregar_participantes(bolao)
     todas, rodadas = rodadas_com_resultado(bolao.campeonato_id)
     indice = {r.id: i for i, r in enumerate(todas)}
+    regras = regras_do_bolao(bolao) if bolao else None
     n = len(todas)
     # Por rodada: pontos, cravadas, acertos de vencedor e quantidade de palpites lançados.
     por_rodada = {p.id: [[0, 0, 0, 0] for _ in range(n)] for p in todos}
@@ -43,7 +44,7 @@ def evolucao(bolao, todos=None):
             linhas[i][3] += 1  # contagem inclui palpites guardados, como a tela atual
             if not palpite_elegivel(pal) or not pal.jogo.resultado:
                 continue
-            detalhe = calcular_pontuacao(pal, pal.jogo, pal.jogo.resultado)
+            detalhe = pontuacao_palpite(pal, regras, None)
             linhas[i][0] += detalhe.total
             if detalhe.placar_exato:
                 linhas[i][1] += 1

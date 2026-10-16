@@ -4,6 +4,7 @@ import unicodedata
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
+from database import db
 from models import BonusRodada, Jogo, Palpite, Participacao
 from services.pontuacao import calcular_pontuacao
 from services.elegibilidade import palpite_elegivel, dentro_do_periodo
@@ -40,14 +41,20 @@ def validar_dados_participante(bolao_id, nome, email, ignorar_id=None):
 
 def totais_participantes(bolao_id, pessoas):
     # Contagem inclui os guardados; pontos consideram apenas os elegíveis.
+    from models import Bolao
+    from services.ranking import pre_carregar_jogos
+    from services.regras_pontuacao import regras_do_bolao
     totais = {p.id: {'pontos': 0, 'palpites': 0} for p in pessoas}
-    palpites = (Palpite.query.join(Participacao).filter(Participacao.bolao_id == bolao_id)
-                .options(joinedload(Palpite.jogo).joinedload(Jogo.resultado)).all())
+    bolao = db.session.get(Bolao, bolao_id)
+    regras = regras_do_bolao(bolao)
+    # Jogos, resultados e rodadas em uma consulta; os palpites só com as colunas próprias.
+    pre_carregar_jogos(bolao.campeonato_id)
+    palpites = Palpite.query.join(Participacao).filter(Participacao.bolao_id == bolao_id).all()
     for palpite in palpites:
         total = totais[palpite.participacao_id]
         total['palpites'] += 1
         if palpite_elegivel(palpite):
-            total['pontos'] += calcular_pontuacao(palpite, palpite.jogo, palpite.jogo.resultado).total
+            total['pontos'] += calcular_pontuacao(palpite, palpite.jogo, palpite.jogo.resultado, regras).total
     for bonus in (BonusRodada.query.join(Participacao).filter(Participacao.bolao_id == bolao_id)
                   .options(joinedload(BonusRodada.rodada)).all()):
         if dentro_do_periodo(bonus.participacao, bonus.rodada):

@@ -6,7 +6,7 @@ próprio dono) vê o palpite.
 from flask_login import current_user
 from sqlalchemy.orm import joinedload
 
-from models import BonusRodada, Jogo, Palpite, Participacao, Participante
+from models import BonusRodada, Jogo, Palpite, Participacao, Participante, ordem_dos_jogos
 from services.contexto_bolao import responsavel_atual
 from services.elegibilidade import dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel
 from services.pontuacao import calcular_pontuacao
@@ -18,7 +18,8 @@ def montar_grade(bolao, rodada):
                      if bolao else Participante.query.order_by(Participante.nome).all())
     if bolao:
         participantes = [p for p in participantes if entra_no_ranking_da_rodada(p, rodada)]
-    jogos = Jogo.query.filter_by(rodada_id=rodada.id).options(joinedload(Jogo.resultado)).all()
+    jogos = (Jogo.query.filter_by(rodada_id=rodada.id).options(joinedload(Jogo.resultado))
+             .order_by(*ordem_dos_jogos()).all())
 
     consulta = Palpite.query.options(*_relacoes_palpite()).join(Jogo).filter(Jogo.rodada_id == rodada.id)
     if bolao:

@@ -1,18 +1,27 @@
 """Seleção e autorização do bolão sem confundir campeonato com bolão."""
 import re
+from functools import lru_cache
 from flask import abort, g, session
 from flask_login import current_user
-from sqlalchemy.orm import joinedload
-from models import Bolao, Participacao, Rodada
+from sqlalchemy.orm import joinedload, selectinload
+from models import Bolao, Jogo, Participacao, Rodada
 
 
 def ordem_rodada(rodada):
-    numeros = re.findall(r'\d+', rodada.nome)
-    return (int(numeros[0]) if numeros else float('inf'), rodada.nome.casefold(), rodada.id)
+    return _ordem_rodada(rodada.nome, rodada.id)
+
+
+@lru_cache(maxsize=4096)
+def _ordem_rodada(nome, id):
+    numeros = re.findall(r'\d+', nome)
+    return (int(numeros[0]) if numeros else float('inf'), nome.casefold(), id)
 
 
 def opcoes_rodadas(campeonato_id):
-    rodadas = sorted(Rodada.query.filter_by(campeonato_id=campeonato_id).all(), key=ordem_rodada)
+    # Jogos e resultados vêm junto (2 consultas no total), em vez de 1 consulta por
+    # rodada e outra por jogo ao calcular o estado das 38 rodadas.
+    rodadas = sorted(Rodada.query.filter_by(campeonato_id=campeonato_id)
+                     .options(selectinload(Rodada.jogos).joinedload(Jogo.resultado)).all(), key=ordem_rodada)
     numeros = [re.findall(r'\d+', r.nome) for r in rodadas]
     chaves = [str(int(n[0])) if n else None for n in numeros]
     return [(r, chave if chave and chaves.count(chave) == 1 else f'id-{r.id}')

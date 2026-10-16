@@ -46,6 +46,10 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000')
         return response
 
+    # Compressão gzip e cache do navegador para os arquivos da interface (DESEMPENHO.md).
+    from services.http_desempenho import registrar as registrar_desempenho
+    registrar_desempenho(app)
+
     # Inicializa extensões
     db.init_app(app)
     login_manager.init_app(app)
@@ -173,6 +177,8 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
                 raise RuntimeError('Migração pendente: execute python -m migrations.grupo_bolao CAMINHO_DO_BANCO. Consulte MULTIPLOS_CAMPEONATOS.md.')
             if 'pontos_primeiro_gol' not in {c['name'] for c in inspector.get_columns('bolao')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.regras_bolao CAMINHO_DO_BANCO. Consulte REGRAS_POR_BOLAO.md.')
+            if 'ordem' not in {c['name'] for c in inspector.get_columns('jogo')}:
+                raise RuntimeError('Migração pendente: execute python -m migrations.ordem_jogo CAMINHO_DO_BANCO. Consulte DESEMPENHO.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')

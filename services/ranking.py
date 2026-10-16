@@ -6,6 +6,7 @@ a variação de posição e não altera o ranking geral nem o por rodada.
 """
 import unicodedata
 
+from flask import g, has_app_context
 from sqlalchemy.orm import joinedload, selectinload
 
 from database import db
@@ -13,6 +14,7 @@ from models import Bolao, BonusRodada, Jogo, Palpite, Participante, Participacao
 from services.contexto_bolao import ordem_rodada
 from services.elegibilidade import dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel
 from services.pontuacao import calcular_pontuacao
+from services.regras_pontuacao import regras_do_bolao
 
 
 def _relacoes_participacao():
@@ -26,13 +28,30 @@ def _relacoes_palpite():
             joinedload(Palpite.participacao).options(*_relacoes_participacao()))
 
 
+def pre_carregar_jogos(campeonato_id):
+    """Jogos do campeonato com rodada e resultado em uma consulta.
+
+    Depois disso, palpite.jogo, jogo.rodada e as rodadas de entrada/desistência
+    saem da memória da sessão sem nova consulta, e cada jogo aparece uma vez
+    (antes vinha repetido em cada uma das ~6.000 linhas de palpite).
+    """
+    jogos = (Jogo.query.join(Rodada, Rodada.id == Jogo.rodada_id)
+             .filter(Rodada.campeonato_id == campeonato_id)
+             .options(joinedload(Jogo.resultado), joinedload(Jogo.rodada)).all())
+    if has_app_context():
+        # A sessão guarda objetos por referência fraca: mantém-os vivos até o fim da requisição.
+        g.setdefault('_jogos_pre_carregados', []).append(jogos)
+    return jogos
+
+
 def carregar_participantes(bolao):
     """Participações do bolão (ou participantes do modo legado sem bolões)."""
     if bolao:
+        pre_carregar_jogos(bolao.campeonato_id)
         return Participacao.query.filter_by(bolao_id=bolao.id).options(
             *_relacoes_participacao(),
-            selectinload(Participacao.palpites).options(*_relacoes_palpite()),
-            selectinload(Participacao.creditos_historicos).joinedload(BonusRodada.rodada)).all()
+            selectinload(Participacao.palpites),
+            selectinload(Participacao.creditos_historicos)).all()
     if Bolao.query.first():
         return []
     return Participante.query.options(
@@ -45,21 +64,42 @@ def _chave_nome(nome):
                    if not unicodedata.combining(c))
 
 
-def calcular_ranking(bolao, rodada=None, ocultar_desistentes=False, *, ate_rodada=None, todos=None):
+def pontuacao_palpite(pal, regras, cache):
+    """calcular_pontuacao com as regras do bolão já resolvidas e memória por palpite."""
+    if cache is None:
+        return calcular_pontuacao(pal, pal.jogo, pal.jogo.resultado, regras)
+    detalhe = cache.get(pal.id)
+    if detalhe is None:
+        detalhe = cache[pal.id] = calcular_pontuacao(pal, pal.jogo, pal.jogo.resultado, regras)
+    return detalhe
+
+
+def calcular_ranking(bolao, rodada=None, ocultar_desistentes=False, *, ate_rodada=None, todos=None, cache=None):
     """Lista ordenada de dicionários (participante, pontos, bônus, cravadas...).
 
     rodada: ranking somente daquela rodada (comportamento da tela atual).
     ate_rodada: ranking acumulado até a rodada informada, inclusive.
     todos: participações já carregadas (evita consultar de novo).
+    cache: dicionário compartilhado entre chamadas com os mesmos `todos` (pontuação por palpite).
     """
+    regras = regras_do_bolao(bolao) if bolao else None
     if todos is None:
         todos = carregar_participantes(bolao)
     limite = ordem_rodada(ate_rodada) if ate_rodada else None
 
-    def considerar(rodada_item):
+    def _considerar(rodada_item):
         if rodada and (rodada_item is None or rodada_item.id != rodada.id):
             return False
         return limite is None or (rodada_item is not None and ordem_rodada(rodada_item) <= limite)
+
+    # A resposta só depende da rodada: calculada uma vez por rodada, não por palpite.
+    consideradas = {}
+
+    def considerar(rodada_item):
+        chave = rodada_item.id if rodada_item is not None else None
+        if chave not in consideradas:
+            consideradas[chave] = _considerar(rodada_item)
+        return consideradas[chave]
 
     resultado = []
     for p in todos:
@@ -67,13 +107,20 @@ def calcular_ranking(bolao, rodada=None, ocultar_desistentes=False, *, ate_rodad
                       or rodada and not entra_no_ranking_da_rodada(p, rodada)):
             continue
         total_palpites = cravadas = acertos_vencedor = bonus_primeiro_gol = 0
+        no_periodo = {}  # palpite_elegivel(pal) por rodada desta participação
         for pal in p.palpites:
-            if bolao and not palpite_elegivel(pal):
-                continue
+            if bolao:
+                if pal.excluido_por_desistencia:
+                    continue
+                rodada_pal = pal.jogo.rodada
+                if rodada_pal.id not in no_periodo:
+                    no_periodo[rodada_pal.id] = palpite_elegivel(pal)
+                if not no_periodo[rodada_pal.id]:
+                    continue
             if not considerar(pal.jogo.rodada):
                 continue
             if pal.jogo and pal.jogo.resultado:
-                detalhe = calcular_pontuacao(pal, pal.jogo, pal.jogo.resultado)
+                detalhe = pontuacao_palpite(pal, regras, cache)
                 total_palpites += detalhe.total
                 bonus_primeiro_gol += detalhe.pontos_bonus
                 if detalhe.placar_exato:
@@ -113,7 +160,8 @@ def ranking_com_variacao(bolao, ocultar_desistentes=False):
     variacao > 0: subiu; < 0: caiu; 0: manteve; None: sem comparação possível.
     """
     todos = carregar_participantes(bolao)
-    atual = calcular_ranking(bolao, ocultar_desistentes=ocultar_desistentes, todos=todos)
+    cache = {}
+    atual = calcular_ranking(bolao, ocultar_desistentes=ocultar_desistentes, todos=todos, cache=cache)
     ultima = ultima_rodada_com_resultado(bolao.campeonato_id) if bolao else None
     anteriores = []
     if ultima:
@@ -122,7 +170,7 @@ def ranking_com_variacao(bolao, ocultar_desistentes=False):
     posicoes_antes = {}
     if anteriores:
         antes = calcular_ranking(bolao, ocultar_desistentes=ocultar_desistentes,
-                                 ate_rodada=anteriores[-1], todos=todos)
+                                 ate_rodada=anteriores[-1], todos=todos, cache=cache)
         posicoes_antes = {item["participante"].id: i for i, item in enumerate(antes, 1)}
     for posicao, item in enumerate(atual, 1):
         anterior = posicoes_antes.get(item["participante"].id)
