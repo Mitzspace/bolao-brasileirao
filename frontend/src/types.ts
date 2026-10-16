@@ -304,3 +304,11 @@ export interface ResponsaveisApi {
   responsaveis: { id: number; nome: string; email: string; souEu: boolean; semAcesso: boolean }[];
   participantesSemConta: { id: number; nome: string }[];
 }
+
+/** GET /interface/api/boloes/:id/publico — configuração do link público. */
+export interface PublicoConfigApi {
+  link: string | null;
+  rodadaLiberada: { id: number; nome: string } | null;
+  sugerida: { id: number; nome: string } | null;
+  rodadas: { id: number; nome: string; jogos: number; comResultado: number; completa: boolean }[];
+}

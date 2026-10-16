@@ -60,10 +60,15 @@ class Bolao(db.Model):
     pontos_classico_exato = db.Column(db.Integer, nullable=False, default=5, server_default="5")
     pontos_classico_resultado = db.Column(db.Integer, nullable=False, default=3, server_default="3")
     pontos_primeiro_gol = db.Column(db.Integer, nullable=False, default=2, server_default="2")
+    # Link público de consulta (somente leitura, sem login). Vazio = link desligado.
+    codigo_publico = db.Column(db.String(64), unique=True, nullable=True)
+    # Classificação pública liberada até esta rodada (inclusive). Vazio = oculta.
+    rodada_publica_id = db.Column(db.Integer, db.ForeignKey("rodada.id"), nullable=True)
     __table_args__ = (db.CheckConstraint(
         "politica_entrada_tardia IN ('zero', 'fora_da_conta')", name="bolao_entrada_tardia"),)
     campeonato = db.relationship("Campeonato", backref="boloes")
     criador = db.relationship("Participante")
+    rodada_publica = db.relationship("Rodada", foreign_keys=[rodada_publica_id])
 
     @property
     def grupo_raiz_id(self):

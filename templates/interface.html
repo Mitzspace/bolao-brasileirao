@@ -11,6 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     {% if assets %}{% for css in assets.css %}
     <link rel="stylesheet" href="{{ css }}">
+    {% endfor %}{% for js in assets.precarregar %}
+    <link rel="modulepreload" href="{{ js }}">
     {% endfor %}{% endif %}
 </head>
 <body>

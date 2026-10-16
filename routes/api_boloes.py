@@ -13,6 +13,7 @@ from services.regras_pontuacao import aplicar_regras, validar_regras
 from services.responsaveis import bloquear_bolao
 from services.resumo_boloes import resumos_boloes
 from services.textos_whatsapp import texto_classificacao_compartilhar
+from services.link_publico import configuracao_publica, definir_tabela_publica, gerar_link, desativar_link
 
 
 def boloes_geridos():
@@ -164,3 +165,51 @@ def novo_bolao():
     mensagem = mensagem_criacao(selecionados)
     flash(mensagem, 'success')
     return jsonify({'bolaoId': novo.id, 'mensagem': mensagem}), 201
+
+
+# ---------- Link público de consulta (LINK_PUBLICO.md) ----------
+
+@api.get('/boloes/<int:id>/publico')
+@requer_gestao(precisa_bolao=False)
+def ver_link_publico(id):
+    return jsonify(configuracao_publica(_bolao_gerido(id)))
+
+
+@api.post('/boloes/<int:id>/publico/link')
+@requer_gestao(precisa_bolao=False)
+def alterar_link_publico(id):
+    bolao = _bolao_gerido(id)
+    acao = (request.get_json(silent=True) or {}).get('acao')
+    if acao not in ('gerar', 'desativar'):
+        return erro(400, 'Ação inválida.')
+    bloquear_bolao(bolao.id)
+    tinha = bool(bolao.codigo_publico)
+    if acao == 'gerar':
+        gerar_link(bolao)
+        mensagem = ('Novo link gerado. O link anterior parou de funcionar.' if tinha
+                    else 'Link público criado. Copie e envie para o grupo.')
+    else:
+        desativar_link(bolao)
+        mensagem = 'Link público desativado. Ninguém mais consegue abrir a página.'
+    db.session.commit()
+    current_app.logger.info('Link público do bolão %s: %s por %s', bolao.id, acao, current_user.id)
+    return jsonify({'mensagem': mensagem, **configuracao_publica(bolao)})
+
+
+@api.put('/boloes/<int:id>/publico/tabela')
+@requer_gestao(precisa_bolao=False)
+def alterar_tabela_publica(id):
+    bolao = _bolao_gerido(id)
+    rodada_id = (request.get_json(silent=True) or {}).get('rodadaId')
+    if rodada_id is not None and (not isinstance(rodada_id, int) or isinstance(rodada_id, bool)):
+        return erro(400, 'Rodada inválida.')
+    bloquear_bolao(bolao.id)
+    try:
+        rodada = definir_tabela_publica(bolao, rodada_id)
+    except ValueError as e:
+        db.session.rollback()
+        return erro(400, str(e))
+    db.session.commit()
+    mensagem = (f'Classificação liberada ao público até a {rodada.nome}.' if rodada
+                else 'Classificação oculta para o público.')
+    return jsonify({'mensagem': mensagem, **configuracao_publica(bolao)})

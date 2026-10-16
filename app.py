@@ -99,10 +99,13 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
     from routes.auth import auth
     from routes.interface import interface
     from routes.api import api
+    from routes.publico import publico
 
     app.register_blueprint(auth)
     app.register_blueprint(interface)
     app.register_blueprint(api)
+    # Área pública somente leitura (LINK_PUBLICO.md); importa o cache que se limpa a cada gravação.
+    app.register_blueprint(publico)
 
     from services.contexto_bolao import carregar_contexto
     app.before_request(carregar_contexto)
@@ -187,6 +190,8 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
                 raise RuntimeError('Migração pendente: execute python -m migrations.regras_bolao CAMINHO_DO_BANCO. Consulte REGRAS_POR_BOLAO.md.')
             if 'ordem' not in {c['name'] for c in inspector.get_columns('jogo')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.ordem_jogo CAMINHO_DO_BANCO. Consulte DESEMPENHO.md.')
+            if 'codigo_publico' not in {c['name'] for c in inspector.get_columns('bolao')}:
+                raise RuntimeError('Migração pendente: execute python -m migrations.link_publico CAMINHO_DO_BANCO. Consulte LINK_PUBLICO.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')

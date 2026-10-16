@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>{{ dados.bolao.nome }} · Bolão</title>
+{% include '_icones.html' %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    {% if assets %}{% for css in assets.css %}
+    <link rel="stylesheet" href="{{ css }}">
+    {% endfor %}{% for js in assets.precarregar %}
+    <link rel="modulepreload" href="{{ js }}">
+    {% endfor %}{% endif %}
+</head>
+<body>
+    {% if assets %}
+    <div id="root">
+        <div style="min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;color:#6b7280;font-size:14px">Carregando o bolão…</div>
+    </div>
+    <script id="publico-data" type="application/json">{{ dados|tojson }}</script>
+    <script type="module" src="{{ assets.script }}"></script>
+    <noscript>Ative o JavaScript do navegador para ver o bolão.</noscript>
+    {% else %}
+    <main><h1>Página aguardando compilação</h1></main>
+    {% endif %}
+</body>
+</html>

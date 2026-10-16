@@ -10,6 +10,7 @@ export default defineConfig({
     outDir: '../static/interface',
     emptyOutDir: true,
     manifest: true,
-    rollupOptions: { input: 'src/main.tsx' },
+    // Duas entradas: a gestão (login) e a página pública de consulta, que não carrega o código do admin.
+    rollupOptions: { input: { main: 'src/main.tsx', publico: 'src/publico/main.tsx' } },
   },
 });

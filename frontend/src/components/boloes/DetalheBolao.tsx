@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { BookOpen, Check, ChevronDown, ChevronRight, Share2, Shield, Trophy, Users } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, ChevronRight, Globe, Share2, Shield, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -15,8 +15,9 @@ import { EditorRegras, paraEdicao, validarRegras, type RegrasEditaveis } from '.
 import type { ClassificacaoBolaoApi } from '@/types';
 import { CompartilharClassificacao } from './CompartilharClassificacao';
 import { CORES_MEDALHA, Podio } from './Podio';
+import { LinkPublico } from './LinkPublico';
 
-type Aba = 'classificacao' | 'regras';
+type Aba = 'classificacao' | 'regras' | 'publico';
 
 export function statusBolao(status: string) {
   return status === 'ativo' ? { label: 'Ativo', color: 'green' as const }
@@ -27,7 +28,8 @@ export function statusBolao(status: string) {
 export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number; onTrocar: (id: number) => void; onVoltar: () => void }) {
   const [aba, setAba] = useState<Aba>('classificacao');
   const [rodadaId, setRodadaId] = useState('');
-  const [ocultar, setOcultar] = useState(false);
+  // Desistentes ficam ocultos por padrão (pedido do bolão); o switch mostra quando preciso.
+  const [ocultar, setOcultar] = useState(true);
   const [compartilhar, setCompartilhar] = useState(false);
   const [aberta, setAberta] = useState<number | null>(null);
   const params = new URLSearchParams();
@@ -43,6 +45,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
   const abas: { id: Aba; label: string; icon: typeof Trophy }[] = [
     { id: 'classificacao', label: 'Classificação', icon: Trophy },
     { id: 'regras', label: 'Regras', icon: BookOpen },
+    { id: 'publico', label: 'Link público', icon: Globe },
   ];
 
   return (
@@ -204,6 +207,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
             )}
 
             {aba === 'regras' && <AbaRegras bolaoId={bolaoId} dados={dados} onSalvo={recarregar} />}
+            {aba === 'publico' && <LinkPublico key={bolaoId} bolaoId={bolaoId} />}
 
             <button onClick={onVoltar} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
               <ChevronRight className="w-4 h-4 rotate-180" /> Voltar para bolões

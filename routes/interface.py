@@ -1,7 +1,4 @@
 """Entrada do sistema: a interface React (login, gestão e escolha do bolão)."""
-import json
-from pathlib import Path
-
 from flask import Blueprint, abort, current_app, g, get_flashed_messages, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from flask_wtf.csrf import generate_csrf
@@ -14,15 +11,8 @@ VIEWS = {'dashboard', 'jogos', 'palpites', 'rodadas', 'participantes', 'boloes',
 
 
 def assets_interface():
-    manifest_path = Path(current_app.static_folder) / 'interface' / '.vite' / 'manifest.json'
-    if not manifest_path.is_file():
-        return None
-    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-    entry = manifest['src/main.tsx']
-    return {
-        'script': url_for('static', filename='interface/' + entry['file']),
-        'css': [url_for('static', filename='interface/' + css) for css in entry.get('css', [])],
-    }
+    from services.assets_vite import assets_da_entrada
+    return assets_da_entrada('src/main.tsx')
 
 
 def tipo_mensagem(categoria, texto):
