@@ -136,7 +136,7 @@ Use banco/projeto novo dentro das quotas Free. Não há opção --force ou --cle
 
    O destino não pode existir. Guarde também uma cópia externa privada.
 2. Se o schema ainda for antigo, atualize **essa cópia** seguindo
-   MIGRACAO_FASE1.md, MIGRACAO_PARTICIPACAO.md e AJUSTES_PALPITES_SYNC.md,
+   docs/MIGRACAO_FASE1.md, docs/MIGRACAO_PARTICIPACAO.md e docs/AJUSTES_PALPITES_SYNC.md,
    nesta ordem. Os IDs de administradores/responsáveis da Fase 1 devem ser
    revisados explicitamente, nunca aceitos cegamente. Os scripts antigos
    continuam exclusivos de SQLite e não devem ser executados contra PostgreSQL.

@@ -213,7 +213,7 @@ def novo_bolao():
     return jsonify({'bolaoId': novo.id, 'mensagem': mensagem}), 201
 
 
-# ---------- Link público de consulta (LINK_PUBLICO.md) ----------
+# ---------- Link público de consulta (docs/LINK_PUBLICO.md) ----------
 
 @api.get('/boloes/<int:id>/publico')
 @requer_gestao(precisa_bolao=False)

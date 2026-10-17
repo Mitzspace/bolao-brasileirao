@@ -19,3 +19,4 @@ backups/
 *.log
 .test-tmp*/
 entregas/
+static/interface/

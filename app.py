@@ -46,7 +46,7 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000')
         return response
 
-    # Compressão gzip e cache do navegador para os arquivos da interface (DESEMPENHO.md).
+    # Compressão gzip e cache do navegador para os arquivos da interface (docs/DESEMPENHO.md).
     from services.http_desempenho import registrar as registrar_desempenho
     registrar_desempenho(app)
 
@@ -104,7 +104,7 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
     app.register_blueprint(auth)
     app.register_blueprint(interface)
     app.register_blueprint(api)
-    # Área pública somente leitura (LINK_PUBLICO.md); importa o cache que se limpa a cada gravação.
+    # Área pública somente leitura (docs/LINK_PUBLICO.md); importa o cache que se limpa a cada gravação.
     app.register_blueprint(publico)
 
     from services.contexto_bolao import carregar_contexto, gravar_cookie_ultimo_bolao
@@ -169,7 +169,7 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             tabelas = set(inspector.get_table_names())
             if any(t not in tabelas or not campos.issubset({c["name"] for c in inspector.get_columns(t)})
                    for t, campos in obrigatorias.items()):
-                raise RuntimeError("Banco anterior à Fase 1. Revise MIGRACAO_FASE1.md e execute a migração explícita com backup. O app não migra o banco automaticamente.")
+                raise RuntimeError("Banco anterior à Fase 1. Revise docs/MIGRACAO_FASE1.md e execute a migração explícita com backup. O app não migra o banco automaticamente.")
             novos_campos = {
                 "bolao": {"politica_entrada_tardia"},
                 "participacao": {"rodada_entrada_id", "rodada_desistencia_id", "motivo_desistencia",
@@ -180,19 +180,19 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             }
             if any(t not in tabelas or not campos.issubset({c["name"] for c in inspector.get_columns(t)})
                    for t, campos in novos_campos.items()):
-                raise RuntimeError("Migração de participação pendente. Siga MIGRACAO_PARTICIPACAO.md; o banco não é migrado automaticamente.")
+                raise RuntimeError("Migração de participação pendente. Siga docs/MIGRACAO_PARTICIPACAO.md; o banco não é migrado automaticamente.")
             if 'email' not in {c['name'] for c in inspector.get_columns('participacao')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.contato_participante CAMINHO_DO_BANCO.')
             if 'situacao' not in {c['name'] for c in inspector.get_columns('palpite')}:
-                raise RuntimeError('Migração pendente: execute python -m migrations.situacao_palpite CAMINHO_DO_BANCO. Consulte AJUSTES_PALPITES_SYNC.md.')
+                raise RuntimeError('Migração pendente: execute python -m migrations.situacao_palpite CAMINHO_DO_BANCO. Consulte docs/AJUSTES_PALPITES_SYNC.md.')
             if 'grupo_id' not in {c['name'] for c in inspector.get_columns('bolao')}:
-                raise RuntimeError('Migração pendente: execute python -m migrations.grupo_bolao CAMINHO_DO_BANCO. Consulte MULTIPLOS_CAMPEONATOS.md.')
+                raise RuntimeError('Migração pendente: execute python -m migrations.grupo_bolao CAMINHO_DO_BANCO. Consulte docs/MULTIPLOS_CAMPEONATOS.md.')
             if 'pontos_primeiro_gol' not in {c['name'] for c in inspector.get_columns('bolao')}:
-                raise RuntimeError('Migração pendente: execute python -m migrations.regras_bolao CAMINHO_DO_BANCO. Consulte REGRAS_POR_BOLAO.md.')
+                raise RuntimeError('Migração pendente: execute python -m migrations.regras_bolao CAMINHO_DO_BANCO. Consulte docs/REGRAS_POR_BOLAO.md.')
             if 'ordem' not in {c['name'] for c in inspector.get_columns('jogo')}:
-                raise RuntimeError('Migração pendente: execute python -m migrations.ordem_jogo CAMINHO_DO_BANCO. Consulte DESEMPENHO.md.')
+                raise RuntimeError('Migração pendente: execute python -m migrations.ordem_jogo CAMINHO_DO_BANCO. Consulte docs/DESEMPENHO.md.')
             if 'codigo_publico' not in {c['name'] for c in inspector.get_columns('bolao')}:
-                raise RuntimeError('Migração pendente: execute python -m migrations.link_publico CAMINHO_DO_BANCO. Consulte LINK_PUBLICO.md.')
+                raise RuntimeError('Migração pendente: execute python -m migrations.link_publico CAMINHO_DO_BANCO. Consulte docs/LINK_PUBLICO.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')
