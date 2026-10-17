@@ -6,6 +6,7 @@ sincronizados, como antes.
 """
 from database import db
 from models import Jogo, Resultado, Rodada
+from services.classicos import eh_classico
 from services.contexto_bolao import validar_rodada
 from services.validacao_formularios import data_jogo, inteiro, placar, texto
 
@@ -23,7 +24,9 @@ def validar_dados_jogo(time_casa, time_fora, rodada_id, data):
 
 def criar_jogo(time_casa, time_fora, rodada_id, data, classico):
     casa, fora, rodada, data = validar_dados_jogo(time_casa, time_fora, rodada_id, data)
-    jogo = Jogo(time_casa=casa, time_fora=fora, rodada_id=rodada.id, especial=bool(classico), data=data)
+    # Clássico da lista (services/classicos.py) é marcado sozinho; a caixa marcada vale para outros confrontos.
+    jogo = Jogo(time_casa=casa, time_fora=fora, rodada_id=rodada.id,
+                especial=bool(classico) or eh_classico(casa, fora), data=data)
     db.session.add(jogo)
     db.session.commit()
     return jogo

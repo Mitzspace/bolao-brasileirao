@@ -16,6 +16,7 @@ from werkzeug.security import generate_password_hash
 
 from database import db
 from models import BonusRodada, Jogo, Palpite, Participante, Resultado, Rodada
+from services.classicos import eh_classico
 from services.parser_planilha import parse_placar, extrair_num_rodada, PADRAO_PALPITE, PALAVRAS_IGNORAR
 
 
@@ -149,7 +150,7 @@ def _importar_workbook(wb, campeonato_id, importar_bonus):
                     rodada_id=rodada.id,
                     time_casa=time_casa,
                     time_fora=time_fora,
-                    especial=especial,
+                    especial=especial or eh_classico(time_casa, time_fora),
                     ordem=posicao,
                     encerrado=(gols_casa_real is not None and gols_fora_real is not None),
                 )

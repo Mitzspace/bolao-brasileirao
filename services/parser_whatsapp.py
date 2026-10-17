@@ -3,6 +3,8 @@ import re
 import unicodedata
 from collections import Counter
 
+from services.sync import _normalizar_time
+
 APELIDOS = {'fla': 'flamengo', 'galo': 'atletico mg', 'timao': 'corinthians',
             'athletico': 'athletico pr', 'atletico mineiro': 'atletico mg',
             'bragantino': 'red bull bragantino'}
@@ -23,8 +25,10 @@ def ler_mensagem(texto, jogos, apelidos=None):
     aliases = APELIDOS if apelidos is None else apelidos
     aliases = {normalizar(k): normalizar(v) for k, v in aliases.items()}
     def nome(s):
+        # Mesma normalização da sincronização com a API: "Coritiba" = "Coritiba FBC",
+        # "Atlético-MG" = "CA Mineiro", "Vasco" = "CR Vasco da Gama", "Remo" = "Clube do Remo".
         n = normalizar(s)
-        return aliases.get(n, n)
+        return _normalizar_time(aliases.get(n, n))
     linhas, ordem = [], 0
     for original in texto.splitlines():
         if not original.strip():

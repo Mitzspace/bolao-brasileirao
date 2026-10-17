@@ -118,6 +118,7 @@ def sync_jogos(token, campeonato_id, competicao,
     """
     from database import db
     from models import Jogo, Resultado, Rodada
+    from services.classicos import eh_classico
 
     # Se for campeonato completo, não filtra por rodada na chamada da API
     filtro_rodada = None if campeonato_completo else rodada_api
@@ -176,7 +177,7 @@ def sync_jogos(token, campeonato_id, competicao,
                 time_fora=item["time_fora"],
                 data=item["data"],
                 rodada_id=rodada.id,
-                especial=False,
+                especial=eh_classico(item["time_casa"], item["time_fora"]),
                 encerrado=item["finalizado"],
                 external_fonte="football-data.org",
                 external_id=item["external_id"],
