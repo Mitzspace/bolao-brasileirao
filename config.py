@@ -1,5 +1,4 @@
 import os
-import secrets
 from datetime import timedelta
 from urllib.parse import urlsplit
 
@@ -143,8 +142,8 @@ class DevelopmentConfig(Config):
     """Configuração para desenvolvimento."""
     TEMPLATES_AUTO_RELOAD = True
     DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
-    # Em desenvolvimento, usa uma chave aleatória se não definida
-    SECRET_KEY = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+    # Chave fixa em desenvolvimento: as sessões sobrevivem ao reinício do servidor
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-inseguro-troque-em-producao")
 
 
 class ProductionConfig(Config):
