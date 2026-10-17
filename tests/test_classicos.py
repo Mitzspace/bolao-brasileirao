@@ -56,4 +56,5 @@ def test_sincronizacao_cria_jogo_ja_marcado_como_classico(app, campeonato_teste)
     with patch('services.sync.buscar_jogos_football_data', return_value=api):
         sync_jogos('t', campeonato_teste.id, 'BSA', campeonato_completo=True)
     marcados = {j.time_casa: j.classico for j in Jogo.query.all()}
-    assert marcados == {'SC Corinthians Paulista': True, 'Clube do Remo': False}
+    # A sincronização grava os nomes já normalizados (nome curto do time).
+    assert marcados == {'Corinthians': True, 'Remo': False}
