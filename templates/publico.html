@@ -6,6 +6,18 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="referrer" content="no-referrer">
     <title>{{ dados.bolao.nome }} · Bolão</title>
+    <script>
+      /* Aplica o tema antes de desenhar a página (evita piscar). Mesma regra de src/lib/tema.ts. */
+      (function () {
+        var escuro = false;
+        try {
+          var salvo = localStorage.getItem('bolao-publico-tema');
+          escuro = salvo ? salvo === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        } catch (e) {}
+        document.documentElement.classList.toggle('dark', escuro);
+        document.documentElement.style.colorScheme = escuro ? 'dark' : 'light';
+      })();
+    </script>
 {% include '_icones.html' %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -1,31 +1,39 @@
 import { useState } from 'react';
-import { CalendarClock } from 'lucide-react';
+import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
+import { AgendaRodada, SeletorVisaoJogos, type VisaoJogos } from '@/components/jogos/AgendaRodada';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { useRecurso } from '@/lib/useRecurso';
-import { cartao, LinhaJogo, Rodadas } from '../comum';
+import { rodadasDoSeletor } from '../comum';
 import type { JogosApi } from '../tipos';
 
-/** Jogos por rodada: resultados e próximos jogos. */
-export function Jogos() {
+/** Mesma aba Jogos da gestão (rodada, horários e jogos atrasados) + tabela do campeonato. */
+export function Jogos({ rotuloTabela }: { rotuloTabela: string }) {
+  const [visao, setVisao] = useState<VisaoJogos>('jogos');
   const [numero, setNumero] = useState<number | null>(null);
   const { dados, carregando, erro, recarregar } = useRecurso<JogosApi>(numero ? `/jogos?rodada=${numero}` : '/jogos');
-  if (erro && !dados) return <ErroCarga mensagem={erro} onTentar={recarregar} />;
-  if (!dados) return <Carregando linhas={5} />;
-  const r = dados.rodada;
+  const r = dados?.rodada;
   return (
-    <div className="space-y-4">
-      <Rodadas rodadas={dados.rodadas} selecionada={numero ?? r?.numero ?? null} atual={dados.atual} onSelecionar={setNumero} />
-      {r && (
-        <div className="flex items-center gap-2 px-1">
-          <CalendarClock className="w-4 h-4 text-brand-600" />
-          <h2 className="font-bold text-gray-900 dark:text-white">{r.nome}</h2>
-          <span className="text-xs text-gray-400">{r.comResultado} de {r.jogos} com resultado</span>
-        </div>
+    <div className="space-y-6">
+      <SeletorVisaoJogos visao={visao} onMudar={setVisao} rotuloTabela={rotuloTabela} />
+      {visao === 'tabela' && <TabelaOficial />}
+      {visao === 'jogos' && erro && !dados && <ErroCarga mensagem={erro} onTentar={recarregar} />}
+      {visao === 'jogos' && !dados && !erro && <Carregando linhas={5} />}
+      {visao === 'jogos' && dados && r && (
+        <AgendaRodada
+          agora={dados.agora}
+          rodadas={rodadasDoSeletor(dados.rodadas)}
+          selecionadaId={numero ?? r.numero}
+          atualId={dados.atual}
+          onSelecionar={n => setNumero(n === dados.atual ? null : n)}
+          onIrAtual={() => setNumero(null)}
+          rodada={r}
+          jogos={dados.jogos}
+          atrasados={dados.atrasados}
+          carregando={carregando}
+          rodape={<p className="text-xs text-gray-400 text-center">Horários de Brasília.</p>}
+        />
       )}
-      <div className={`space-y-3 transition-opacity ${carregando ? 'opacity-60' : ''}`}>
-        {dados.jogos.map((j, i) => <div key={i} className={cartao}><LinhaJogo jogo={j} /></div>)}
-        {dados.jogos.length === 0 && <p className="text-sm text-gray-400 text-center py-10">Nenhum jogo cadastrado nesta rodada.</p>}
-      </div>
+      {visao === 'jogos' && dados && !r && <p className="text-sm text-gray-400 text-center py-12">Nenhuma rodada cadastrada neste campeonato.</p>}
     </div>
   );
 }

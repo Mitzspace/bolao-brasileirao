@@ -1,6 +1,4 @@
 """Aba Participantes da nova interface (mesmas regras da tela atual de participantes)."""
-import re
-
 from flask import jsonify, request
 from flask_login import current_user
 from sqlalchemy.orm import joinedload
@@ -11,7 +9,7 @@ from routes.api import api, erro, requer_gestao
 from services.contexto_bolao import bolao_atual, opcoes_rodadas
 from services.desistencias import aplicar, historico_visivel, preparar
 from services.elegibilidade import REGRA_DESISTENCIA
-from services.evolucao_ranking import evolucao
+from services.evolucao_ranking import evolucao, rotulo_curto
 from services.gestao_participantes import normalizar_nome, totais_participantes
 from services.participacoes import (alterar_status, confirmacao_valida, criar, editar,
                                     erro_rodada_desistencia, gerar_confirmacao)
@@ -20,11 +18,6 @@ from services.responsaveis import bloquear_bolao
 from services.resumo_boloes import rodadas_de_referencia
 
 PRIORIDADE_STATUS = {'ativo': 0, 'desistente': 1, 'saiu': 2, 'removido': 3}
-
-
-def _rodada_curta(rodada):
-    numeros = re.findall(r'\d+', rodada.nome)
-    return f'R{numeros[0]}' if numeros else rodada.nome[:4]
 
 
 def _texto(dados, campo):
@@ -103,7 +96,7 @@ def detalhe_participante(id):
                  .join(Jogo).order_by(Jogo.rodada_id, Jogo.id).all())
     return jsonify({
         'evolucao': [{
-            'rodadaId': l['rodada'].id, 'rodada': l['rodada'].nome, 'curto': _rodada_curta(l['rodada']),
+            'rodadaId': l['rodada'].id, 'rodada': l['rodada'].nome, 'curto': rotulo_curto(l['rodada']),
             'pontos': l['pontos'] if l['participa'] else None, 'cravadas': l['cravadas'],
             'palpites': l['palpites'], 'acumulado': l['acumulado'],
             'posicao': l['posicao'], 'participa': l['participa'],

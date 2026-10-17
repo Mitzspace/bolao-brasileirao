@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { Search, Users } from 'lucide-react';
+import { ChevronRight, Search, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Switch } from '@/components/ui/Form';
 import { useRecurso } from '@/lib/useRecurso';
 import { cartao, idDoNome, Titulo } from '../comum';
-import type { ParticipantesApi } from '../tipos';
+import type { AbrirParticipante, ParticipantesApi } from '../tipos';
 
-/** Lista de participantes; posição e pontos só com a classificação liberada. */
-export function Participantes() {
+/** Lista de participantes; posição e pontos só com a classificação liberada. Tocar abre o desempenho. */
+export function Participantes({ onAbrirParticipante }: { onAbrirParticipante: AbrirParticipante }) {
   const { dados, erro, recarregar } = useRecurso<ParticipantesApi>('/participantes');
   const [busca, setBusca] = useState('');
   const [ocultar, setOcultar] = useState(true);
@@ -32,7 +32,8 @@ export function Participantes() {
       </div>
       <ul className="divide-y divide-gray-50 dark:divide-gray-800/60">
         {lista.map((p, i) => (
-          <li key={`${p.nome}-${i}`} className="flex items-center gap-3 px-5 py-3">
+          <li key={p.ref ?? i}>
+            <button onClick={() => onAbrirParticipante(p)} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
             <Avatar nome={p.nome} id={idDoNome(p.nome)} size="md" />
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-900 dark:text-white truncate">{p.nome}</p>
@@ -44,6 +45,8 @@ export function Participantes() {
                 <p className="text-xs text-gray-400">{p.posicao ? `${p.posicao}º lugar` : '—'}</p>
               </div>
             )}
+            <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0" aria-hidden="true" />
+            </button>
           </li>
         ))}
         {lista.length === 0 && <li className="px-5 py-8 text-sm text-gray-400 text-center">Ninguém encontrado.</li>}

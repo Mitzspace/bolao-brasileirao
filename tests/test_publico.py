@@ -65,7 +65,11 @@ def todo_json(client, c):
     rotas = ['/api/inicio', '/api/classificacao', '/api/classificacao?desistentes=mostrar', '/api/jogos',
              '/api/jogos?rodada=1', '/api/jogos?rodada=2', '/api/palpites', '/api/palpites?rodada=1',
              '/api/palpites?rodada=2', '/api/participantes']
-    return {rota: client.get(c['base'] + rota) for rota in rotas}
+    respostas = {rota: client.get(c['base'] + rota) for rota in rotas}
+    for p in respostas['/api/participantes'].get_json()['participantes']:
+        rota = f"/api/participantes/{p['ref']}"
+        respostas[rota] = client.get(c['base'] + rota)
+    return respostas
 
 
 # ---------- Palpites: só jogos com resultado ----------
@@ -86,12 +90,15 @@ def test_jogo_encerrado_para_palpites_sem_resultado_nao_revela(client, cenario):
 
 
 def test_jogo_com_resultado_mostra_palpites(client, cenario):
+    liberar(client, cenario, cenario['r1'])
     jogos = client.get(cenario['base'] + '/api/palpites?rodada=1').get_json()['jogos']
     fla = next(j for j in jogos if j['casa'] == 'Flamengo')
     assert fla['revelado'] is True and (fla['golsCasa'], fla['golsFora']) == (2, 1)
     por_nome = {p['nome']: p for p in fla['palpites']}
-    assert por_nome['Ana Souza'] == {'nome': 'Ana Souza', 'status': 'ativo', 'situacao': 'valido',
-                                     'casa': 2, 'fora': 1, 'primeiroGol': 'Pedro'}
+    ana = dict(por_nome['Ana Souza'])
+    assert re.fullmatch(r'[0-9a-f]{16}', ana.pop('ref'))
+    assert ana == {'nome': 'Ana Souza', 'status': 'ativo', 'situacao': 'valido',
+                   'casa': 2, 'fora': 1, 'primeiroGol': 'Pedro', 'pontos': 5}
     assert por_nome['Bia']['casa'] == 0
 
 
@@ -99,6 +106,68 @@ def test_nenhuma_resposta_publica_contem_palpite_de_jogo_sem_resultado(client, c
     for rota, r in todo_json(client, cenario).items():
         texto = r.get_data(as_text=True).replace(' ', '')
         assert '"casa":9' not in texto and '"casa":7' not in texto, rota
+
+
+# ---------- Palpites: só até a rodada liberada (item 8) ----------
+
+def _resultado_na_rodada_2(cenario):
+    gremio = Jogo.query.filter_by(time_casa='Grêmio').one()
+    gremio.data = datetime.now() - timedelta(hours=3)
+    db.session.add(Resultado(jogo=gremio, gols_casa_real=9, gols_fora_real=8))
+    db.session.commit()
+
+
+def test_sem_rodada_liberada_nenhum_palpite_aparece(client, cenario):
+    """Mesmo com resultado lançado, sem tabela liberada nenhum palpite sai do servidor."""
+    dados = client.get(cenario['base'] + '/api/palpites?rodada=1').get_json()
+    assert dados['palpitesLiberados'] is False
+    assert all(j['revelado'] is False and 'palpites' not in j for j in dados['jogos'])
+    for rota, r in todo_json(client, cenario).items():
+        texto = r.get_data(as_text=True)
+        assert '"palpites":[' not in texto.replace(' ', ''), rota
+        assert 'Pedro' not in texto, rota  # palpite de primeiro gol da Ana
+
+
+def test_rodada_posterior_a_liberada_fica_oculta_mesmo_com_resultado(client, cenario):
+    _resultado_na_rodada_2(cenario)
+    liberar(client, cenario, cenario['r1'])
+    r2 = client.get(cenario['base'] + '/api/palpites?rodada=2').get_json()
+    assert r2['palpitesLiberados'] is False and r2['pontosLiberados'] is False
+    assert r2['jogos'][0]['golsCasa'] == 9  # o placar do jogo é público...
+    assert r2['jogos'][0]['revelado'] is False and 'palpites' not in r2['jogos'][0]  # ...o palpite não
+    assert [r['palpitesLiberados'] for r in r2['rodadas']] == [True, False]
+    # O palpite 9x8 da Ana na rodada 2 não aparece em resposta nenhuma.
+    for rota, r in todo_json(client, cenario).items():
+        texto = r.get_data(as_text=True).replace(' ', '')
+        assert '"casa":9,"fora":8' not in texto and '"fora":8,"casa":9' not in texto, rota
+    # Ao liberar a rodada 2, os palpites dela passam a aparecer.
+    liberar(client, cenario, cenario['r2'])
+    r2 = client.get(cenario['base'] + '/api/palpites?rodada=2').get_json()
+    ana = next(p for p in r2['jogos'][0]['palpites'] if p['nome'] == 'Ana Souza')
+    assert (ana['casa'], ana['fora']) == (9, 8)
+
+
+def test_palpites_nao_sao_lidos_do_banco_para_rodada_nao_liberada(client, cenario, app):
+    """A restrição é na consulta: nenhuma linha de palpite da rodada oculta é carregada."""
+    from sqlalchemy import event
+    _resultado_na_rodada_2(cenario)
+    liberar(client, cenario, cenario['r1'])
+    cache_publico.invalidar()
+    consultas = []
+    motor = db.engine
+    ouvir = lambda conn, cursor, sql, params, ctx, many: consultas.append(sql)
+    event.listen(motor, 'before_cursor_execute', ouvir)
+    try:
+        client.get(cenario['base'] + '/api/palpites?rodada=2')
+    finally:
+        event.remove(motor, 'before_cursor_execute', ouvir)
+    assert not any('FROM palpite' in sql for sql in consultas)
+
+
+def test_rodada_padrao_dos_palpites_e_a_ultima_liberada(client, cenario):
+    _resultado_na_rodada_2(cenario)
+    liberar(client, cenario, cenario['r1'])
+    assert client.get(cenario['base'] + '/api/palpites').get_json()['rodada']['numero'] == 1
 
 
 # ---------- Tabela bloqueada / liberada ----------
@@ -138,6 +207,84 @@ def test_dashboard_nao_mostra_palpites_faltantes(client, cenario):
         assert 'faltant' not in texto and 'pendenc' not in texto and 'pendent' not in texto
 
 
+# ---------- Classificação completa, regras, participante, jogos e tabela ----------
+
+def test_classificacao_tem_colunas_completas(client, cenario):
+    liberar(client, cenario, cenario['r1'])
+    ana = client.get(cenario['base'] + '/api/classificacao').get_json()['itens'][0]
+    assert ana['nome'] == 'Ana Souza'
+    for campo in ('bonus', 'bonusPrimeiroGol', 'cravadas', 'acertos', 'pontos', 'pontosPalpites', 'variacao', 'ref'):
+        assert campo in ana, campo
+    assert ana['cravadas'] == 1 and ana['pontos'] == 5
+
+
+def test_inicio_traz_regras_de_pontuacao(client, cenario):
+    regras = client.get(cenario['base'] + '/api/inicio').get_json()['regras']
+    assert regras == {'comumExato': 3, 'comumResultado': 1, 'classicoExato': 5, 'classicoResultado': 3,
+                      'primeiroGol': 2, 'politicaEntrada': cenario['bolao'].politica_entrada_tardia}
+
+
+def test_detalhe_do_participante(client, cenario):
+    lista = client.get(cenario['base'] + '/api/participantes').get_json()['participantes']
+    ref = next(p['ref'] for p in lista if p['nome'] == 'Ana Souza')
+    # Sem tabela liberada: só nome e status, sem pontos.
+    oculto = client.get(f"{cenario['base']}/api/participantes/{ref}")
+    assert oculto.status_code == 200 and oculto.get_json()['liberada'] is False
+    assert '"pontos"' not in oculto.get_data(as_text=True)
+    liberar(client, cenario, cenario['r1'])
+    dados = client.get(f"{cenario['base']}/api/participantes/{ref}").get_json()
+    assert dados['nome'] == 'Ana Souza' and dados['posicao'] == 1 and dados['pontos'] == 5
+    assert [(e['numero'], e['pontos'], e['cravadas']) for e in dados['evolucao']] == [(1, 5, 1)]
+    texto = json.dumps(dados)
+    assert '@' not in texto and 'paga em dia' not in texto
+    assert not re.search(r'"(id|participacaoId|rodadaId|usuarioId)"', texto)
+
+
+def test_detalhe_do_participante_nao_passa_da_rodada_liberada(client, cenario):
+    _resultado_na_rodada_2(cenario)
+    liberar(client, cenario, cenario['r1'])
+    lista = client.get(cenario['base'] + '/api/participantes').get_json()['participantes']
+    ref = next(p['ref'] for p in lista if p['nome'] == 'Ana Souza')
+    dados = client.get(f"{cenario['base']}/api/participantes/{ref}").get_json()
+    assert [e['numero'] for e in dados['evolucao']] == [1] and dados['pontos'] == 5
+
+
+def test_referencia_de_participante_invalida_ou_de_link_antigo(client, cenario):
+    lista = client.get(cenario['base'] + '/api/participantes').get_json()['participantes']
+    ref = lista[0]['ref']
+    for ruim in ('0' * 16, 'xyz', str(cenario['ana'].id), ref.upper(), ref + '0'):
+        assert client.get(f"{cenario['base']}/api/participantes/{ruim}").status_code == 404, ruim
+    entrar(client, cenario['usuario'])
+    novo = client.post(f"/interface/api/boloes/{cenario['bolao'].id}/publico/link", json={'acao': 'gerar'}).get_json()
+    client.get('/logout')
+    base_nova = '/publico/' + novo['link'].rsplit('/', 1)[1]
+    assert client.get(f'{base_nova}/api/participantes/{ref}').status_code == 404  # referência antiga não vale
+
+
+def test_jogos_atrasados_no_publico(client, cenario):
+    dados = client.get(cenario['base'] + '/api/jogos').get_json()
+    assert dados['rodada']['numero'] == 2 and dados['rodada']['atual'] is True
+    assert [(j['casa'], j['rodadaNome']) for j in dados['atrasados']] == [('Santos', '1ª Rodada')]
+    assert 'faltantes' not in json.dumps(dados) and 'estado' not in json.dumps(dados)
+
+
+def test_tabela_do_campeonato_publica(client, cenario, monkeypatch):
+    def falsa(**_):
+        return {'sucesso': True, 'grupos': [{'nome': 'Série A', 'linhas': [{
+            'posicao': 1, 'time_nome': 'Flamengo', 'time_nome_completo': 'CR Flamengo', 'time_sigla': 'FLA',
+            'time_id': 1783, 'escudo': None, 'pontos': 70, 'jogos': 30, 'vitorias': 21, 'empates': 7,
+            'derrotas': 2, 'gols_pro': 60, 'gols_contra': 20, 'saldo_gols': 40, 'zona': None}]}],
+            'legendas': [], 'mata_mata': [{'nome': 'Final', 'jogos': [{'id': 999, 'casa': 'A', 'fora': 'B',
+                                                                       'gols_casa': 1, 'gols_fora': 0,
+                                                                       'status': 'FINISHED', 'horario': None}]}]}
+    monkeypatch.setattr('services.tabela_campeonato.buscar_classificacao', falsa)
+    r = client.get(cenario['base'] + '/api/tabela')
+    assert r.status_code == 200
+    dados = r.get_json()
+    assert dados['grupos'][0]['linhas'][0]['time'] == 'Flamengo'
+    assert '"id"' not in r.get_data(as_text=True) and 'time_id' not in r.get_data(as_text=True)
+
+
 # ---------- Segurança ----------
 
 def test_sem_dados_pessoais_nem_ids_internos(client, cenario):
@@ -165,7 +312,8 @@ def test_link_invalido_ou_revogado_da_404_generico(client, cenario):
 
 
 def test_rotas_publicas_nao_aceitam_gravacao(client, cenario):
-    for rota in ('', '/api/inicio', '/api/palpites', '/api/classificacao', '/api/participantes'):
+    for rota in ('', '/api/inicio', '/api/palpites', '/api/classificacao', '/api/participantes', '/api/tabela',
+                 '/api/participantes/' + '0' * 16):
         for metodo in ('post', 'put', 'patch', 'delete'):
             r = getattr(client, metodo)(cenario['base'] + rota, json={'jogos': {}})
             assert r.status_code == 405, (metodo, rota)
@@ -228,6 +376,7 @@ def test_numero_de_rodada_invalido(client, cenario):
 # ---------- Cache e limite ----------
 
 def test_cache_atualiza_depois_de_gravar_resultado(client, cenario):
+    liberar(client, cenario, cenario['r1'])
     antes = client.get(cenario['base'] + '/api/palpites?rodada=1').get_json()
     assert next(j for j in antes['jogos'] if j['casa'] == 'Santos')['revelado'] is False
     santos = Jogo.query.filter_by(time_casa='Santos').one()

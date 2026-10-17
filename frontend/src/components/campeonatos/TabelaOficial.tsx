@@ -83,8 +83,8 @@ export function TabelaOficial() {
         <div key={fase.nome} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
           <h3 className="font-bold text-gray-900 dark:text-white mb-3">{fase.nome}</h3>
           <div className="grid sm:grid-cols-2 gap-3">
-            {fase.jogos.map(j => (
-              <div key={j.id} className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 text-sm">
+            {fase.jogos.map((j, i) => (
+              <div key={j.id ?? `${j.casa}-${j.fora}-${i}`} className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 text-sm">
                 <p className="text-xs text-gray-400 mb-2">{j.horario ?? 'Horário a definir'} · {statusMataMata[j.status] ?? 'A definir'}</p>
                 <div className="flex justify-between"><span>{j.casa}</span><strong>{j.gols_casa ?? '—'}</strong></div>
                 <div className="flex justify-between mt-1"><span>{j.fora}</span><strong>{j.gols_fora ?? '—'}</strong></div>

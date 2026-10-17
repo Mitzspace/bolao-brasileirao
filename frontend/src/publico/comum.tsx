@@ -9,11 +9,19 @@ export const cartao = 'bg-white dark:bg-gray-900 rounded-2xl shadow-sm border bo
 
 const ESTADO: Record<RodadaPublica['situacao'], EstadoRodada> = { encerrada: 'fechada', andamento: 'aberta', agendada: 'aberta' };
 
-/** Mesmo carrossel de rodadas do admin; o público só vê "encerrada" ou "aberta". */
+/**
+ * Rodadas no formato do carrossel do admin, identificadas pelo número (o público não recebe ids).
+ * O público só vê "encerrada" ou "aberta" (nunca "pendente", que depende de palpites faltantes).
+ */
+export function rodadasDoSeletor(rodadas: RodadaPublica[]): RodadaResumo[] {
+  return rodadas.map(r => ({ id: r.numero, numero: r.numero, nome: r.nome, estado: ESTADO[r.situacao], faltantes: 0 }));
+}
+
+/** Mesmo carrossel de rodadas do admin, dentro de um cartão. */
 export function Rodadas({ rodadas, selecionada, atual, onSelecionar }: {
   rodadas: RodadaPublica[]; selecionada: number | null; atual?: number | null; onSelecionar: (numero: number) => void;
 }) {
-  const lista: RodadaResumo[] = rodadas.map(r => ({ id: r.numero, numero: r.numero, nome: r.nome, estado: ESTADO[r.situacao], faltantes: 0 }));
+  const lista = rodadasDoSeletor(rodadas);
   return (
     <div className={`${cartao} p-3 min-w-0`}>
       <SeletorRodadas rodadas={lista} selecionadaId={selecionada} atualId={atual ?? null} onSelecionar={onSelecionar} />

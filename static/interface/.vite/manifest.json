@@ -1,44 +1,43 @@
 {
-  "_index-!~{004}~.js": {
-    "file": "assets/index-vttjFeb1.css",
-    "src": "_index-!~{004}~.js"
+  "_index-!~{003}~.js": {
+    "file": "assets/index-Cl2Hkxwm.css",
+    "src": "_index-!~{003}~.js"
   },
-  "_index-CE5rDlJe.js": {
-    "file": "assets/index-CE5rDlJe.js",
+  "_index-CkDeePCu.js": {
+    "file": "assets/index-CkDeePCu.js",
     "name": "index",
+    "dynamicImports": [
+      "src/components/participantes/GraficoPontos.tsx"
+    ],
     "css": [
-      "assets/index-vttjFeb1.css"
+      "assets/index-Cl2Hkxwm.css"
     ]
   },
   "src/components/participantes/GraficoPontos.tsx": {
-    "file": "assets/GraficoPontos-0R_iGAbe.js",
+    "file": "assets/GraficoPontos-DLv2EA7q.js",
     "name": "GraficoPontos",
     "src": "src/components/participantes/GraficoPontos.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_index-CE5rDlJe.js",
-      "src/main.tsx"
+      "_index-CkDeePCu.js"
     ]
   },
   "src/main.tsx": {
-    "file": "assets/main-D5ANO8iX.js",
+    "file": "assets/main-Q0vn45jJ.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_index-CE5rDlJe.js"
-    ],
-    "dynamicImports": [
-      "src/components/participantes/GraficoPontos.tsx"
+      "_index-CkDeePCu.js"
     ]
   },
   "src/publico/main.tsx": {
-    "file": "assets/publico-CgwPa8Fd.js",
+    "file": "assets/publico-kcCVoejj.js",
     "name": "publico",
     "src": "src/publico/main.tsx",
     "isEntry": true,
     "imports": [
-      "_index-CE5rDlJe.js"
+      "_index-CkDeePCu.js"
     ]
   }
 }

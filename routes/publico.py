@@ -128,3 +128,15 @@ def palpites(codigo):
 @publico.get('/<codigo>/api/participantes')
 def participantes(codigo):
     return _servir(codigo, 'participantes', dados_publicos.participantes)
+
+
+@publico.get('/<codigo>/api/participantes/<ref>')
+def participante(codigo, ref):
+    return _servir(codigo, 'participante', lambda b: dados_publicos.participante(b, ref), ref,
+                   sem_dados='Participante não encontrado.')
+
+
+@publico.get('/<codigo>/api/tabela')
+def tabela(codigo):
+    """Tabela do campeonato (football-data.org), com o cache de 15 min do servidor."""
+    return _servir(codigo, 'tabela', dados_publicos.tabela)

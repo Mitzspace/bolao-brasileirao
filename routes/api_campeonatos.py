@@ -1,16 +1,15 @@
 """Aba Campeonatos: campeonato do bolão, rodadas e tabela oficial."""
 import os
 
-from flask import current_app, g, jsonify, request
+from flask import g, jsonify, request
 from flask_login import current_user
 
 from models import Rodada
 from routes.api import api, erro, requer_gestao
-from services.classificacao import buscar_classificacao
 from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.estado_rodadas import estados_das_rodadas
 from services.grupos_bolao import campeonatos_do_grupo
-from services.escudos import escudo_time
+from services.tabela_campeonato import dados_tabela
 from services.gestao_campeonato import (criar_rodada, editar_campeonato, excluir_rodada, rodada_tem_historico,
                                         rodadas_com_historico)
 
@@ -96,31 +95,7 @@ def remover_rodada(id):
 @api.get('/tabela')
 @requer_gestao()
 def tabela_oficial():
-    camp = bolao_atual().campeonato
-    token = current_app.config.get('FOOTBALL_DATA_TOKEN') or os.environ.get('FOOTBALL_DATA_TOKEN')
-    competicao = (camp.codigo_api or 'BSA').strip().upper()
-    r = buscar_classificacao(token=token, competicao=competicao,
-                             temporada=str(camp.ano) if camp.ano else None, campeonato_id=camp.id)
-    zona = lambda z: {'nome': z['nome'], 'cor': z['cor'], 'de': z['faixa'][0], 'ate': z['faixa'][1]} if z else None
-    return jsonify({
-        'sucesso': bool(r.get('sucesso')),
-        'erro': r.get('erro'), 'aviso': r.get('aviso'),
-        'fonteCache': bool(r.get('fonte_cache')), 'horarioCache': r.get('horario_cache') or '',
-        'competicao': r.get('competicao_nome') or camp.nome,
-        'grupos': [{
-            'nome': g['nome'],
-            'linhas': [{
-                'posicao': l['posicao'], 'time': l['time_nome'], 'timeCompleto': l['time_nome_completo'],
-                'sigla': l['time_sigla'],
-                'escudo': escudo_time(l['time_nome_completo'] or l['time_nome'], l['time_id'], l['escudo'], camp.id),
-                'pontos': l['pontos'], 'jogos': l['jogos'], 'vitorias': l['vitorias'], 'empates': l['empates'],
-                'derrotas': l['derrotas'], 'golsPro': l['gols_pro'], 'golsContra': l['gols_contra'],
-                'saldo': l['saldo_gols'], 'zona': zona(l.get('zona')),
-            } for l in g['linhas']],
-        } for g in r.get('grupos', [])],
-        'legendas': [zona(z) for z in r.get('legendas', [])],
-        'mataMata': r.get('mata_mata', []),
-    })
+    return jsonify(dados_tabela(bolao_atual().campeonato))
 
 
 def _opcional(c, chave, limite=20):

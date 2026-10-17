@@ -10,11 +10,7 @@ const elemento = document.getElementById('publico-data');
 const dados: DadosPagina = JSON.parse(elemento?.textContent || '{}');
 // Somente leitura: nenhuma gravação sai desta página (sem token CSRF).
 configurarApi({ base: dados.apiBase, csrfToken: '' });
-// Tema segue o celular/computador de quem abre.
-const escuro = window.matchMedia?.('(prefers-color-scheme: dark)');
-const aplicarTema = () => document.documentElement.classList.toggle('dark', !!escuro?.matches);
-aplicarTema();
-escuro?.addEventListener?.('change', aplicarTema);
+// Tema: o App segue o aparelho até a pessoa escolher claro/escuro (escolha salva no navegador).
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

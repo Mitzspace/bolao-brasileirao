@@ -4,11 +4,19 @@ Mesmo cálculo de services.ranking.calcular_ranking(ate_rodada=...), mas feito e
 uma única passada: os pontos de cada palpite são calculados uma vez por rodada e
 depois acumulados. A ordem de desempate é a mesma do ranking geral.
 """
+import re
+
 from models import Jogo, Resultado, Rodada
 from services.contexto_bolao import ordem_rodada
 from services.elegibilidade import dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel
 from services.ranking import _chave_nome, carregar_participantes, pontuacao_palpite
 from services.regras_pontuacao import regras_do_bolao
+
+
+def rotulo_curto(rodada):
+    """Rótulo curto da rodada para o gráfico (ex.: "12ª Rodada" -> "R12")."""
+    numeros = re.findall(r'\d+', rodada.nome)
+    return f'R{numeros[0]}' if numeros else rodada.nome[:4]
 
 
 def rodadas_com_resultado(campeonato_id):

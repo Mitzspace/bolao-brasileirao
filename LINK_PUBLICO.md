@@ -2,8 +2,13 @@
 
 ## Como funciona
 - Cada bolão pode ter **um link secreto**: `https://SEU-APP/publico/<código>` (22 caracteres aleatórios).
-- Quem tem o link vê 4 abas: **Início** (indicadores, jogos da rodada atual e tabela),
-  **Jogos**, **Palpites** e **Participantes**. Ninguém consegue alterar nada.
+- Quem tem o link vê 5 abas: **Início** (o mesmo dashboard da gestão, sem palpites faltantes e sem
+  lançar palpites), **Classificação** (mesmas colunas da gestão: pontos, bônus, cravadas, resultados,
+  total e variação), **Jogos** (rodada, horários e jogos atrasados + **Tabela do campeonato**),
+  **Palpites** e **Participantes** (tocar abre o desempenho: pontos, posição, gráfico por rodada,
+  histórico e melhor rodada). Ninguém consegue alterar nada.
+- Botão **Como funciona a pontuação** (regras do bolão) e botão de **tema claro/escuro**: segue o
+  aparelho até a pessoa escolher; a escolha fica salva no navegador.
 - O admin controla tudo em **Bolões › (bolão) › aba "Link público"**:
   - **Criar link**, **Copiar**, **Ver como participante** (abre a página pública numa aba nova);
   - **Gerar novo link**: o link antigo para de funcionar na hora;
@@ -14,11 +19,11 @@
 ## Regras de visibilidade (aplicadas no servidor)
 | Item | Regra |
 |---|---|
-| Palpites | Só de jogos com **resultado registrado**. "Encerrar para palpites" sem placar **não** revela. A consulta ao banco já filtra os jogos com resultado: palpites de jogos futuros nem são lidos. |
-| Pontos e tabela | Só até a rodada liberada. Rodadas seguintes mostram palpites e placares, sem pontos. Sem rodada liberada, nenhum ponto é enviado e a aba mostra "A classificação será divulgada em breve". |
+| Palpites | Só das rodadas **até a rodada liberada** e, nelas, só de jogos com **resultado registrado**. Sem rodada liberada, nenhum palpite aparece. "Encerrar para palpites" sem placar **não** revela. A consulta ao banco já filtra esses jogos: palpites de rodadas não liberadas nem são lidos. |
+| Pontos e tabela | Só até a rodada liberada (classificação, dashboard e desempenho de cada participante). Rodadas seguintes mostram só os placares dos jogos. Sem rodada liberada, nenhum ponto é enviado e a aba mostra "A classificação será divulgada em breve". |
 | Dashboard | Sem palpites faltantes/pendências. Líder e top 5 só com tabela liberada. |
 | Participantes | Ativos e desistentes (desistentes ocultos por padrão, com chave para mostrar). Sem e-mail, observação ou motivo de desistência. |
-| Identificação | Rodadas pelo número (1, 2, 3...), nunca pelo id do banco. Nenhum id interno no JSON. |
+| Identificação | Rodadas pelo número (1, 2, 3...), nunca pelo id do banco. Participantes por uma referência opaca (HMAC da SECRET_KEY com o código do link), que muda ao gerar um novo link. Nenhum id interno no JSON. |
 
 "Ocultar desistentes" agora vem **ligado por padrão** também na classificação do admin.
 
@@ -46,7 +51,7 @@
 Os bolões começam com link desligado e tabela oculta: nada fica público até você criar o link.
 
 ## Testes
-`python -m pytest tests/test_publico.py -v` — 19 casos: jogo futuro com palpite, jogo "encerrado" sem
+`python -m pytest tests/test_publico.py -v` — 30 casos (inclui restrição de palpites por rodada liberada, leitura do banco, desempenho do participante, jogos atrasados e tabela do campeonato): jogo futuro com palpite, jogo "encerrado" sem
 placar, jogo com resultado, tabela oculta/liberada/por rodada, varredura de dados pessoais e ids,
 link inválido/revogado, métodos de gravação recusados, admin inacessível pelo link, permissões,
 cache após gravar resultado, limite de requisições e carregamento do CSS das duas páginas.

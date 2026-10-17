@@ -60,6 +60,9 @@ export interface JogoApi {
   golsFora: number | null;
 }
 
+/** Jogo sem id: formato comum à gestão e à página pública (que não recebe ids do banco). */
+export type JogoBase = Omit<JogoApi, 'id'>;
+
 export interface ItemRanking {
   participacaoId: number;
   nome: string;
@@ -157,7 +160,7 @@ export interface TabelaApi {
   competicao: string;
   grupos: { nome: string; linhas: LinhaTabela[] }[];
   legendas: ZonaTabela[];
-  mataMata: { nome: string; jogos: { id: number; casa: string; fora: string; gols_casa: number | null; gols_fora: number | null; status: string; horario: string | null }[] }[];
+  mataMata: { nome: string; jogos: { id?: number; casa: string; fora: string; gols_casa: number | null; gols_fora: number | null; status: string; horario: string | null }[] }[];
 }
 
 export interface JogoGestao extends JogoApi {

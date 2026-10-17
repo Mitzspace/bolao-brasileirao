@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react';
 import { TeamCrest } from '@/components/ui/TeamCrest';
 import { Badge } from '@/components/ui/Badge';
-import type { JogoApi } from '@/types';
+import type { JogoBase } from '@/types';
 
 const statusInfo = {
   encerrado: { cor: 'green', texto: 'Encerrado' },
@@ -13,7 +13,7 @@ const statusInfo = {
  * Linha de jogo do Bolt em grade fixa: as colunas de escudos, placar e situação
  * ficam alinhadas entre todas as linhas, independentemente do tamanho dos nomes.
  */
-export function JogoLinha({ jogo, mostrarData = false }: { jogo: JogoApi; mostrarData?: boolean }) {
+export function JogoLinha({ jogo, mostrarData = false }: { jogo: JogoBase; mostrarData?: boolean }) {
   const info = statusInfo[jogo.status];
   const temPlacar = jogo.golsCasa !== null && jogo.golsFora !== null;
   return (
