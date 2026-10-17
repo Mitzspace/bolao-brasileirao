@@ -214,7 +214,7 @@ export function PalpitesScreen() {
               <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 px-1 text-xs text-gray-500 dark:text-gray-400">
                 <MessageCircle className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 shrink-0" />
                 <span>
-                  Adicionado via WhatsApp em {pessoa.whatsapp.quandoTexto}{pessoa.whatsapp.rodada !== dados.rodada.nome ? ` (${pessoa.whatsapp.rodada})` : ''}
+                  Adicionado via WhatsApp em {pessoa.whatsapp.quandoTexto}
                   {' '}por <strong className="font-semibold text-gray-700 dark:text-gray-200">{pessoa.whatsapp.autor ?? 'responsável não identificado'}</strong>
                 </span>
                 <button type="button" onClick={abrirGaveta} className="font-semibold text-brand-700 dark:text-brand-300 hover:underline">Ver na gaveta</button>
@@ -326,7 +326,7 @@ export function PalpitesScreen() {
             )}
 
             {pessoa && !trocando && (
-              <GavetaAlteracoes ref={gaveta} participacaoId={pessoa.id} nome={pessoa.nome} aberta={gavetaAberta}
+              <GavetaAlteracoes ref={gaveta} participacaoId={pessoa.id} nome={pessoa.nome} rodadaId={dados.rodada.id} rodadaNome={dados.rodada.nome} aberta={gavetaAberta}
                 onAlternar={() => setGavetaAberta(a => !a)} versao={chaveForm} />
             )}
           </>

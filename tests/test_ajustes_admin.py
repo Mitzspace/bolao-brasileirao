@@ -97,7 +97,7 @@ def test_gaveta_mostra_alteracoes_mais_recentes_primeiro(client, gestao):
     bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
     _salvar(client, ana, r1, {str(j1.id): {'casa': '3', 'fora': '2'}})
     _salvar(client, ana, r1, {str(j2.id): {'casa': '0', 'fora': '1'}})
-    itens = client.get(f'/interface/api/palpites/historico?participacao_id={ana.id}').get_json()['itens']
+    itens = client.get(f'/interface/api/palpites/historico?participacao_id={ana.id}&rodada_id={r1.id}').get_json()['itens']
     assert [i['mudancas'][0]['jogo'] for i in itens] == ['Santos × Bahia', 'Flamengo × Vasco', 'Flamengo × Vasco']
     recente, edicao, original = itens
     assert recente['autor'] == 'Responsável' and recente['canal'] == 'painel' and recente['acao'] == 'Lançou'
@@ -113,7 +113,7 @@ def test_gaveta_de_palpite_antigo_sem_nenhum_log(client, gestao):
     # Simula um palpite de antes do log (sem nenhum registro no histórico).
     db.session.connection().execute(PalpiteLog.__table__.delete().where(PalpiteLog.palpite_id == palpite.id))
     db.session.commit()
-    itens = client.get(f'/interface/api/palpites/historico?participacao_id={ana.id}').get_json()['itens']
+    itens = client.get(f'/interface/api/palpites/historico?participacao_id={ana.id}&rodada_id={r1.id}').get_json()['itens']
     assert len(itens) == 1 and itens[0]['canal'] == 'desconhecida' and itens[0]['autor'] is None
     assert itens[0]['mudancas'][0]['depois'] == '1 × 0'
 
@@ -121,9 +121,9 @@ def test_gaveta_de_palpite_antigo_sem_nenhum_log(client, gestao):
 def test_gaveta_so_do_bolao_atual_e_so_para_gestao(client, gestao):
     bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
     dono_privado = Participacao.query.filter_by(bolao_id=gestao[1][2].id).first()
-    assert client.get(f'/interface/api/palpites/historico?participacao_id={dono_privado.id}').status_code == 404
+    assert client.get(f'/interface/api/palpites/historico?participacao_id={dono_privado.id}&rodada_id={r1.id}').status_code == 404
     client.get('/logout')
-    assert client.get(f'/interface/api/palpites/historico?participacao_id={ana.id}').status_code == 401
+    assert client.get(f'/interface/api/palpites/historico?participacao_id={ana.id}&rodada_id={r1.id}').status_code == 401
 
 
 def _lancar_pelo_whatsapp(client, pessoa, rodada, j1, j2):
@@ -144,12 +144,12 @@ def test_lancamento_pelo_whatsapp_tem_origem_aviso_e_texto_na_gaveta(client, ges
     aviso = tela['pessoa']['whatsapp']
     assert aviso['rodada'] == 'Rodada 1' and re.fullmatch(r'\d\d/\d\d às \d\d:\d\d', aviso['quandoTexto'])
     assert aviso['autor'] == 'Responsável'  # quem colou a mensagem e salvou
-    itens = client.get(f'/interface/api/palpites/historico?participacao_id={bia.id}').get_json()['itens']
+    itens = client.get(f'/interface/api/palpites/historico?participacao_id={bia.id}&rodada_id={r1.id}').get_json()['itens']
     assert len(itens) == 1 and itens[0]['canal'] == 'whatsapp' and len(itens[0]['mudancas']) == 2
     assert 'Flamengo 2 x 0 Vasco' in itens[0]['textoWhatsapp']
     # Uma correção posterior pela tela fica registrada como painel; o aviso do WhatsApp continua.
     _salvar(client, bia, r1, {str(j1.id): {'casa': '3', 'fora': '0'}})
-    itens = client.get(f'/interface/api/palpites/historico?participacao_id={bia.id}').get_json()['itens']
+    itens = client.get(f'/interface/api/palpites/historico?participacao_id={bia.id}&rodada_id={r1.id}').get_json()['itens']
     assert [i['canal'] for i in itens] == ['painel', 'whatsapp']
     assert itens[0]['mudancas'][0]['antes'] == '2 × 0' and itens[0]['mudancas'][0]['depois'] == '3 × 0'
 
@@ -182,3 +182,28 @@ def test_cards_de_boloes_contam_pessoas_com_jogo_em_branco(client, gestao):
     card = next(b for b in client.get('/interface/api/boloes').get_json()['boloes'] if b['id'] == bolao.id)
     painel = client.get('/interface/api/dashboard').get_json()
     assert card['palpitesFaltantes'] == painel['palpitesFaltantes'] == len(painel['pendentes'])
+
+
+def test_gaveta_e_aviso_sao_da_rodada_aberta(client, gestao):
+    """A gaveta mostra só a rodada aberta da pessoa; outras rodadas não aparecem."""
+    bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
+    j3 = Jogo(time_casa='Grêmio', time_fora='Inter', rodada=r2, ordem=1)
+    db.session.add(j3)
+    db.session.commit()
+    _lancar_pelo_whatsapp(client, bia, r1, j1, j2)
+    _salvar(client, bia, r2, {str(j3.id): {'casa': '2', 'fora': '2'}})
+    url = '/interface/api/palpites/historico?participacao_id={}&rodada_id={}'
+    na_r1 = client.get(url.format(bia.id, r1.id)).get_json()['itens']
+    na_r2 = client.get(url.format(bia.id, r2.id)).get_json()['itens']
+    assert {i['rodada'] for i in na_r1} == {'Rodada 1'} and {i['rodada'] for i in na_r2} == {'Rodada 2'}
+    assert [m['jogo'] for m in na_r2[0]['mudancas']] == ['Grêmio × Inter']
+    # O aviso do WhatsApp aparece na rodada em que a mensagem foi usada, não nas outras.
+    tela = '/interface/api/palpites?rodada_id={}&participacao_id={}'
+    assert client.get(tela.format(r1.id, bia.id)).get_json()['pessoa']['whatsapp'] is not None
+    assert client.get(tela.format(r2.id, bia.id)).get_json()['pessoa']['whatsapp'] is None
+    # Rodada de outro campeonato: 404.
+    from models import Rodada
+    outra = Rodada(nome='Rodada X', campeonato=gestao[1][1].campeonato)
+    db.session.add(outra)
+    db.session.commit()
+    assert client.get(url.format(bia.id, outra.id)).status_code == 404

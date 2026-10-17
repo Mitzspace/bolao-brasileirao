@@ -54,6 +54,8 @@ function Item({ item }: { item: ItemHistoricoPalpite }) {
 interface Props {
   participacaoId: number;
   nome: string;
+  rodadaId: number;
+  rodadaNome: string;
   aberta: boolean;
   onAlternar: () => void;
   /** Muda depois de salvar, para a gaveta buscar o histórico de novo. */
@@ -61,11 +63,11 @@ interface Props {
 }
 
 /**
- * Gaveta no final da tela de palpites: recolhida por padrão; aberta, lista todas as alterações
- * nos palpites desta pessoa (todas as rodadas), da mais recente para a mais antiga. Só gestão.
+ * Gaveta no final da tela de palpites: recolhida por padrão; aberta, lista as alterações
+ * nos palpites desta pessoa na rodada aberta, da mais recente para a mais antiga. Só gestão.
  */
-export const GavetaAlteracoes = forwardRef<HTMLElement, Props>(function GavetaAlteracoes({ participacaoId, nome, aberta, onAlternar, versao }, ref) {
-  const caminho = aberta ? `/palpites/historico?participacao_id=${participacaoId}&v=${encodeURIComponent(versao)}` : null;
+export const GavetaAlteracoes = forwardRef<HTMLElement, Props>(function GavetaAlteracoes({ participacaoId, nome, rodadaId, rodadaNome, aberta, onAlternar, versao }, ref) {
+  const caminho = aberta ? `/palpites/historico?participacao_id=${participacaoId}&rodada_id=${rodadaId}&v=${encodeURIComponent(versao)}` : null;
   const { dados, erro, recarregar } = useRecurso<{ itens: ItemHistoricoPalpite[] }>(caminho);
   return (
     <section ref={ref} id="gaveta-alteracoes" className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-24">
@@ -74,7 +76,7 @@ export const GavetaAlteracoes = forwardRef<HTMLElement, Props>(function GavetaAl
         <Inbox className="w-5 h-5 text-gray-400 shrink-0" />
         <span className="flex-1 min-w-0">
           <span className="block font-semibold text-gray-900 dark:text-white">Gaveta</span>
-          <span className="block text-xs text-gray-400 truncate">Histórico de alterações nos palpites de {nome}</span>
+          <span className="block text-xs text-gray-400 truncate">Alterações nos palpites de {nome} na {rodadaNome}</span>
         </span>
         {aberta && dados && <span className="text-xs text-gray-400 shrink-0">{dados.itens.length} {dados.itens.length === 1 ? 'registro' : 'registros'}</span>}
         <ChevronDown className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${aberta ? 'rotate-180' : ''}`} />
@@ -86,7 +88,7 @@ export const GavetaAlteracoes = forwardRef<HTMLElement, Props>(function GavetaAl
           {dados && dados.itens.length === 0 && (
             <div className="flex flex-col items-center text-center py-8">
               <Inbox className="w-9 h-9 text-gray-300 dark:text-gray-600 mb-2" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma alteração registrada para este participante.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma alteração registrada para este participante nesta rodada.</p>
             </div>
           )}
           {dados && dados.itens.length > 0 && (

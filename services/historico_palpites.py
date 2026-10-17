@@ -78,10 +78,15 @@ def _nome_jogo(jogo):
     return f'{jogo.time_casa} × {jogo.time_fora}'
 
 
-def ultimo_whatsapp(pessoa):
-    """Último lançamento feito pela mensagem do WhatsApp (para o aviso no topo da tela)."""
+def _da_rodada(rodada):
+    """Filtro dos palpites de uma rodada (a gaveta e o aviso são por rodada da pessoa)."""
+    return Palpite.jogo_id.in_(Jogo.query.with_entities(Jogo.id).filter(Jogo.rodada_id == rodada.id))
+
+
+def ultimo_whatsapp(pessoa, rodada):
+    """Último lançamento desta rodada feito pela mensagem do WhatsApp (aviso no topo da tela)."""
     log = (PalpiteLog.query.join(Palpite, Palpite.id == PalpiteLog.palpite_id)
-           .filter(Palpite.participacao_id == pessoa.id,
+           .filter(Palpite.participacao_id == pessoa.id, _da_rodada(rodada),
                    or_(*[PalpiteLog.valores_novos.like(m) for m in MARCA_WHATSAPP]))
            .options(joinedload(PalpiteLog.palpite).joinedload(Palpite.jogo).joinedload(Jogo.rodada))
            .order_by(PalpiteLog.alterado_em.desc(), PalpiteLog.id.desc()).first())
@@ -92,10 +97,10 @@ def ultimo_whatsapp(pessoa):
             'autor': autor.nome if autor else None}
 
 
-def historico(pessoa):
-    """Itens da gaveta, do mais recente para o mais antigo."""
+def historico(pessoa, rodada):
+    """Itens da gaveta (palpites da pessoa nesta rodada), do mais recente para o mais antigo."""
     logs = (PalpiteLog.query.join(Palpite, Palpite.id == PalpiteLog.palpite_id)
-            .filter(Palpite.participacao_id == pessoa.id)
+            .filter(Palpite.participacao_id == pessoa.id, _da_rodada(rodada))
             .options(joinedload(PalpiteLog.palpite).joinedload(Palpite.jogo).joinedload(Jogo.rodada))
             .order_by(PalpiteLog.alterado_em.desc(), PalpiteLog.id.desc()).all())
     ids_autores = {l.alterado_por for l in logs if l.alterado_por}
@@ -133,7 +138,8 @@ def historico(pessoa):
 
     # Palpites antigos sem nenhum registro no log: origem desconhecida, agrupados por rodada.
     com_log = {l.palpite_id for l in logs}
-    sem_log = (Palpite.query.filter(Palpite.participacao_id == pessoa.id, ~Palpite.id.in_(com_log) if com_log else true())
+    sem_log = (Palpite.query.filter(Palpite.participacao_id == pessoa.id, _da_rodada(rodada),
+                                    ~Palpite.id.in_(com_log) if com_log else true())
                .options(joinedload(Palpite.jogo).joinedload(Jogo.rodada)).all())
     por_rodada = {}
     for p in sem_log:

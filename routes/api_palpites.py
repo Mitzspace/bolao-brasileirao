@@ -80,7 +80,7 @@ def tela_palpites():
                    # Todos os jogos da rodada preenchidos: a tela abre em modo leitura (botão Editar).
                    'completo': bool(rodada.jogos) and faltantes.get(pessoa.id, 0) == 0,
                    # Aviso discreto no topo quando algum palpite veio da mensagem do WhatsApp.
-                   'whatsapp': ultimo_whatsapp(pessoa)} if pessoa else None,
+                   'whatsapp': ultimo_whatsapp(pessoa, rodada)} if pessoa else None,
         'jogos': jogos,
     })
 
@@ -157,8 +157,9 @@ def previa_whatsapp_api():
 @api.get('/palpites/historico')
 @requer_gestao()
 def historico_palpites():
-    """Gaveta: todas as alterações nos palpites de um participante (só gestão; nunca no link público)."""
+    """Gaveta: alterações nos palpites de um participante na rodada aberta (só gestão; nunca no link público)."""
     bolao = bolao_atual()
     pessoa = Participacao.query.filter_by(id=request.args.get('participacao_id', type=int),
                                           bolao_id=bolao.id).first_or_404()
-    return jsonify({'itens': historico(pessoa)})
+    rodada = _rodada(request.args.get('rodada_id', type=int))  # 404 se for de outro campeonato
+    return jsonify({'itens': historico(pessoa, rodada)})
