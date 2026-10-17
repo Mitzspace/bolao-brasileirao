@@ -109,21 +109,29 @@ def auditar(session, flush_context, instances):
         acao = "criacao" if novo else "alteracao"
         if not novo and inspect(obj).attrs.excluido_por_desistencia.history.has_changes():
             acao = 'apos_desistencia' if obj.excluido_por_desistencia else 'restauracao'
+        # Origem do lançamento ("canal"): definida por quem grava (painel ou WhatsApp); sem isso,
+        # uma requisição com usuário logado é o painel e o resto (scripts, importações) fica sem origem.
+        canal = getattr(obj, '_canal', None) or ('painel' if actor and has_request_context() else None)
+        extras = {**({'texto_original_whatsapp': obj._texto_original} if getattr(obj, '_texto_original', None) else {}),
+                  **({'canal': canal} if canal else {})}
         session.add(PalpiteLog(palpite=obj, alterado_por=actor, alterado_em=agora,
             acao=acao,
             valores_anteriores=serializar(anterior) if anterior else None,
-            valores_novos=serializar({**valores_palpite(obj), **(
-                {'texto_original_whatsapp': obj._texto_original} if getattr(obj, '_texto_original', None) else {})})))
-        if hasattr(obj, '_texto_original'):
-            del obj._texto_original
+            valores_novos=serializar({**valores_palpite(obj), **extras})))
+        for atributo in ('_texto_original', '_canal'):
+            if hasattr(obj, atributo):
+                delattr(obj, atributo)
+
+
+EXTRAS_DO_LOG = ('texto_original_whatsapp', 'canal')
 
 
 @event.listens_for(PalpiteLog, "before_insert")
 def completar_ids_do_log(mapper, connection, log):
     if log.acao == "criacao":
-        texto = json.loads(log.valores_novos).get('texto_original_whatsapp')
-        log.valores_novos = serializar({**valores_palpite(log.palpite), **(
-            {'texto_original_whatsapp': texto} if texto else {})})
+        anteriores = json.loads(log.valores_novos)
+        log.valores_novos = serializar({**valores_palpite(log.palpite),
+                                        **{k: anteriores[k] for k in EXTRAS_DO_LOG if anteriores.get(k)}})
 
 
 @event.listens_for(Session, "do_orm_execute")

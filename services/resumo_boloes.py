@@ -63,12 +63,15 @@ def resumos_boloes(boloes):
     resultado = {b.id: {
         **referencias[b.campeonato_id],
         'ativos': ativos.get(b.id, 0),
-        'pendencias': 0,
+        'pendencias': 0,          # jogos em branco somados
+        'pessoas_pendentes': 0,   # participantes com pelo menos um jogo em branco
     } for b in boloes}
     for pessoa in pessoas:
         ref = resultado[pessoa.bolao_id]
         if ref['rodada'] and participa_na_rodada(pessoa, ref['rodada']):
-            ref['pendencias'] += max(0, ref['jogos'] - recebidos.get((pessoa.id, ref['rodada'].id), 0))
+            faltam = max(0, ref['jogos'] - recebidos.get((pessoa.id, ref['rodada'].id), 0))
+            ref['pendencias'] += faltam
+            ref['pessoas_pendentes'] += 1 if faltam else 0
     return resultado
 
 

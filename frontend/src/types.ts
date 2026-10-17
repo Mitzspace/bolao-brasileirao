@@ -82,7 +82,11 @@ export interface ItemRanking {
 export interface DashboardApi {
   bolao: { id: number; nome: string; chave: string; campeonato: string; ano: number | null };
   participantesAtivos: number;
+  /** Participantes com pelo menos um jogo em branco na rodada atual (mesmo que parcial). */
   palpitesFaltantes: number;
+  /** Jogos em branco somados (todas as pessoas). */
+  jogosFaltantes: number;
+  pendentes: { id: number; nome: string; faltantes: number; total: number }[];
   rodada: { id: number; nome: string; aberta: boolean; numero: number | null; total: number; ultima: boolean } | null;
   jogos: JogoApi[];
   jogosEncerrados: number;
@@ -207,8 +211,28 @@ export interface LancamentoApi {
   rodadas: RodadaResumo[];
   rodada: (RodadaResumo & { id: number }) | null;
   participantes: { id: number; nome: string; status: string; faltantes: number }[];
-  pessoa: { id: number; nome: string; status: string; anteriorId: number | null; proximaId: number | null } | null;
+  pessoa: {
+    id: number; nome: string; status: string; anteriorId: number | null; proximaId: number | null;
+    /** Todos os jogos da rodada preenchidos: a tela abre fechada (botão Editar). */
+    completo: boolean;
+    /** Último lançamento feito pela mensagem do WhatsApp (aviso no topo), ou null. */
+    whatsapp: { quandoTexto: string; rodada: string; autor: string | null } | null;
+  } | null;
   jogos: JogoLancamento[];
+}
+
+/** GET /interface/api/palpites/historico — gaveta de alterações (só gestão). */
+export type CanalPalpite = 'painel' | 'whatsapp' | 'desconhecida';
+export interface ItemHistoricoPalpite {
+  quando: string | null;
+  quandoTexto: string | null;
+  autor: string | null;
+  canal: CanalPalpite;
+  acao: string;
+  rodada: string;
+  recebidoEm: string | null;
+  textoWhatsapp: string | null;
+  mudancas: { jogo: string; antes: string | null; depois: string | null; detalhes: string[] }[];
 }
 
 /** POST /interface/api/palpites/previa-whatsapp */
@@ -289,7 +313,9 @@ export interface PreviaDesistencia {
 export interface BoloesApi {
   boloes: {
     id: number; nome: string; chave: string; grupoId: number; campeonato: string; ano: number | null;
-    status: string; participantesAtivos: number; rodada: string | null; palpitesFaltantes: number;
+    status: string; participantesAtivos: number; rodada: string | null;
+    /** Participantes com algum jogo em branco na rodada atual. */
+    palpitesFaltantes: number;
   }[];
 }
 

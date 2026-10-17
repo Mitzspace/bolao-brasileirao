@@ -40,6 +40,10 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     SESSION_REFRESH_EACH_REQUEST = True
+    # "Manter conectado" no login (Flask-Login): cookie próprio, só HTTP, por 30 dias.
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"
     PRODUCTION = False
     RATELIMIT_SINGLE_PROCESS = os.environ.get('RATELIMIT_SINGLE_PROCESS', 'false').lower() == 'true'
     # Ativar apenas atrás do proxy HTTPS da hospedagem.
@@ -152,6 +156,7 @@ class ProductionConfig(Config):
     WTF_CSRF_SSL_ONLY = True
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):

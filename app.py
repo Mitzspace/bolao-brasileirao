@@ -107,8 +107,9 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
     # Área pública somente leitura (LINK_PUBLICO.md); importa o cache que se limpa a cada gravação.
     app.register_blueprint(publico)
 
-    from services.contexto_bolao import carregar_contexto
+    from services.contexto_bolao import carregar_contexto, gravar_cookie_ultimo_bolao
     app.before_request(carregar_contexto)
+    app.after_request(gravar_cookie_ultimo_bolao)
 
     @app.get('/')
     def inicio():

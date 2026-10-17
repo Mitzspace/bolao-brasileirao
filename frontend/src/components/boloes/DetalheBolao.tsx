@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BookOpen, Check, ChevronRight, Globe, Share2, Shield, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
-import { Badge } from '@/components/ui/Badge';
 import { Drawer } from '@/components/ui/Drawer';
 import { DesempenhoParticipante } from '@/components/participantes/DesempenhoParticipante';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -80,7 +79,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
                 <p className="text-xs text-gray-400">Participantes</p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">{ativos}</p>
@@ -92,10 +91,6 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
               <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
                 <p className="text-xs text-gray-400">Pontos do líder</p>
                 <p className="text-lg font-bold text-brand-600 dark:text-brand-400">{lider ? lider.pontos : '—'}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
-                <p className="text-xs text-gray-400 mb-1">Status</p>
-                <Badge color={status.color}>{status.label}</Badge>
               </div>
             </div>
 

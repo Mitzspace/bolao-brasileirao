@@ -2,7 +2,7 @@
 
 Extraído de routes/admin.py (gerenciar_palpites e previa_whatsapp) sem mudar
 regras: validação integral antes de gravar (services/lancamento_lote), situação
-do palpite, recebido em, primeiro gol de clássico, texto do WhatsApp assinado e
+do palpite, primeiro gol de clássico, texto do WhatsApp assinado e
 auditoria automática (services/auditoria). Usado pela tela atual e pela API.
 """
 import re
@@ -45,7 +45,7 @@ def palpites_existentes(bolao, pessoa, rodada_id):
 def salvar_lote(bolao, pessoa, rodada, form, autor_id):
     """Grava o lote inteiro ou nada. Retorna (quantidade_salva, erros)."""
     existentes = palpites_existentes(bolao, pessoa, rodada.id)
-    itens, recebido, erros = validar_lote(form, rodada.jogos, existentes)
+    itens, erros = validar_lote(form, rodada.jogos, existentes)
     texto_original, jogos_texto = None, set()
     if form.get('whatsapp_token'):
         from services.texto_lancamento import ler_assinatura
@@ -72,8 +72,8 @@ def salvar_lote(bolao, pessoa, rodada, form, autor_id):
         palpite.gols_fora = fora
         palpite.primeiro_gol = primeiro
         palpite.origem = 'responsavel'
-        if recebido is not None:
-            palpite.recebido_em = recebido
+        # Origem registrada no log (services/auditoria): jogos preenchidos pela mensagem são "whatsapp".
+        palpite._canal = 'whatsapp' if jogo.id in jogos_texto else 'painel'
         if jogo.id in jogos_texto:
             palpite._texto_original = texto_original
             if palpite.id:

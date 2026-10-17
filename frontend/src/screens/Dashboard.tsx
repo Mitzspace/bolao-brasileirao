@@ -1,4 +1,4 @@
-import { Users, Calendar, Target, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Users, Calendar, Target, AlertCircle, ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { PainelDashboard, type IndicadorDashboard } from '@/components/dashboard/PainelDashboard';
@@ -27,7 +27,8 @@ function Conteudo({ dados }: { dados: DashboardApi }) {
   const indicadores: IndicadorDashboard[] = [
     { label: 'Participantes ativos', value: dados.participantesAtivos, icon: Users, color: 'gold' },
     { label: 'Rodada atual', value: rodada?.numero ? `${rodada.numero}/${rodada.total}` : '—', icon: Calendar, color: 'blue' },
-    { label: 'Palpites faltantes na rodada', value: dados.palpitesFaltantes, icon: AlertCircle, color: 'red' },
+    // Faltante = participante com algum jogo em branco na rodada (mesmo que tenha mandado parte).
+    { label: 'Participantes com palpite faltando', value: dados.palpitesFaltantes, icon: AlertCircle, color: 'red' },
     { label: 'Jogos encerrados na rodada', value: `${dados.jogosEncerrados}/${dados.jogos.length}`, icon: CheckCircle2, color: 'brand' },
   ];
 
@@ -49,6 +50,28 @@ function Conteudo({ dados }: { dados: DashboardApi }) {
       notaVariacao={dados.variacaoReferencia ? `Variação em relação à classificação antes da ${dados.variacaoReferencia}` : null}
       onVerClassificacao={() => setView('boloes', { bolaoId: bolaoAtualId ?? 0 })}
       jogos={dados.jogos}
+      extra={rodada && dados.pendentes.length > 0 ? (
+        <section className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <h3 className="font-bold text-gray-900 dark:text-white">Palpites faltantes — {rodada.nome}</h3>
+            <span className="text-xs text-gray-400">{dados.pendentes.length} {dados.pendentes.length === 1 ? 'participante' : 'participantes'} · {dados.jogosFaltantes} {dados.jogosFaltantes === 1 ? 'jogo em branco' : 'jogos em branco'}</span>
+          </div>
+          <ul className="flex flex-wrap gap-2">
+            {dados.pendentes.map(p => (
+              <li key={p.id}>
+                <button onClick={() => setView('palpites', { rodadaId: rodada.id, participacaoId: p.id })}
+                  title={`Abrir os palpites de ${p.nome}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 pl-3 pr-2 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:border-red-300 dark:hover:border-red-800">
+                  <span className="max-w-[10rem] truncate">{p.nome}</span>
+                  <span className="text-red-500/80">{p.faltantes === p.total ? 'nenhum palpite' : `faltam ${p.faltantes} de ${p.total}`}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : undefined}
     />
   );
 }

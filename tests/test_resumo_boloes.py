@@ -23,6 +23,7 @@ def test_contagens_independentes_e_participacoes_inativas(app, participante_test
     resumos = resumos_boloes([a, b])
     assert (resumos[a.id]['ativos'], resumos[a.id]['pendencias']) == (2, 3)
     assert (resumos[b.id]['ativos'], resumos[b.id]['pendencias']) == (1, 2)
+    assert resumos[b.id]['pessoas_pendentes'] == 1
     assert sem_conta.usuario_id is None
 
 

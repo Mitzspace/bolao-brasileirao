@@ -34,11 +34,13 @@ interface Props {
   onVerClassificacao?: () => void;
   onAbrirLider?: (lider: LiderDashboard) => void;
   jogos: JogoBase[];
+  /** Conteúdo extra logo abaixo dos indicadores (a gestão mostra quem tem palpite faltando). */
+  extra?: ReactNode;
 }
 
 /** Dashboard do Bolt, compartilhado pela gestão e pela página pública (sem contexto do admin). */
 export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores, top5, notaVariacao,
-  onVerClassificacao, onAbrirLider, jogos }: Props) {
+  onVerClassificacao, onAbrirLider, jogos, extra }: Props) {
   const aguardando = jogos.filter(j => j.status === 'aguardando').length;
   return (
     <>
@@ -70,6 +72,8 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
           );
         })}
       </div>
+
+      {extra}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top 5 */}

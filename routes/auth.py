@@ -45,7 +45,8 @@ def login():
         flash("Acesso disponível somente para responsáveis por bolões.")
         return _voltar()
 
-    login_user(p)
+    # "Manter conectado": o login continua após fechar o navegador (30 dias, config.REMEMBER_COOKIE_*).
+    login_user(p, remember=request.form.get("lembrar") == "1")
     return _voltar()
 
 

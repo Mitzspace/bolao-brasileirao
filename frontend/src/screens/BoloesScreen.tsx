@@ -96,7 +96,8 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
                       <p className="text-xs text-gray-400">Rodada</p>
                       <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate" title={foco?.rodada ?? undefined}>{foco?.rodada?.replace(/\s*Rodada/i, '') ?? '—'}</p>
                     </div>
-                    <div className={`p-2 rounded-lg ${foco?.palpitesFaltantes ? 'bg-gold-50 dark:bg-gold-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                    <div title="Participantes com algum jogo em branco na rodada atual (mesma regra do Dashboard)"
+                      className={`p-2 rounded-lg ${foco?.palpitesFaltantes ? 'bg-gold-50 dark:bg-gold-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
                       <p className="text-xs text-gray-400">Faltam</p>
                       <p className={`text-sm font-bold ${foco?.palpitesFaltantes ? 'text-gold-600 dark:text-gold-400' : 'text-gray-700 dark:text-gray-300'}`}>{foco ? foco.palpitesFaltantes : '—'}</p>
                     </div>

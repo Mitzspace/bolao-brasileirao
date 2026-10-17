@@ -74,6 +74,15 @@ export function LoginScreen() {
                 />
               </div>
             </div>
+
+            <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl p-1 -m-1">
+              <input type="checkbox" name="lembrar" value="1" defaultChecked
+                className="mt-0.5 w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-brand-600 accent-brand-600 focus:ring-2 focus:ring-brand-500/40" />
+              <span>
+                <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">Manter conectado</span>
+                <span className="block text-xs text-gray-400">Continua conectado por 30 dias neste aparelho. Desmarque em computador compartilhado.</span>
+              </span>
+            </label>
           </div>
 
           <button

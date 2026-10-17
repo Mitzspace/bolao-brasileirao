@@ -7,7 +7,7 @@ from routes.api import api, requer_gestao
 from routes.api_serializacao import serializar_item_ranking, serializar_jogo
 from services.contexto_bolao import bolao_atual, opcoes_rodadas
 from services.ranking import ranking_com_variacao
-from services.resumo_boloes import resumos_boloes
+from services.resumo_boloes import participantes_pendentes, resumos_boloes
 
 
 @api.get('/dashboard')
@@ -19,6 +19,9 @@ def dashboard():
     opcoes = [r for r, _ in opcoes_rodadas(bolao.campeonato_id)]
     ranking, ultima = ranking_com_variacao(bolao)
 
+    # Palpite faltante = participante da rodada com pelo menos um jogo em branco (mesmo que parcial).
+    pendentes = participantes_pendentes(bolao, rodada) if rodada and rodada.jogos else []
+
     jogos = []
     if rodada:
         ordenados = sorted(rodada.jogos, key=lambda j: (j.data is None, j.data or datetime.min, j.id))
@@ -28,7 +31,10 @@ def dashboard():
         'bolao': {'id': bolao.id, 'nome': bolao.nome, 'chave': bolao.chave,
                   'campeonato': bolao.campeonato.nome, 'ano': bolao.campeonato.ano},
         'participantesAtivos': resumo['ativos'],
-        'palpitesFaltantes': resumo['pendencias'],
+        'palpitesFaltantes': len(pendentes),
+        'jogosFaltantes': resumo['pendencias'],
+        'pendentes': [{'id': i['participacao'].id, 'nome': i['participacao'].nome,
+                       'faltantes': i['faltantes'], 'total': len(rodada.jogos)} for i in pendentes],
         'rodada': {
             'id': rodada.id, 'nome': rodada.nome, 'aberta': bool(rodada.aberta),
             'numero': next((i for i, r in enumerate(opcoes, 1) if r.id == rodada.id), None),

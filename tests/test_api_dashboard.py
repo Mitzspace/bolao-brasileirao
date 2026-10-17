@@ -52,7 +52,10 @@ def test_dashboard_com_dados_reais(client, gestao):
     assert [j['status'] for j in dados['jogos']] == ['agendado', 'agendado']
     assert dados['jogosEncerrados'] == 0
     # Rodada 3 tem 2 jogos para 3 participantes; Ana já mandou 1.
-    assert dados['palpitesFaltantes'] == 5
+    # Palpite faltante = pessoa com algum jogo em branco: Ana (parcial) também conta.
+    assert dados['palpitesFaltantes'] == 3 and dados['jogosFaltantes'] == 5
+    assert sorted((p['nome'], p['faltantes'], p['total']) for p in dados['pendentes']) == [
+        ('Ana', 1, 2), ('Bia', 2, 2), ('Responsável', 2, 2)]
 
     top = {i['nome']: i for i in dados['top5']}
     assert (top['Bia']['pontos'], top['Bia']['posicao'], top['Bia']['variacao']) == (6, 1, 1)

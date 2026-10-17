@@ -42,7 +42,8 @@ def listar_boloes():
         'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano, 'status': b.status,
         'participantesAtivos': resumos[b.id]['ativos'],
         'rodada': resumos[b.id]['rodada'].nome if resumos[b.id]['rodada'] else None,
-        'palpitesFaltantes': resumos[b.id]['pendencias'],
+        # Mesma regra do dashboard: quem tem algum jogo em branco na rodada atual.
+        'palpitesFaltantes': resumos[b.id]['pessoas_pendentes'],
     } for b in boloes]})
 
 

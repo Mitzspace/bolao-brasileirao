@@ -11,6 +11,7 @@ from routes.api_serializacao import serializar_jogo
 from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.elegibilidade import participa_na_rodada
 from services.estado_rodadas import estados_das_rodadas
+from services.historico_palpites import historico, ultimo_whatsapp
 from services.fluxo_lancamento import lembrar_rodada, proximo_pendente, rodada_padrao, vizinhos
 from services.lancamento_palpites import (gerar_previa, palpites_existentes, participantes_do_lancamento,
                                           pessoa_do_lancamento, salvar_lote)
@@ -75,7 +76,11 @@ def tela_palpites():
         'participantes': [{'id': p.id, 'nome': p.nome, 'status': p.status, 'faltantes': faltantes.get(p.id, 0)}
                           for p in elegiveis],
         'pessoa': {'id': pessoa.id, 'nome': pessoa.nome, 'status': pessoa.status,
-                   'anteriorId': anterior, 'proximaId': proxima} if pessoa else None,
+                   'anteriorId': anterior, 'proximaId': proxima,
+                   # Todos os jogos da rodada preenchidos: a tela abre em modo leitura (botão Editar).
+                   'completo': bool(rodada.jogos) and faltantes.get(pessoa.id, 0) == 0,
+                   # Aviso discreto no topo quando algum palpite veio da mensagem do WhatsApp.
+                   'whatsapp': ultimo_whatsapp(pessoa)} if pessoa else None,
         'jogos': jogos,
     })
 
@@ -83,8 +88,7 @@ def tela_palpites():
 def _formulario(corpo):
     """Converte o JSON da tela nova nos mesmos campos do formulário atual."""
     campos = MultiDict()
-    for nome, chave in (('recebido_em', 'recebidoEm'), ('whatsapp_token', 'whatsappToken'),
-                        ('whatsapp_jogos', 'whatsappJogos')):
+    for nome, chave in (('whatsapp_token', 'whatsappToken'), ('whatsapp_jogos', 'whatsappJogos')):
         if corpo.get(chave):
             campos[nome] = str(corpo[chave])
     if corpo.get('naoEnviouRodada'):
@@ -148,3 +152,13 @@ def previa_whatsapp_api():
     rodada = _rodada(corpo.get('rodadaId'))
     dados, status = gerar_previa(bolao, pessoa, rodada, str(corpo.get('texto') or ''), current_user.id)
     return jsonify(dados), status
+
+
+@api.get('/palpites/historico')
+@requer_gestao()
+def historico_palpites():
+    """Gaveta: todas as alterações nos palpites de um participante (só gestão; nunca no link público)."""
+    bolao = bolao_atual()
+    pessoa = Participacao.query.filter_by(id=request.args.get('participacao_id', type=int),
+                                          bolao_id=bolao.id).first_or_404()
+    return jsonify({'itens': historico(pessoa)})

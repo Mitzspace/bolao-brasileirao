@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Grid3x3, History, Loader2, Save, SkipForward, Star, UserCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Grid3x3, History, Loader2, Lock, MessageCircle, Pencil, Save, SkipForward, Star, UserCheck } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
@@ -10,6 +10,7 @@ import { SeletorRodadas } from '@/components/rodadas/SeletorRodadas';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
 import { PreviaWhatsapp, type LinhaAplicada } from '@/components/palpites/PreviaWhatsapp';
 import { GradeModal } from '@/components/palpites/GradeModal';
+import { GavetaAlteracoes } from '@/components/palpites/GavetaAlteracoes';
 import { useApp } from '@/context/AppContext';
 import { api, ApiError } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
@@ -40,7 +41,6 @@ export function PalpitesScreen() {
 
   const [valores, setValores] = useState<Record<number, Valor>>({});
   const [naoEnviou, setNaoEnviou] = useState(false);
-  const [recebidoEm, setRecebidoEm] = useState('');
   const [automatico, setAutomatico] = useState(true);
   const [whatsapp, setWhatsapp] = useState<{ token: string; jogos: number[] } | null>(null);
   const [erros, setErros] = useState<Record<string, string>>({});
@@ -50,6 +50,10 @@ export function PalpitesScreen() {
   const [verPendencias, setVerPendencias] = useState(false);
   const [grade, setGrade] = useState<number | null>(null);
   const campos = useRef<(HTMLInputElement | null)[]>([]);
+  // Palpites completos abrem fechados (somente leitura); "Editar" libera os campos.
+  const [editando, setEditando] = useState(false);
+  const [gavetaAberta, setGavetaAberta] = useState(false);
+  const gaveta = useRef<HTMLElement>(null);
 
   // Ao carregar outra pessoa/rodada (ou quando os palpites gravados mudam, ex.: depois de
   // salvar), o formulário volta aos palpites gravados.
@@ -60,12 +64,15 @@ export function PalpitesScreen() {
   const trocando = !!dados && ((rodadaId !== null && dados.rodada?.id !== rodadaId)
     || (pessoaId !== null && !!dados.pessoa && dados.pessoa.id !== pessoaId));
   const bloqueado = carregando || salvando !== null;
+  // Fechado: todos os jogos preenchidos e ninguém clicou em Editar.
+  const fechado = !!dados?.pessoa?.completo && !editando && !trocando;
   const nomeAlvo = dados?.participantes.find(p => p.id === pessoaId)?.nome;
   useEffect(() => {
     if (!dados) return;
     setValores(Object.fromEntries(dados.jogos.map(j => [j.id, valorInicial(j)])));
-    setNaoEnviou(false); setRecebidoEm(''); setWhatsapp(null); setErros({});
+    setNaoEnviou(false); setWhatsapp(null); setErros({}); setEditando(false);
     if (dados.pessoa && dados.pessoa.id !== pessoaId) setPessoaId(dados.pessoa.id);
+    if (dados.pessoa?.id !== pessoaId) setGavetaAberta(false);
     if (dados.rodada && rodadaId === null) setRodadaId(dados.rodada.id);
     setTimeout(() => {
       const vazio = campos.current.findIndex(c => c && !c.disabled && c.value === '');
@@ -92,7 +99,7 @@ export function PalpitesScreen() {
     try {
       const r = await api.post<{ mensagem: string; avisos: string[]; proximoId: number | null }>('/palpites', {
         participacaoId: dados.pessoa.id, rodadaId: dados.rodada.id, acao, jogos,
-        naoEnviouRodada: naoEnviou, recebidoEm, whatsappToken: whatsapp?.token, whatsappJogos: whatsapp?.jogos.join(','),
+        naoEnviouRodada: naoEnviou, whatsappToken: whatsapp?.token, whatsappJogos: whatsapp?.jogos.join(','),
       });
       showToast(r.mensagem);
       r.avisos.forEach(a => showToast(a, 'info'));
@@ -117,6 +124,15 @@ export function PalpitesScreen() {
       return novo;
     });
     setWhatsapp({ token, jogos: linhas.map(l => l.jogoId) });
+  };
+
+  const editar = () => {
+    setEditando(true);
+    setTimeout(() => campos.current.find(c => c && !c.disabled)?.focus(), 50);
+  };
+  const abrirGaveta = () => {
+    setGavetaAberta(true);
+    setTimeout(() => gaveta.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
   const teclado = (indice: number) => ({
@@ -194,6 +210,24 @@ export function PalpitesScreen() {
               )}
             </div>
 
+            {pessoa?.whatsapp && !trocando && (
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 px-1 text-xs text-gray-500 dark:text-gray-400">
+                <MessageCircle className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 shrink-0" />
+                <span>
+                  Adicionado via WhatsApp em {pessoa.whatsapp.quandoTexto}{pessoa.whatsapp.rodada !== dados.rodada.nome ? ` (${pessoa.whatsapp.rodada})` : ''}
+                  {' '}por <strong className="font-semibold text-gray-700 dark:text-gray-200">{pessoa.whatsapp.autor ?? 'responsável não identificado'}</strong>
+                </span>
+                <button type="button" onClick={abrirGaveta} className="font-semibold text-brand-700 dark:text-brand-300 hover:underline">Ver na gaveta</button>
+              </p>
+            )}
+
+            {pessoa && fechado && (
+              <div className="flex items-center gap-3 rounded-2xl border border-brand-200 dark:border-brand-800/50 bg-brand-50 dark:bg-brand-900/20 px-4 py-3 text-sm text-brand-800 dark:text-brand-200">
+                <Lock className="w-4 h-4 shrink-0" />
+                <p className="flex-1">Palpites completos nesta rodada. Toque em <strong>Editar</strong> para alterar.</p>
+              </div>
+            )}
+
             {pessoa && (
               <div className="relative" aria-busy={bloqueado}>
                 {bloqueado && (
@@ -204,20 +238,13 @@ export function PalpitesScreen() {
                     </div>
                   </div>
                 )}
-                <fieldset disabled={bloqueado} className="space-y-4 min-w-0">
+                <fieldset disabled={bloqueado || fechado} className={`space-y-4 min-w-0 ${fechado ? 'pointer-events-none' : ''}`}>
                 <PreviaWhatsapp key={chaveForm} participacaoId={pessoa.id} rodadaId={dados.rodada.id} nome={pessoa.nome} rodadaNome={dados.rodada.nome} onAplicar={aplicarWhatsapp} />
 
                 {/* Opções do lote */}
                 <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 grid sm:grid-cols-2 gap-4">
                   <Switch checked={naoEnviou} onChange={setNaoEnviou} label="Não enviou nenhum palpite" description="Registra todos os jogos como não enviados (zero pontos), inclusive os já lançados" />
                   <Switch checked={automatico} onChange={setAutomatico} label="Avanço automático" description="Um dígito pula para o próximo campo; Backspace volta; Enter salva" />
-                  <div className="sm:col-span-2">
-                    <label htmlFor="recebido-em" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Recebido em (opcional, horário de São Paulo)</label>
-                    <input id="recebido-em" type="datetime-local" value={recebidoEm} onChange={e => setRecebidoEm(e.target.value)}
-                      className={`w-full sm:w-auto px-4 py-2.5 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${erros.recebido_em ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`} />
-                    {erros.recebido_em && <p className="mt-1 text-xs text-red-500">{erros.recebido_em}</p>}
-                    <p className="mt-1 text-xs text-gray-400">Aplicado aos palpites deste lote. Em branco, mantém a data já registrada. Campos vazios não apagam palpites.</p>
-                  </div>
                 </div>
 
                 {Object.keys(erros).length > 0 && (
@@ -297,6 +324,11 @@ export function PalpitesScreen() {
                 </fieldset>
               </div>
             )}
+
+            {pessoa && !trocando && (
+              <GavetaAlteracoes ref={gaveta} participacaoId={pessoa.id} nome={pessoa.nome} aberta={gavetaAberta}
+                onAlternar={() => setGavetaAberta(a => !a)} versao={chaveForm} />
+            )}
           </>
         )}
       </div>
@@ -305,14 +337,30 @@ export function PalpitesScreen() {
       {pessoa && dados?.jogos.length ? (
         <div className="fixed bottom-16 md:bottom-0 left-0 md:left-64 right-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-100 dark:border-gray-800 px-4 md:px-8 py-3 flex items-center gap-2">
           <p className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 flex-1 min-w-0">
-            {whatsapp ? <><CheckCircle2 className="w-4 h-4 text-brand-500" /> Preenchido pela mensagem do WhatsApp</> : <>Enter salva e fica · o próximo pula quem já está completo</>}
+            {fechado ? <><Lock className="w-4 h-4" /> Palpites completos · somente leitura</>
+              : whatsapp ? <><CheckCircle2 className="w-4 h-4 text-brand-500" /> Preenchido pela mensagem do WhatsApp</> : <>Enter salva e fica · o próximo pula quem já está completo</>}
           </p>
+          {fechado ? (
+            <>
+              {pessoa.proximaId && (
+                <button onClick={() => setPessoaId(pessoa.proximaId)} disabled={bloqueado}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60">
+                  Próximo <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+              <button onClick={editar} disabled={bloqueado}
+                className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-60">
+                <Pencil className="w-4 h-4" /> Editar
+              </button>
+            </>
+          ) : (<>
           <button onClick={() => salvar('ficar')} disabled={bloqueado} aria-busy={salvando === 'ficar'} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed">
             {salvando === 'ficar' ? <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" /> : <Save className="w-4 h-4" />} {salvando === 'ficar' ? 'Salvando…' : 'Salvar'}
           </button>
           <button onClick={() => salvar('proximo')} disabled={bloqueado} aria-busy={salvando === 'proximo'} className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed">
             {salvando === 'proximo' ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SkipForward className="w-4 h-4" />} {salvando === 'proximo' ? 'Salvando…' : 'Salvar e próximo'}
           </button>
+          </>)}
         </div>
       ) : null}
     </div>

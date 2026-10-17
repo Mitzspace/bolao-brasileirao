@@ -1,19 +1,11 @@
 """Validação integral do formulário antes de qualquer alteração de palpite."""
 import re
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 
 
 def validar_lote(form, jogos, existentes):
+    # "Recebido em" saiu da tela: a data/hora de cada lançamento fica no log (PalpiteLog.alterado_em).
+    # A coluna palpite.recebido_em continua no banco com os valores antigos, só não é mais gravada.
     erros, itens = {}, []
-    recebido = None
-    texto = form.get('recebido_em', '').strip()
-    if texto:
-        try:
-            local = datetime.strptime(texto, '%Y-%m-%dT%H:%M').replace(tzinfo=ZoneInfo('America/Sao_Paulo'))
-            recebido = local.astimezone(timezone.utc).replace(tzinfo=None)
-        except ValueError:
-            erros['recebido_em'] = 'Informe uma data e hora válidas (horário de São Paulo).'
     em_massa = form.get('nao_enviou_rodada') == '1'
     for jogo in jogos:
         campos = [f'casa_{jogo.id}', f'fora_{jogo.id}', f'primeiro_{jogo.id}']
@@ -52,6 +44,4 @@ def validar_lote(form, jogos, existentes):
             # Formulários legados que não enviam o bônus não o apagam.
             bonus = (primeiro or None) if campos[2] in form else (anterior.primeiro_gol if anterior else None)
             itens.append((jogo, int(casa), int(fora), bonus if jogo.especial else None))
-    if len(form.getlist('recebido_em')) > 1:
-        erros['recebido_em'] = 'Informe apenas uma data de recebimento.'
-    return itens, recebido, erros
+    return itens, erros

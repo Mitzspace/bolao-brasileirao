@@ -1,10 +1,16 @@
 """Seleção e autorização do bolão sem confundir campeonato com bolão."""
 import re
 from functools import lru_cache
-from flask import abort, g, session
+from flask import abort, current_app, g, request, session
 from flask_login import current_user
+from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy.orm import joinedload, selectinload
-from models import Bolao, Jogo, Participacao, Rodada
+from models import Bolao, Jogo, Palpite, PalpiteLog, Participacao, Rodada
+
+# Último bolão escolhido: cookie assinado de longa duração (sobrevive a fechar o navegador e
+# a sair e entrar de novo). Guarda só os ids da conta e do bolão; a permissão é sempre conferida.
+COOKIE_ULTIMO_BOLAO = 'ultimo_bolao'
+DURACAO_ULTIMO_BOLAO = 400 * 24 * 3600
 
 
 def ordem_rodada(rodada):
@@ -43,6 +49,46 @@ def lembrar_bolao(bolao_id):
     session['bolao_id'] = bolao_id
     session['bolao_usuario_id'] = current_user.id
     session['ultimo_bolao'] = {'usuario_id': current_user.id, 'bolao_id': bolao_id}
+    g.ultimo_bolao_para_cookie = bolao_id
+
+
+def _serializador():
+    return URLSafeSerializer(current_app.secret_key, salt='ultimo-bolao')
+
+
+def _bolao_do_cookie():
+    """Id do último bolão salvo no cookie desta conta (ou None se ausente, adulterado ou de outra conta)."""
+    valor = request.cookies.get(COOKIE_ULTIMO_BOLAO)
+    if not valor:
+        return None
+    try:
+        dados = _serializador().loads(valor)
+    except BadSignature:
+        return None
+    if not isinstance(dados, dict) or dados.get('u') != current_user.id:
+        return None
+    return dados.get('b')
+
+
+def _bolao_da_ultima_atividade():
+    """Em outro aparelho (sem cookie): o bolão em que a conta lançou palpite por último."""
+    linha = (Participacao.query.with_entities(Participacao.bolao_id)
+             .join(Palpite, Palpite.participacao_id == Participacao.id)
+             .join(PalpiteLog, PalpiteLog.palpite_id == Palpite.id)
+             .filter(PalpiteLog.alterado_por == current_user.id)
+             .order_by(PalpiteLog.id.desc()).first())
+    return linha[0] if linha else None
+
+
+def gravar_cookie_ultimo_bolao(resposta):
+    """after_request: grava o cookie só quando o bolão lembrado mudou (sem Set-Cookie a cada resposta)."""
+    bolao_id = getattr(g, 'ultimo_bolao_para_cookie', None)
+    if bolao_id is None or not current_user.is_authenticated or _bolao_do_cookie() == bolao_id:
+        return resposta
+    resposta.set_cookie(COOKIE_ULTIMO_BOLAO, _serializador().dumps({'u': current_user.id, 'b': bolao_id}),
+                        max_age=DURACAO_ULTIMO_BOLAO, httponly=True, samesite='Lax',
+                        secure=bool(current_app.config.get('SESSION_COOKIE_SECURE')))
+    return resposta
 
 
 def carregar_contexto():
@@ -60,6 +106,12 @@ def carregar_contexto():
     ultimo = session.get('ultimo_bolao', {})
     if escolhido is None and ultimo.get('usuario_id') == current_user.id:
         escolhido = ultimo.get('bolao_id')
+    disponiveis = {b.id for b in g.boloes_disponiveis}
+    if escolhido not in disponiveis and len(disponiveis) > 1:
+        # Sessão nova (outro navegador, login lembrado, sessão expirada): volta ao último bolão escolhido.
+        escolhido = _bolao_do_cookie()
+        if escolhido not in disponiveis:
+            escolhido = _bolao_da_ultima_atividade()
     g.bolao_atual = next((b for b in g.boloes_disponiveis if b.id == escolhido), None)
     if g.bolao_atual is None and len(g.boloes_disponiveis) == 1:
         g.bolao_atual = g.boloes_disponiveis[0]

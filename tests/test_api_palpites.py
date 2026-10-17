@@ -57,7 +57,9 @@ def test_salvar_e_ir_para_o_proximo(client, gestao):
     p2 = Palpite.query.filter_by(participacao_id=ana.id, jogo_id=j2.id).one()
     assert (p1.gols_casa, p1.gols_fora, p1.primeiro_gol, p1.origem) == (2, 1, 'Pedro', 'responsavel')
     assert p2.primeiro_gol is None  # primeiro gol só em clássico
-    assert p1.recebido_em == datetime(2026, 10, 17, 23, 0)  # 20h em São Paulo = 23h UTC
+    assert p1.recebido_em is None  # "Recebido em" saiu da tela: o campo enviado é ignorado
+    log = PalpiteLog.query.filter_by(palpite_id=p1.id).order_by(PalpiteLog.id.desc()).first()
+    assert log.alterado_por is not None and json.loads(log.valores_novos)['canal'] == 'painel'
     assert p2.lancado_apos_inicio is True
     assert PalpiteLog.query.count() == 3  # criação inicial + 1 edição + 1 criação, todas auditadas
 
