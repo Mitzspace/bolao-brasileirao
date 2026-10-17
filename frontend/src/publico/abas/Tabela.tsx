@@ -62,7 +62,7 @@ export function Tabela({ onAbrirParticipante, onRegras }: { onAbrirParticipante:
         ) : (
           <>
             <div className="p-5 bg-gradient-to-b from-brand-50 to-transparent dark:from-brand-900/20"><Podio ranking={podio} /></div>
-            <TabelaClassificacao geral={geral} celular="colunas"
+            <TabelaClassificacao geral={geral} celular="colunas" colunas={['total', 'bonus', 'variacao']}
               dicaVariacao={dados.variacaoReferencia ? `Variação em relação à ${dados.variacaoReferencia}` : undefined}
               onAbrir={l => onAbrirParticipante({ ref: String(l.chave), nome: l.nome })}
               itens={dados.itens.map(i => ({ chave: i.ref, avatarId: idDoNome(i.nome), nome: i.nome, status: i.status,

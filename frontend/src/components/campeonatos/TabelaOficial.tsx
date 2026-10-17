@@ -10,6 +10,13 @@ const statusMataMata: Record<string, string> = {
   POSTPONED: 'Adiado', SUSPENDED: 'Suspenso', CANCELLED: 'Cancelado', AWARDED: 'Resultado definido',
 };
 
+// Colunas congeladas na rolagem lateral: largura fixa, fundo opaco (inclusive no hover) e separador.
+const COL_POS = 'sticky left-0 w-12 min-w-[3rem] max-w-[3rem] pl-4 sm:pl-5 pr-1';
+const COL_TIME = 'sticky left-12 w-[9.5rem] min-w-[9.5rem] max-w-[9.5rem] sm:w-auto sm:max-w-none';
+const FIXA = 'z-[1] bg-white dark:bg-gray-900';
+const FIXA_HOVER = 'group-hover:bg-gray-50 dark:group-hover:bg-gray-800';
+const SEPARADOR = 'shadow-[inset_-1px_0_0_#f3f4f6,6px_0_8px_-6px_rgba(0,0,0,0.18)] dark:shadow-[inset_-1px_0_0_#1f2937,6px_0_8px_-6px_rgba(0,0,0,0.7)]';
+
 /** Tabela do campeonato (football-data.org, com cache de 15 min no servidor). */
 export function TabelaOficial() {
   const { dados, carregando, erro, recarregar } = useRecurso<TabelaApi>('/tabela');
@@ -35,12 +42,13 @@ export function TabelaOficial() {
             <h3 className="font-bold text-gray-900 dark:text-white">{grupo.nome}</h3>
             <span className="text-xs text-gray-400">{grupo.linhas.length} equipes</span>
           </div>
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-sm">
+          {/* Rolagem lateral no celular: posição e time ficam congelados à esquerda. */}
+          <div className="relative overflow-x-auto scrollbar-thin overscroll-x-contain">
+            <table className="w-full text-sm min-w-[30rem] sm:min-w-0">
               <thead>
                 <tr className="text-xs text-gray-400 uppercase">
-                  <th className="text-left py-3 pl-5 pr-2 font-semibold w-12">#</th>
-                  <th className="text-left py-3 px-2 font-semibold">Time</th>
+                  <th className={`${COL_POS} ${FIXA} z-[2] text-left py-3 font-semibold`}>#</th>
+                  <th className={`${COL_TIME} ${FIXA} ${SEPARADOR} z-[2] text-left py-3 px-2 font-semibold`}>Time</th>
                   <th className="py-3 px-2 font-semibold">P</th>
                   <th className="py-3 px-2 font-semibold">J</th>
                   <th className="py-3 px-2 font-semibold">V</th>
@@ -53,11 +61,11 @@ export function TabelaOficial() {
               </thead>
               <tbody>
                 {grupo.linhas.map(l => (
-                  <tr key={l.posicao + l.time} className="border-t border-gray-50 dark:border-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" title={l.zona?.nome}>
-                    <td className="py-2.5 pl-5 pr-2" style={l.zona ? { boxShadow: `inset 3px 0 0 ${l.zona.cor}` } : undefined}>
+                  <tr key={l.posicao + l.time} className="group border-t border-gray-50 dark:border-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" title={l.zona?.nome}>
+                    <td className={`${COL_POS} ${FIXA} ${FIXA_HOVER} py-2.5`} style={l.zona ? { boxShadow: `inset 3px 0 0 ${l.zona.cor}` } : undefined}>
                       <span className={`inline-flex w-6 h-6 items-center justify-center rounded-full text-[11px] font-bold ${l.zona ? 'text-white' : 'text-gray-500'}`} style={l.zona ? { backgroundColor: l.zona.cor } : undefined}>{l.posicao}</span>
                     </td>
-                    <td className="py-2.5 px-2">
+                    <td className={`${COL_TIME} ${FIXA} ${FIXA_HOVER} ${SEPARADOR} py-2.5 px-2`}>
                       <div className="flex items-center gap-2.5 min-w-0">
                         <TeamCrest nome={l.time} escudo={l.escudo} size="xs" />
                         <span className="font-medium text-gray-900 dark:text-white truncate" title={l.timeCompleto}>{l.time}</span>

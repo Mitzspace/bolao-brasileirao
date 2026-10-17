@@ -15,8 +15,9 @@ import { ParticipantesScreen } from '@/screens/ParticipantesScreen';
 
 function CurrentScreen() {
   const { bolao, view } = useApp();
-  // Sem bolão selecionado, todas as abas levam à escolha do bolão.
-  if (view === 'boloes' || !bolao) return <BoloesScreen />;
+  // Sem bolão selecionado, todas as abas mostram a escolha do bolão, com aviso da aba pedida;
+  // ao escolher, a pessoa vai direto para essa aba.
+  if (view === 'boloes' || !bolao) return <BoloesScreen destino={view === 'boloes' ? undefined : view} />;
   switch (view) {
     case 'dashboard':
       return <Dashboard />;

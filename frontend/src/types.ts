@@ -270,6 +270,15 @@ export interface DetalheParticipanteApi {
   guardados: PalpiteGuardado[];
 }
 
+/** GET /interface/api/boloes/:id/participantes/:pid/desempenho */
+export interface DesempenhoParticipanteApi {
+  nome: string;
+  status: StatusParticipacao;
+  resumo: { pontos: number; cravadas: number; posicao: number | null; variacao: number | null };
+  variacaoReferencia: string | null;
+  evolucao: DetalheParticipanteApi['evolucao'];
+}
+
 export type AcaoDesistencia = 'registrar' | 'corrigir' | 'reativar' | 'restaurar';
 export interface PreviaDesistencia {
   previa: { acao: AcaoDesistencia; rodada: string | null; motivo: string; posteriores: PalpiteGuardado[]; restauraveis: PalpiteGuardado[] };

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BookOpen, Check, ChevronRight, Globe, Share2, Shield, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
+import { Drawer } from '@/components/ui/Drawer';
+import { DesempenhoParticipante } from '@/components/participantes/DesempenhoParticipante';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Switch } from '@/components/ui/Form';
@@ -30,6 +32,8 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
   // Desistentes ficam ocultos por padrão (pedido do bolão); o switch mostra quando preciso.
   const [ocultar, setOcultar] = useState(true);
   const [compartilhar, setCompartilhar] = useState(false);
+  const [desempenho, setDesempenho] = useState<{ id: number; nome: string } | null>(null);
+  const fecharDesempenho = useCallback(() => setDesempenho(null), []);
   const params = new URLSearchParams();
   if (rodadaId) params.set('rodada_id', rodadaId);
   if (ocultar) params.set('ocultar_desistentes', '1');
@@ -126,6 +130,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                       <Podio ranking={dados.ranking} />
                     </div>
                     <TabelaClassificacao geral={geral}
+                      onAbrir={l => setDesempenho({ id: Number(l.chave), nome: l.nome })}
                       dicaVariacao={dados.variacaoReferencia ? `Variação após a ${dados.variacaoReferencia}` : undefined}
                       itens={dados.ranking.map(p => ({ chave: p.participacaoId, avatarId: p.participacaoId, nome: p.nome, status: p.status,
                         posicao: p.posicao, pontos: p.pontos, pontosPalpites: p.pontosPalpites, bonus: p.bonus,
@@ -143,6 +148,9 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
             </button>
 
             <CompartilharClassificacao dados={dados} aberto={compartilhar} onClose={() => setCompartilhar(false)} />
+            <Drawer open={!!desempenho} onClose={fecharDesempenho} title="Desempenho do participante" width="max-w-xl">
+              {desempenho && <DesempenhoParticipante key={`${bolaoId}-${desempenho.id}`} bolaoId={bolaoId} participacaoId={desempenho.id} nome={desempenho.nome} />}
+            </Drawer>
           </>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { Trophy, Calendar, Users, Settings, LogOut, Moon, Sun, LayoutDashboard, CalendarClock, PencilLine } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { LogoApp } from '@/components/ui/LogoApp';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,9 +19,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 shrink-0">
       <div className="px-5 py-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md shrink-0">
-          <Trophy className="w-5 h-5 text-white" />
-        </div>
+        <LogoApp />
         <div className="min-w-0">
           <h1 className="font-bold text-gray-900 dark:text-white leading-tight truncate">{bolao?.nome ?? 'Gestão de bolões'}</h1>
           <p className="text-xs text-gray-400 truncate">{bolao ? `${bolao.campeonato} ${bolao.ano ?? ''}` : 'Gestão de bolões'}</p>
@@ -30,7 +29,7 @@ export function Sidebar() {
       <nav aria-label="Navegação principal" className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(item => {
           const Icon = item.icon;
-          const active = view === item.id;
+          const active = (bolao ? view : 'boloes') === item.id;
           return (
             <button
               key={item.id}

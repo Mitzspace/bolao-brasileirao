@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Trophy, Mail, Lock, ArrowRight, Shield } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Shield } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { LogoApp } from '@/components/ui/LogoApp';
 
 const estilosMensagem = {
   error: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
@@ -25,9 +26,7 @@ export function LoginScreen() {
 
       <div className="relative w-full max-w-md">
         <div className="flex flex-col items-center mb-8 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg mb-4">
-            <Trophy className="w-8 h-8 text-white" />
-          </div>
+          <LogoApp tamanho="lg" className="shadow-lg mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestão de bolões</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Palpites e classificação do seu bolão</p>
         </div>

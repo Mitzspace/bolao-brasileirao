@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Check, ListOrdered, Plus, Trophy } from 'lucide-react';
+import { ArrowRight, Check, Info, ListOrdered, Plus, Trophy } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
@@ -7,10 +7,18 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { DetalheBolao, statusBolao } from '@/components/boloes/DetalheBolao';
 import { NovoBolao } from '@/components/boloes/NovoBolao';
 import { useRecurso } from '@/lib/useRecurso';
-import type { BoloesApi } from '@/types';
+import type { BoloesApi, View } from '@/types';
 
-/** Bolões do responsável (cards do Bolt), classificação completa e criação de bolão. */
-export function BoloesScreen() {
+const NOMES_ABAS: Partial<Record<View, string>> = {
+  dashboard: 'Dashboard', jogos: 'Jogos', palpites: 'Lançar palpites', rodadas: 'Rodadas',
+  participantes: 'Participantes', configuracoes: 'Configurações', campeonatos: 'Configurações',
+};
+
+/**
+ * Bolões do responsável (cards do Bolt), classificação completa e criação de bolão.
+ * destino: aba que a pessoa tentou abrir sem bolão selecionado (abre depois de escolher).
+ */
+export function BoloesScreen({ destino }: { destino?: View } = {}) {
   const { dados, parametros } = useApp();
   const [detalheId, setDetalheId] = useState<number | null>(parametros.bolaoId || null);
   const [novo, setNovo] = useState(false);
@@ -39,6 +47,17 @@ export function BoloesScreen() {
         }
       />
       <div className="p-4 md:p-8 pb-28 md:pb-8">
+        {!dados.bolaoAtualId && dados.boloes.length > 0 && (
+          <div role="status" className="mb-5 flex items-start gap-3 rounded-2xl border border-gold-200 dark:border-gold-800/50 bg-gold-50 dark:bg-gold-900/20 p-4 text-sm text-gold-800 dark:text-gold-200 animate-fade-in">
+            <Info className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>
+              <strong className="font-semibold">Escolha qual bolão você quer gerenciar.</strong>{' '}
+              {destino && NOMES_ABAS[destino]
+                ? <>Depois de tocar em <em>Gerenciar</em>, a aba <strong>{NOMES_ABAS[destino]}</strong> abre automaticamente.</>
+                : <>As abas Dashboard, Jogos, Palpites, Rodadas, Participantes e Configurações ficam disponíveis depois de escolher.</>}
+            </p>
+          </div>
+        )}
         {!dados.boloes.length ? (
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
             <EmptyState icon={<Trophy className="w-10 h-10" />} title="Nenhum bolão disponível" description="Crie seu primeiro bolão para começar a organizar os palpites"
@@ -88,7 +107,7 @@ export function BoloesScreen() {
                       <form key={b.id} action={dados.links.selecionar} method="POST">
                         <input type="hidden" name="csrf_token" value={dados.csrfToken} />
                         <input type="hidden" name="bolao_id" value={b.id} />
-                        <input type="hidden" name="view" value="dashboard" />
+                        <input type="hidden" name="view" value={destino && NOMES_ABAS[destino] ? destino : 'dashboard'} />
                         <button className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${b.id === dados.bolaoAtualId ? 'bg-brand-600 hover:bg-brand-700 text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-700'}`}>
                           <span className="truncate">{b.id === dados.bolaoAtualId ? 'Gerenciando' : 'Gerenciar'}{grupo.length > 1 ? ` · ${b.campeonato} ${b.ano ?? ''}` : ' este bolão'}</span>
                           <ArrowRight className="w-4 h-4 shrink-0" />

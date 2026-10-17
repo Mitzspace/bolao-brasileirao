@@ -105,3 +105,25 @@ def test_faixas_do_texto_compartilhado():
         ['🟩', '🟩', '🟨', '🟦', '🟦', '⬜', '⬜', '🟥', '🟥']
     # Com poucos participantes, as faixas do topo têm prioridade sobre o vermelho.
     assert [marcador_posicao(p, 8) for p in range(1, 9)] == ['🟩'] * 4 + ['🟨'] + ['🟦'] * 3
+
+
+def test_desempenho_do_participante_pela_classificacao(client, gestao):
+    """Classificação do admin: tocar no nome abre o mesmo painel de desempenho do link público."""
+    bolao, r1, r2, ana, bia = preparar(client, gestao)
+    r = client.get(f'/interface/api/boloes/{bolao.id}/participantes/{bia.id}/desempenho')
+    assert r.status_code == 200
+    dados = r.get_json()
+    assert dados['nome'] == 'Bia' and dados['resumo']['pontos'] == 3 and dados['resumo']['posicao'] == 2
+    assert [(e['rodada'], e['pontos']) for e in dados['evolucao']] == [('Rodada 1', 0), ('Rodada 2', 3)]
+
+
+def test_desempenho_so_de_bolao_gerido_e_participante_do_bolao(client, gestao):
+    usuario, boloes = gestao
+    bolao, r1, r2, ana, bia = preparar(client, gestao)
+    privado = boloes[2]  # de outro responsável
+    dono = Participacao.query.filter_by(bolao_id=privado.id).first()
+    assert client.get(f'/interface/api/boloes/{privado.id}/participantes/{dono.id}/desempenho').status_code == 404
+    # Participante de outro bolão pelo endereço deste bolão: 404.
+    assert client.get(f'/interface/api/boloes/{bolao.id}/participantes/{dono.id}/desempenho').status_code == 404
+    client.get('/logout')
+    assert client.get(f'/interface/api/boloes/{bolao.id}/participantes/{ana.id}/desempenho').status_code == 401

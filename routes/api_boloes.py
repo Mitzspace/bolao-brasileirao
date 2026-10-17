@@ -8,7 +8,9 @@ from routes.api_serializacao import serializar_item_ranking, serializar_regras
 from services.contexto_bolao import lembrar_bolao, opcoes_rodadas
 from services.criacao_bolao import (criar_bolao, fontes_de_copia, mensagem_criacao,
                                     pessoas_da_origem, validar_dados)
-from services.ranking import calcular_ranking, ranking_com_variacao
+from models import Participacao
+from services.evolucao_ranking import evolucao, rotulo_curto
+from services.ranking import calcular_ranking, carregar_participantes, ranking_com_variacao
 from services.regras_pontuacao import aplicar_regras, validar_regras
 from services.responsaveis import bloquear_bolao
 from services.resumo_boloes import resumos_boloes
@@ -213,3 +215,30 @@ def alterar_tabela_publica(id):
     mensagem = (f'Classificação liberada ao público até a {rodada.nome}.' if rodada
                 else 'Classificação oculta para o público.')
     return jsonify({'mensagem': mensagem, **configuracao_publica(bolao)})
+
+
+@api.get('/boloes/<int:id>/participantes/<int:pid>/desempenho')
+@requer_gestao(precisa_bolao=False)
+def desempenho_participante(id, pid):
+    """Desempenho de um participante na classificação do bolão (o mesmo painel do link público).
+
+    Totais e posição da classificação geral (como em Participantes) e pontos por rodada.
+    """
+    bolao = _bolao_gerido(id)
+    pessoa = Participacao.query.filter_by(id=pid, bolao_id=bolao.id).first_or_404()
+    todos = carregar_participantes(bolao)
+    ranking, ultima = ranking_com_variacao(bolao)
+    item = next((i for i in ranking if i['participante'].id == pessoa.id), None)
+    linhas = evolucao(bolao, todos).get(pessoa.id, [])
+    return jsonify({
+        'nome': pessoa.nome_exibicao, 'status': pessoa.status,
+        'resumo': {'pontos': item['pontos'] if item else 0, 'cravadas': item['cravadas'] if item else 0,
+                   'posicao': item.get('posicao') if item else None, 'variacao': item.get('variacao') if item else None},
+        'variacaoReferencia': ultima.nome if ultima else None,
+        'evolucao': [{
+            'rodadaId': l['rodada'].id, 'rodada': l['rodada'].nome, 'curto': rotulo_curto(l['rodada']),
+            'pontos': l['pontos'] if l['participa'] else None, 'cravadas': l['cravadas'],
+            'palpites': l['palpites'], 'acumulado': l['acumulado'],
+            'posicao': l['posicao'], 'participa': l['participa'],
+        } for l in linhas],
+    })

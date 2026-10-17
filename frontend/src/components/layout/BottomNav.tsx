@@ -11,13 +11,13 @@ const navItems = [
 ] as const;
 
 export function BottomNav() {
-  const { view, setView } = useApp();
+  const { view, setView, bolao } = useApp();
 
   return (
     <nav aria-label="Navegação principal" className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-1 py-1.5 flex items-center justify-around safe-area-bottom">
       {navItems.map(item => {
         const Icon = item.icon;
-        const active = view === item.id;
+        const active = (bolao ? view : 'boloes') === item.id;
         return (
           <button
             key={item.id}

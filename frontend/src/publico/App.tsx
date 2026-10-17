@@ -11,6 +11,7 @@ import { Participantes } from './abas/Participantes';
 import { Tabela } from './abas/Tabela';
 import { DetalhePublico } from './DetalhePublico';
 import type { AbrirParticipante, DadosPagina, InicioApi } from './tipos';
+import { LogoApp } from '@/components/ui/LogoApp';
 
 const ABAS = [
   { id: 'inicio', label: 'Início', longo: 'Dashboard', icon: LayoutDashboard },
@@ -55,9 +56,7 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
     <div className="min-h-screen min-h-dvh pb-24 md:pb-10">
       <header className="sticky top-0 z-30 bg-white/85 dark:bg-gray-900/85 backdrop-blur-md border-b border-gray-100 dark:border-gray-800">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md shrink-0">
-            <Trophy className="w-5 h-5 text-white" />
-          </div>
+          <LogoApp />
           <div className="min-w-0 flex-1">
             <h1 className="font-bold text-gray-900 dark:text-white leading-tight truncate">{b.nome}</h1>
             <p className="text-xs text-gray-400 truncate">{b.campeonato} {b.ano ?? ''} · consulta</p>
