@@ -82,6 +82,24 @@ def _normalizar_time(nome):
     return aliases.get(nome, nome)
 
 
+# Nome exibido de cada clube da Série A, igual ao usado nos bolões (a API manda
+# "CA Mineiro", "SC Corinthians Paulista", "CR Vasco da Gama"...). Chave: _normalizar_time.
+NOMES_PADRAO = {
+    "athletico pr": "Athletico-PR", "atletico mg": "Atlético-MG", "bahia": "Bahia",
+    "botafogo": "Botafogo", "chapecoense": "Chapecoense", "corinthians": "Corinthians",
+    "coritiba": "Coritiba", "cruzeiro": "Cruzeiro", "flamengo": "Flamengo",
+    "fluminense": "Fluminense", "gremio": "Grêmio", "internacional": "Internacional",
+    "mirassol": "Mirassol", "palmeiras": "Palmeiras", "red bull bragantino": "Red Bull Bragantino",
+    "remo": "Remo", "santos": "Santos", "sao paulo": "São Paulo", "vasco": "Vasco",
+    "vitoria": "Vitória",
+}
+
+
+def nome_padrao(nome):
+    """Nome curto e único do clube; times fora da lista (outros campeonatos) ficam como vieram."""
+    return NOMES_PADRAO.get(_normalizar_time(nome), nome)
+
+
 def _matchday_da_rodada(rodada):
     match = re.search(r"\d+", rodada.nome or "")
     return int(match.group()) if match else None
@@ -173,8 +191,8 @@ def sync_jogos(token, campeonato_id, competicao,
         novo_jogo = False
         if jogo is None:
             jogo = Jogo(
-                time_casa=item["time_casa"],
-                time_fora=item["time_fora"],
+                time_casa=nome_padrao(item["time_casa"]),
+                time_fora=nome_padrao(item["time_fora"]),
                 data=item["data"],
                 rodada_id=rodada.id,
                 especial=eh_classico(item["time_casa"], item["time_fora"]),
@@ -188,8 +206,8 @@ def sync_jogos(token, campeonato_id, competicao,
             novo_jogo = True
         else:
             # Atualiza informações que podem ter mudado (ex: data, times)
-            jogo.time_casa = item["time_casa"]
-            jogo.time_fora = item["time_fora"]
+            jogo.time_casa = nome_padrao(item["time_casa"])
+            jogo.time_fora = nome_padrao(item["time_fora"])
             if item["data"]:
                 jogo.data = item["data"]
             if item["finalizado"]:
