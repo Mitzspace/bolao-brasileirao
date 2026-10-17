@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Check, Clock, Grid3x3, ListChecks, Lock, LockOpen, Medal, Pencil, Plus, Star, Target, Trash2, Trophy, Users } from 'lucide-react';
+import { Calendar, Check, Clock, Grid3x3, MessageCircle, ListChecks, Lock, LockOpen, Medal, Pencil, Plus, Star, Target, Trash2, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -14,6 +14,7 @@ import { useApp } from '@/context/AppContext';
 import { SeletorRodadas } from '@/components/rodadas/SeletorRodadas';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
 import { GradeModal } from '@/components/palpites/GradeModal';
+import { ModeloPalpites } from '@/components/palpites/ModeloPalpites';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
 import type { ClassificacaoRodadaApi, GestaoRodadasApi, JogoGestao } from '@/types';
@@ -50,6 +51,7 @@ export function RodadasScreen() {
   const [excluir, setExcluir] = useState<JogoGestao | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [grade, setGrade] = useState<number | null>(null);
+  const [modelo, setModelo] = useState<number | null>(null);
 
   const gravar = async (acao: () => Promise<{ mensagem?: string }>, depois?: () => void) => {
     setSalvando(true);
@@ -121,6 +123,10 @@ export function RodadasScreen() {
               <div className="flex gap-2">
                 <button onClick={() => setGrade(r.id)} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
                   <Grid3x3 className="w-4 h-4" /><span className="hidden sm:inline">Grade</span>
+                </button>
+                <button onClick={() => setModelo(r.id)} aria-label="Modelo de palpites para o WhatsApp" title="Modelo de palpites para o WhatsApp"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <MessageCircle className="w-4 h-4 text-[#25D366]" /><span className="hidden sm:inline">Modelo p/ WhatsApp</span>
                 </button>
                 <button onClick={() => setView('palpites', { rodadaId: r.id })} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${r.estado === 'pendente' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100'}`}>
                   <Target className="w-4 h-4" /> Lançar palpites
@@ -344,6 +350,7 @@ export function RodadasScreen() {
       </Modal>
 
       <GradeModal rodadaId={grade} onClose={() => setGrade(null)} />
+      <ModeloPalpites rodadaId={modelo} onClose={() => setModelo(null)} />
 
       <ConfirmDialog open={!!excluir} onClose={() => setExcluir(null)}
         onConfirm={() => excluir ? gravar(() => api.delete(`/jogos/${excluir.id}`)) : undefined}

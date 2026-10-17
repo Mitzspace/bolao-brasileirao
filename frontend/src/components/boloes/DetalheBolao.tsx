@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BookOpen, Check, ChevronRight, Globe, Share2, Shield, Trophy, Users } from 'lucide-react';
+import { BookOpen, Check, ChevronRight, Globe, Lock, Pencil, Share2, Shield, Trophy, Users } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
+import { Badge } from '@/components/ui/Badge';
 import { Drawer } from '@/components/ui/Drawer';
 import { DesempenhoParticipante } from '@/components/participantes/DesempenhoParticipante';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -11,17 +12,20 @@ import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EditorRegras, paraEdicao, validarRegras, type RegrasEditaveis } from './EditorRegras';
-import type { ClassificacaoBolaoApi } from '@/types';
+import type { ClassificacaoBolaoApi, StatusBolao } from '@/types';
 import { CompartilharClassificacao } from './CompartilharClassificacao';
 import { Podio } from './Podio';
 import { TabelaClassificacao } from './TabelaClassificacao';
 import { LinkPublico } from './LinkPublico';
+import { EditarBolao } from './EditarBolao';
 
 type Aba = 'classificacao' | 'regras' | 'publico';
 
-export function statusBolao(status: string) {
-  return status === 'ativo' ? { label: 'Ativo', color: 'green' as const }
-    : { label: status.charAt(0).toUpperCase() + status.slice(1), color: 'gray' as const };
+/** Selo de situação: verde (em andamento), azul (finalizado) ou vermelho (desistido). */
+export function statusBolao(status: StatusBolao | string) {
+  if (status === 'finalizado') return { label: 'Finalizado', color: 'blue' as const };
+  if (status === 'desistido') return { label: 'Desistido', color: 'red' as const };
+  return { label: 'Em andamento', color: 'green' as const };
 }
 
 /** Detalhe do bolão no estilo do Bolt: classificação completa (geral ou por rodada) e regras. */
@@ -31,6 +35,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
   // Desistentes ficam ocultos por padrão (pedido do bolão); o switch mostra quando preciso.
   const [ocultar, setOcultar] = useState(true);
   const [compartilhar, setCompartilhar] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [desempenho, setDesempenho] = useState<{ id: number; nome: string } | null>(null);
   const fecharDesempenho = useCallback(() => setDesempenho(null), []);
   const params = new URLSearchParams();
@@ -55,10 +60,16 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
         title={dados?.bolao.nome ?? 'Bolão'}
         subtitle={dados ? `${dados.bolao.campeonato} ${dados.bolao.ano ?? ''}` : undefined}
         actions={dados ? (
-          <button onClick={() => setCompartilhar(true)} aria-label="Compartilhar classificação"
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-sm font-semibold hover:bg-brand-100 transition-colors">
-            <Share2 className="w-4 h-4" /><span className="hidden sm:inline">Compartilhar</span>
-          </button>
+          <>
+            <button onClick={() => setEditando(true)} aria-label="Editar bolão"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <Pencil className="w-4 h-4" /><span className="hidden sm:inline">Editar</span>
+            </button>
+            <button onClick={() => setCompartilhar(true)} aria-label="Compartilhar classificação"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-sm font-semibold hover:bg-brand-100 transition-colors">
+              <Share2 className="w-4 h-4" /><span className="hidden sm:inline">Compartilhar</span>
+            </button>
+          </>
         ) : undefined}
       />
 
@@ -78,6 +89,15 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                 ))}
               </div>
             )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge color={status.color} size="md">{status.label}</Badge>
+              {dados.bolao.status !== 'ativo' && (
+                <span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                  <Lock className="w-4 h-4" /> Somente consulta. Para alterar, volte para "Em andamento" em Editar.
+                </span>
+              )}
+            </div>
 
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
@@ -142,6 +162,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
               <ChevronRight className="w-4 h-4 rotate-180" /> Voltar para bolões
             </button>
 
+            <EditarBolao bolao={dados.bolao} aberto={editando} onClose={() => setEditando(false)} onSalvo={recarregar} />
             <CompartilharClassificacao dados={dados} aberto={compartilhar} onClose={() => setCompartilhar(false)} />
             <Drawer open={!!desempenho} onClose={fecharDesempenho} title="Desempenho do participante" width="max-w-xl">
               {desempenho && <DesempenhoParticipante key={`${bolaoId}-${desempenho.id}`} bolaoId={bolaoId} participacaoId={desempenho.id} nome={desempenho.nome} />}

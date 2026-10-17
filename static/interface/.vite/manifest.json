@@ -1,43 +1,43 @@
 {
   "_index-!~{003}~.js": {
-    "file": "assets/index-Cl2Hkxwm.css",
+    "file": "assets/index-Cw0mxawU.css",
     "src": "_index-!~{003}~.js"
   },
-  "_index-CkDeePCu.js": {
-    "file": "assets/index-CkDeePCu.js",
+  "_index-CbPtzjJX.js": {
+    "file": "assets/index-CbPtzjJX.js",
     "name": "index",
     "dynamicImports": [
       "src/components/participantes/GraficoPontos.tsx"
     ],
     "css": [
-      "assets/index-Cl2Hkxwm.css"
+      "assets/index-Cw0mxawU.css"
     ]
   },
   "src/components/participantes/GraficoPontos.tsx": {
-    "file": "assets/GraficoPontos-DLv2EA7q.js",
+    "file": "assets/GraficoPontos-CXFkxWEr.js",
     "name": "GraficoPontos",
     "src": "src/components/participantes/GraficoPontos.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_index-CkDeePCu.js"
+      "_index-CbPtzjJX.js"
     ]
   },
   "src/main.tsx": {
-    "file": "assets/main-Q0vn45jJ.js",
+    "file": "assets/main-Bn30cjVI.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_index-CkDeePCu.js"
+      "_index-CbPtzjJX.js"
     ]
   },
   "src/publico/main.tsx": {
-    "file": "assets/publico-kcCVoejj.js",
+    "file": "assets/publico-BlSK4SCs.js",
     "name": "publico",
     "src": "src/publico/main.tsx",
     "isEntry": true,
     "imports": [
-      "_index-CkDeePCu.js"
+      "_index-CbPtzjJX.js"
     ]
   }
 }

@@ -187,3 +187,12 @@ def grade_rodada(id):
         'linhas': linhas,
         'textoWhatsapp': texto_rodada(bolao, rodada, matriz, participantes, totais),
     })
+
+
+@api.get('/rodadas/<int:id>/modelo-palpites')
+@requer_gestao()
+def modelo_palpites(id):
+    """Modelo de palpites da rodada (jogos que ainda não começaram) para copiar no WhatsApp."""
+    from services.modelo_palpites import montar_modelo
+    rodada = _rodada_do_bolao(id)
+    return jsonify({'rodada': rodada.nome, **montar_modelo(rodada)})

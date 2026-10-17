@@ -46,7 +46,7 @@ def index():
         'boloes': [{
             'id': b.id, 'nome': b.nome, 'chave': b.chave,
             'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano,
-            'grupoId': b.grupo_raiz_id,
+            'grupoId': b.grupo_raiz_id, 'status': b.status,
         } for b in boloes],
         'bolaoAtualId': atual.id if atual else None,
         'csrfToken': generate_csrf(),

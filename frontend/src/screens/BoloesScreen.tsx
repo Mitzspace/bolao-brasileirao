@@ -7,12 +7,18 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { DetalheBolao, statusBolao } from '@/components/boloes/DetalheBolao';
 import { NovoBolao } from '@/components/boloes/NovoBolao';
 import { useRecurso } from '@/lib/useRecurso';
-import type { BoloesApi, View } from '@/types';
+import type { BoloesApi, StatusBolao, View } from '@/types';
 
 const NOMES_ABAS: Partial<Record<View, string>> = {
   dashboard: 'Dashboard', jogos: 'Jogos', palpites: 'Lançar palpites', rodadas: 'Rodadas',
   participantes: 'Participantes', configuracoes: 'Configurações', campeonatos: 'Configurações',
 };
+
+type Filtro = 'todos' | StatusBolao;
+const FILTROS: { id: Filtro; rotulo: string }[] = [
+  { id: 'todos', rotulo: 'Todos' }, { id: 'ativo', rotulo: 'Em andamento' },
+  { id: 'finalizado', rotulo: 'Finalizados' }, { id: 'desistido', rotulo: 'Desistidos' },
+];
 
 /**
  * Bolões do responsável (cards do Bolt), classificação completa e criação de bolão.
@@ -22,6 +28,7 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
   const { dados, parametros } = useApp();
   const [detalheId, setDetalheId] = useState<number | null>(parametros.bolaoId || null);
   const [novo, setNovo] = useState(false);
+  const [filtro, setFiltro] = useState<Filtro>('ativo');
   const { dados: resumo } = useRecurso<BoloesApi>('/boloes');
 
   if (detalheId && dados.boloes.some(b => b.id === detalheId)) {
@@ -30,16 +37,27 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
 
   const info = new Map(resumo?.boloes.map(b => [b.id, b]) ?? []);
   // Campeonatos do mesmo bolão aparecem juntos, no mesmo card.
-  const grupos = Object.values(dados.boloes.reduce<Record<number, typeof dados.boloes>>((acc, b) => {
+  const todosGrupos = Object.values(dados.boloes.reduce<Record<number, typeof dados.boloes>>((acc, b) => {
     (acc[b.grupoId] ??= []).push(b);
     return acc;
   }, {}));
+  // A situação é a mesma em todos os campeonatos do bolão; em andamento aparece primeiro (ordem estável).
+  const situacao = (grupo: typeof dados.boloes) => grupo[0].status;
+  const contagem: Record<Filtro, number> = {
+    todos: todosGrupos.length,
+    ativo: todosGrupos.filter(g => situacao(g) === 'ativo').length,
+    finalizado: todosGrupos.filter(g => situacao(g) === 'finalizado').length,
+    desistido: todosGrupos.filter(g => situacao(g) === 'desistido').length,
+  };
+  const grupos = [...todosGrupos]
+    .filter(g => filtro === 'todos' || situacao(g) === filtro)
+    .sort((a, b) => Number(situacao(b) === 'ativo') - Number(situacao(a) === 'ativo'));
 
   return (
     <div>
       <Header
         title="Bolões"
-        subtitle={`${grupos.length} ${grupos.length === 1 ? 'bolão' : 'bolões'} sob sua gestão`}
+        subtitle={`${todosGrupos.length} ${todosGrupos.length === 1 ? 'bolão' : 'bolões'} sob sua gestão`}
         actions={
           <button onClick={() => setNovo(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors">
             <Plus className="w-4 h-4" /><span className="hidden sm:inline">Novo bolão</span>
@@ -64,12 +82,29 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
               action={<button onClick={() => setNovo(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"><Plus className="w-4 h-4" />Criar bolão</button>} />
           </div>
         ) : (
+          <>
+          <div role="tablist" aria-label="Filtrar por situação" className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 overflow-x-auto no-scrollbar w-fit max-w-full mb-5">
+            {FILTROS.map(f => (
+              <button key={f.id} role="tab" aria-selected={filtro === f.id} onClick={() => setFiltro(f.id)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filtro === f.id ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'}`}>
+                {f.rotulo}
+                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${filtro === f.id ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>{contagem[f.id]}</span>
+              </button>
+            ))}
+          </div>
+          {grupos.length === 0 && (
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+              <EmptyState icon={<Trophy className="w-10 h-10" />} title="Nenhum bolão nesta situação"
+                description={filtro === 'ativo' ? 'Nenhum bolão em andamento. Veja todos ou crie um novo bolão.' : 'Mude o filtro para ver os outros bolões.'}
+                action={<button onClick={() => setFiltro('todos')} className="px-4 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors">Ver todos</button>} />
+            </div>
+          )}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {grupos.map(grupo => {
               const principal = grupo[0];
               const atual = grupo.find(b => b.id === dados.bolaoAtualId);
               const foco = info.get((atual ?? principal).id);
-              const status = foco ? statusBolao(foco.status) : null;
+              const status = statusBolao(situacao(grupo));
               return (
                 <article key={principal.grupoId} onClick={() => setDetalheId((atual ?? principal).id)}
                   className={`group bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border flex flex-col cursor-pointer animate-slide-up transition-all hover:shadow-md hover:border-brand-200 dark:hover:border-brand-800 ${atual ? 'border-brand-300 dark:border-brand-700' : 'border-gray-100 dark:border-gray-800'}`}>
@@ -77,7 +112,7 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md shrink-0"><Trophy className="w-6 h-6 text-white" /></div>
                     <div className="flex flex-wrap justify-end gap-1.5">
                       {atual && <Badge color="green" icon={<Check className="w-3 h-3" />}>Selecionado</Badge>}
-                      {status && foco?.status !== 'ativo' && <Badge color={status.color}>{status.label}</Badge>}
+                      <Badge color={status.color}>{status.label}</Badge>
                     </div>
                   </div>
                   <h3 className="font-bold text-gray-900 dark:text-white text-lg break-words">{principal.nome}</h3>
@@ -123,6 +158,7 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
               );
             })}
           </div>
+          </>
         )}
       </div>
       <NovoBolao aberto={novo} onClose={() => setNovo(false)} />

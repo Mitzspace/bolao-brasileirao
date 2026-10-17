@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { views, type Bootstrap, type View } from '@/types';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { views, type Bootstrap, type BolaoResumo, type View } from '@/types';
 import { configurarApi } from '@/lib/api';
 import { useTema } from '@/lib/tema';
 
@@ -10,8 +10,8 @@ function hashView(): View {
 }
 const dataElement = document.getElementById('interface-data');
 if (!dataElement?.textContent) throw new Error('Contexto da interface não disponível.');
-const dados: Bootstrap = JSON.parse(dataElement.textContent);
-configurarApi({ base: dados.apiBase, csrfToken: dados.csrfToken });
+const dadosIniciais: Bootstrap = JSON.parse(dataElement.textContent);
+configurarApi({ base: dadosIniciais.apiBase, csrfToken: dadosIniciais.csrfToken });
 
 interface AppState {
   dados: Bootstrap;
@@ -24,6 +24,8 @@ interface AppState {
   darkMode: boolean;
   toggleDarkMode: () => void;
   logout: () => void;
+  /** Atualiza nome/situação na hora (barra lateral, seletor e cards), sem recarregar a página. */
+  atualizarBoloes: (ids: number[], mudanca: Partial<Pick<BolaoResumo, 'nome' | 'status'>>) => void;
 }
 const AppContext = createContext<AppState | null>(null);
 
@@ -32,6 +34,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Gestão: claro por padrão (como antes); a escolha fica salva na mesma chave de sempre.
   const { escuro: darkMode, alternar: toggleDarkMode } = useTema('bolao-interface-theme', 'claro');
   const [parametros, setParametros] = useState<Record<string, number>>({});
+  const [boloes, setBoloes] = useState(dadosIniciais.boloes);
+  const dados = useMemo<Bootstrap>(() => ({ ...dadosIniciais, boloes }), [boloes]);
+  const atualizarBoloes = useCallback<AppState['atualizarBoloes']>((ids, mudanca) =>
+    setBoloes(lista => lista.map(b => ids.includes(b.id) ? { ...b, ...mudanca } : b)), []);
   useEffect(() => {
     const change = () => updateView(hashView());
     window.addEventListener('hashchange', change);
@@ -45,7 +51,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
   return <AppContext.Provider value={{
     dados, usuario: dados.usuario, bolao: dados.boloes.find(b => b.id === dados.bolaoAtualId),
-    view, setView, parametros, darkMode, toggleDarkMode,
+    view, setView, parametros, darkMode, toggleDarkMode, atualizarBoloes,
     logout: () => window.location.assign(dados.links.logout),
   }}>{children}</AppContext.Provider>;
 }

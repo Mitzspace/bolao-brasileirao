@@ -3,9 +3,13 @@ export type View = typeof views[number];
 
 export interface Usuario { nome: string; email: string }
 
+/** 'ativo' aparece na tela como "Em andamento". */
+export type StatusBolao = 'ativo' | 'finalizado' | 'desistido';
+
 export interface BolaoResumo {
   id: number;
   nome: string;
+  status: StatusBolao;
   chave: string;
   campeonato: string;
   ano: number | null;
@@ -313,7 +317,7 @@ export interface PreviaDesistencia {
 export interface BoloesApi {
   boloes: {
     id: number; nome: string; chave: string; grupoId: number; campeonato: string; ano: number | null;
-    status: string; participantesAtivos: number; rodada: string | null;
+    status: StatusBolao; participantesAtivos: number; rodada: string | null;
     /** Participantes com algum jogo em branco na rodada atual. */
     palpitesFaltantes: number;
   }[];
@@ -321,7 +325,7 @@ export interface BoloesApi {
 
 /** GET /interface/api/boloes/:id/classificacao */
 export interface ClassificacaoBolaoApi {
-  bolao: { id: number; nome: string; chave: string; campeonato: string; ano: number | null; status: string };
+  bolao: { id: number; nome: string; chave: string; campeonato: string; ano: number | null; status: StatusBolao };
   campeonatosDoBolao: { bolaoId: number; nome: string; ano: number | null }[];
   rodadas: { id: number; nome: string }[];
   rodadaId: number | null;
@@ -349,4 +353,16 @@ export interface PublicoConfigApi {
   rodadaLiberada: { id: number; nome: string } | null;
   sugerida: { id: number; nome: string } | null;
   rodadas: { id: number; nome: string; jogos: number; comResultado: number; completa: boolean }[];
+}
+
+/** GET /interface/api/rodadas/:id/modelo-palpites */
+export interface ModeloPalpitesApi {
+  rodada: string;
+  /** Modelo pronto para o WhatsApp (vazio quando todos os jogos já começaram). */
+  texto: string;
+  /** Ex.: "Palpites até sáb 18/10, 16h"; null quando nenhum jogo restante tem horário. */
+  prazo: string | null;
+  incluidos: number;
+  /** Jogos que já começaram e ficaram fora do modelo. */
+  omitidos: number;
 }

@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/Toast';
 import type { ClassificacaoBolaoApi } from '@/types';
 
 /** Mostra *negrito* como o WhatsApp mostra. */
-function Formatado({ texto }: { texto: string }) {
+export function Formatado({ texto }: { texto: string }) {
   return <>{texto.split(/(\*[^*\n]+\*)/g).map((parte, i) =>
     parte.startsWith('*') && parte.endsWith('*') && parte.length > 2
       ? <strong key={i}>{parte.slice(1, -1)}</strong> : <Fragment key={i}>{parte}</Fragment>)}</>;

@@ -6,6 +6,7 @@ from database import db
 from routes.api import api, erro, requer_gestao
 from routes.api_serializacao import serializar_item_ranking, serializar_regras
 from services.contexto_bolao import lembrar_bolao, opcoes_rodadas
+from services.edicao_bolao import alterar_status, editavel, mensagem_bloqueio, renomear
 from services.criacao_bolao import (criar_bolao, fontes_de_copia, mensagem_criacao,
                                     pessoas_da_origem, validar_dados)
 from models import Participacao
@@ -56,16 +57,58 @@ def ler_regras(dados):
                            'primeiro_gol': dados.get('primeiroGol')})
 
 
+@api.put('/boloes/<int:id>')
+@requer_gestao(precisa_bolao=False)
+def renomear_bolao(id):
+    """Renomeia o bolão (e os campeonatos do mesmo grupo). Só o responsável daquele bolão."""
+    bolao = _bolao_gerido(id)
+    nome = (request.get_json(silent=True) or {}).get('nome')
+    bloquear_bolao(bolao.id)
+    if not editavel(bolao):
+        return erro(409, mensagem_bloqueio(bolao))
+    try:
+        antigo, novo, boloes = renomear(bolao, nome)
+    except ValueError as e:
+        db.session.rollback()
+        return erro(400, str(e))
+    db.session.commit()
+    current_app.logger.info('Bolão %s renomeado por %s: %r -> %r', bolao.id, current_user.id, antigo, novo)
+    return jsonify({'mensagem': 'Nome do bolão atualizado.', 'nome': novo, 'ids': [b.id for b in boloes]})
+
+
+@api.put('/boloes/<int:id>/status')
+@requer_gestao(precisa_bolao=False)
+def alterar_status_bolao(id):
+    """Em andamento ('ativo'), finalizado ou desistido; reversível a qualquer momento."""
+    bolao = _bolao_gerido(id)
+    status = (request.get_json(silent=True) or {}).get('status')
+    bloquear_bolao(bolao.id)
+    try:
+        antigo, boloes = alterar_status(bolao, status)
+    except ValueError as e:
+        db.session.rollback()
+        return erro(400, str(e))
+    db.session.commit()
+    current_app.logger.info('Situação do bolão %s alterada por %s: %s -> %s', bolao.id, current_user.id, antigo, status)
+    return jsonify({'mensagem': {'ativo': 'Bolão em andamento novamente.', 'finalizado': 'Bolão marcado como finalizado.',
+                                 'desistido': 'Bolão marcado como desistido.'}[status],
+                    'status': status, 'ids': [b.id for b in boloes]})
+
+
 @api.put('/boloes/<int:id>/regras')
 @requer_gestao(precisa_bolao=False)
 def salvar_regras(id):
     """Regras do bolão; valem para todas as rodadas, inclusive as já jogadas."""
     bolao = _bolao_gerido(id)
+    if not editavel(bolao):
+        return erro(409, mensagem_bloqueio(bolao))
     try:
         regras = ler_regras(request.get_json(silent=True))
     except ValueError as e:
         return erro(400, str(e))
     bloquear_bolao(bolao.id)  # confirma de novo que é responsável, sob bloqueio
+    if not editavel(bolao):
+        return erro(409, mensagem_bloqueio(bolao))
     antes = serializar_regras(bolao)
     aplicar_regras(bolao, regras)
     db.session.commit()
@@ -186,6 +229,8 @@ def alterar_link_publico(id):
     if acao not in ('gerar', 'desativar'):
         return erro(400, 'Ação inválida.')
     bloquear_bolao(bolao.id)
+    if not editavel(bolao):
+        return erro(409, mensagem_bloqueio(bolao))
     tinha = bool(bolao.codigo_publico)
     if acao == 'gerar':
         gerar_link(bolao)
@@ -207,6 +252,8 @@ def alterar_tabela_publica(id):
     if rodada_id is not None and (not isinstance(rodada_id, int) or isinstance(rodada_id, bool)):
         return erro(400, 'Rodada inválida.')
     bloquear_bolao(bolao.id)
+    if not editavel(bolao):
+        return erro(409, mensagem_bloqueio(bolao))
     try:
         rodada = definir_tabela_publica(bolao, rodada_id)
     except ValueError as e:

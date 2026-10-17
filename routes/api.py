@@ -16,6 +16,7 @@ from werkzeug.exceptions import HTTPException
 from extensions import limiter
 from services.acesso import pode_acessar_gestao
 from services.contexto_bolao import bolao_atual, responsavel_atual
+from services.edicao_bolao import editavel, mensagem_bloqueio
 
 api = Blueprint('api', __name__, url_prefix='/interface/api')
 
@@ -91,6 +92,10 @@ def requer_gestao(precisa_bolao=True):
                     return erro(409)
                 if not responsavel_atual():
                     return erro(403)
+                # Bolão finalizado/desistido é só consulta (a prévia do WhatsApp não grava nada).
+                if (request.method not in ('GET', 'HEAD', 'OPTIONS') and request.endpoint != 'api.previa_whatsapp_api'
+                        and not editavel(bolao_atual())):
+                    return erro(409, mensagem_bloqueio(bolao_atual()))
             return f(*args, **kwargs)
         return interno
     return decorador

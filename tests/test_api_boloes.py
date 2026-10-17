@@ -127,3 +127,68 @@ def test_desempenho_so_de_bolao_gerido_e_participante_do_bolao(client, gestao):
     assert client.get(f'/interface/api/boloes/{bolao.id}/participantes/{dono.id}/desempenho').status_code == 404
     client.get('/logout')
     assert client.get(f'/interface/api/boloes/{bolao.id}/participantes/{ana.id}/desempenho').status_code == 401
+
+
+# ---------- Editar nome e situação do bolão ----------
+
+def test_renomear_bolao_mantem_palpites_e_classificacao(client, gestao):
+    bolao, *_ = preparar(client, gestao)
+    antes = client.get(f'/interface/api/boloes/{bolao.id}/classificacao').get_json()['ranking']
+    palpites = Palpite.query.count()
+    r = client.put(f'/interface/api/boloes/{bolao.id}', json={'nome': '  Amigos   do   Bairro  '})
+    assert r.status_code == 200 and r.get_json()['nome'] == 'Amigos do Bairro'
+    assert db.session.get(Bolao, bolao.id).nome == 'Amigos do Bairro'
+    depois = client.get(f'/interface/api/boloes/{bolao.id}/classificacao').get_json()
+    assert depois['bolao']['nome'] == 'Amigos do Bairro' and depois['ranking'] == antes
+    assert Palpite.query.count() == palpites
+
+
+def test_renomear_recusa_nome_invalido_e_bolao_alheio(client, gestao):
+    bolao, *_ = preparar(client, gestao)
+    _, boloes = gestao
+    for nome in ['', '   ', 'x' * 101, None, 7]:
+        assert client.put(f'/interface/api/boloes/{bolao.id}', json={'nome': nome}).status_code == 400
+    assert client.put(f'/interface/api/boloes/{bolao.id}', json={'nome': 'x' * 100}).status_code == 200
+    assert client.put(f'/interface/api/boloes/{boloes[2].id}', json={'nome': 'Invadido'}).status_code == 404
+    assert db.session.get(Bolao, boloes[2].id).nome == 'Privado'
+
+
+def test_renomear_vale_para_os_campeonatos_do_mesmo_bolao(client, gestao):
+    bolao, *_ = preparar(client, gestao)
+    _, boloes = gestao
+    boloes[1].grupo_id = bolao.id
+    db.session.commit()
+    assert client.put(f'/interface/api/boloes/{bolao.id}', json={'nome': 'Novo'}).status_code == 200
+    assert db.session.get(Bolao, boloes[1].id).nome == 'Novo'
+
+
+def test_status_do_bolao_aceita_so_tres_valores_e_e_reversivel(client, gestao):
+    bolao, *_ = preparar(client, gestao)
+    _, boloes = gestao
+    url = f'/interface/api/boloes/{bolao.id}/status'
+    assert client.put(url, json={'status': 'cancelado'}).status_code == 400
+    assert client.put(url, json={}).status_code == 400
+    for status in ('finalizado', 'desistido', 'ativo'):
+        assert client.put(url, json={'status': status}).status_code == 200
+        assert db.session.get(Bolao, bolao.id).status == status
+    lista = client.get('/interface/api/boloes').get_json()['boloes']
+    assert lista[0]['status'] == 'ativo'
+    assert client.put(f'/interface/api/boloes/{boloes[2].id}/status', json={'status': 'finalizado'}).status_code == 404
+
+
+def test_bolao_finalizado_nao_aceita_alteracoes_mas_permite_consulta(client, gestao):
+    bolao, r1, r2, ana, bia = preparar(client, gestao)
+    client.post('/selecionar', data={'bolao_id': bolao.id})
+    client.post('/interface/selecionar', data={'bolao_id': bolao.id})
+    assert client.put(f'/interface/api/boloes/{bolao.id}/status', json={'status': 'finalizado'}).status_code == 200
+    base = '/interface/api'
+    assert client.get(f'{base}/rodadas').status_code == 200
+    assert client.get(f'{base}/boloes/{bolao.id}/classificacao').status_code == 200
+    r = client.post(f'{base}/jogos', json={'casa': 'A', 'fora': 'B', 'rodadaId': r1.id})
+    assert r.status_code == 409 and 'finalizado' in r.get_json()['erro']
+    assert client.put(f'{base}/boloes/{bolao.id}', json={'nome': 'Outro'}).status_code == 409
+    assert client.put(f'{base}/boloes/{bolao.id}/regras', json={}).status_code == 409
+    assert client.post(f'{base}/boloes/{bolao.id}/publico/link', json={'acao': 'gerar'}).status_code == 409
+    assert db.session.get(Bolao, bolao.id).nome == 'Amigos A'
+    assert client.put(f'{base}/boloes/{bolao.id}/status', json={'status': 'ativo'}).status_code == 200
+    assert client.put(f'{base}/boloes/{bolao.id}', json={'nome': 'Outro'}).status_code == 200
