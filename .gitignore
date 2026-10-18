@@ -20,3 +20,6 @@ backups/
 .test-tmp*/
 entregas/
 static/interface/
+
+# Cópia antiga do projeto (repositório aninhado); não faz parte deste repositório
+bolao-brasileirao/

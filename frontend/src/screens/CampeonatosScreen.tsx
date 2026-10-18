@@ -14,6 +14,7 @@ import { GradeModal } from '@/components/palpites/GradeModal';
 import { SincronizarApi } from '@/components/campeonatos/SincronizarApi';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
+import { normalizarCodigoApi } from '@/lib/codigoApi';
 import { useRecurso } from '@/lib/useRecurso';
 import type { CampeonatoApi, FonteApi, RodadaGestao, TabelaApi } from '@/types';
 
@@ -65,7 +66,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
 
   const salvarCampeonato = async () => {
     setSalvando(true);
-    try { await executar(() => api.put<{ mensagem: string }>('/campeonato', { ...form, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase() })); setEditando(false); }
+    try { await executar(() => api.put<{ mensagem: string }>('/campeonato', { ...form, codigoApi: normalizarCodigoApi(form.fonteApi, form.codigoApi) })); setEditando(false); }
     catch { /* aviso já exibido */ } finally { setSalvando(false); }
   };
 
@@ -236,7 +237,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
             <Input label="Temporada" type="number" value={form.ano} onChange={e => setForm({ ...form, ano: e.target.value })} />
             <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API' : form.fonteApi === 'espn' ? 'Slug na ESPN' : 'Código na API'}
               value={form.codigoApi} maxLength={40}
-              onChange={e => setForm({ ...form, codigoApi: form.fonteApi === 'espn' ? e.target.value.toLowerCase() : e.target.value.toUpperCase() })}
+              onChange={e => setForm({ ...form, codigoApi: normalizarCodigoApi(form.fonteApi, e.target.value) })}
               hint={form.fonteApi === 'api-football' ? '13 = Libertadores, 11 = Sul-Americana, 73 = Copa do Brasil, 629 = Mineiro'
                 : form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro; Copa do Mundo: fifa.world.' : 'BSA = Brasileirão'} />
           </div>

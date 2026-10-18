@@ -43,12 +43,6 @@ export interface Escudo {
   sigla: string;
 }
 
-/** GET /interface/api/contexto */
-export interface ContextoApi {
-  usuario: { id: number; nome: string; email: string; adminGlobal: boolean };
-  bolao: (BolaoResumo & { campeonatoId: number }) | null;
-}
-
 export type StatusJogo = 'agendado' | 'aguardando' | 'encerrado';
 
 export interface JogoApi {

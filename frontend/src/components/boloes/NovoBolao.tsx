@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { REGRAS_PADRAO, type FontesBolaoApi, type FonteApi } from '@/types';
+import { normalizarCodigoApi } from '@/lib/codigoApi';
 import { DICA_FASE_INICIAL, FASES_INICIAIS } from '@/lib/fases';
 import { EditorRegras, paraEdicao, validarRegras } from './EditorRegras';
 
@@ -39,7 +40,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
   const modelos = fontes?.modelos ?? [];
   const aviso = form.fonteApi === 'api-football' ? AVISO_API_FOOTBALL
     : form.fonteApi === 'espn' ? 'ESPN: importação de jogos e resultados sem token ou chave. API pública não oficial; a disponibilidade depende da competição e da temporada.'
-    : modelos.find(m => (m.fonte_api ?? 'football-data') === 'football-data' && m.codigo_api === form.codigoApi.trim().toUpperCase())?.aviso;
+    : modelos.find(m => (m.fonte_api ?? 'football-data') === 'football-data' && m.codigo_api === normalizarCodigoApi('football-data', form.codigoApi))?.aviso;
 
   const escolherModelo = (chave: string) => {
     const modelo = modelos.find(m => m.chave === chave);
@@ -52,7 +53,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
     setSalvando(true); setErro('');
     try {
       await api.post('/boloes', {
-        nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase(), fonte_api: form.fonteApi,
+        nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: normalizarCodigoApi(form.fonteApi, form.codigoApi), fonte_api: form.fonteApi,
         modelo: form.modelo || undefined, eliminacao_participantes: form.eliminacao,
         faseInicial: form.fonteApi === 'espn' && form.faseInicial ? form.faseInicial : undefined,
         origemId: form.origemId ? Number(form.origemId) : null, participacaoIds: form.marcados, regras: regras.regras,
@@ -71,7 +72,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
     setVerificando(true); setErro('');
     try {
       await api.post('/boloes/verificar-temporada', {
-        campeonato: form.campeonato, ano: form.ano, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase(),
+        campeonato: form.campeonato, ano: form.ano, codigoApi: normalizarCodigoApi(form.fonteApi, form.codigoApi),
         fonte_api: form.fonteApi, modelo: form.modelo || undefined,
       });
       setEtapa(2);
@@ -145,7 +146,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
             <Input label="Temporada" type="number" min={1} max={9999} value={form.ano} onChange={e => setForm({ ...form, ano: e.target.value })} />
             <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API (opcional)' : form.fonteApi === 'espn' ? 'Slug na ESPN (opcional)' : 'Código na API (opcional)'}
               value={form.codigoApi} maxLength={40}
-              onChange={e => setForm({ ...form, codigoApi: form.fonteApi === 'espn' ? e.target.value.toLowerCase() : e.target.value.toUpperCase() })}
+              onChange={e => setForm({ ...form, codigoApi: normalizarCodigoApi(form.fonteApi, e.target.value) })}
               hint={form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro; Copa do Mundo: fifa.world.' : undefined} />
           </div>
           {form.fonteApi === 'espn' && (

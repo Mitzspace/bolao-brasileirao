@@ -110,16 +110,18 @@ def verificar_temporada(campeonato_nome, ano, codigo_api, fonte_api):
     """Impede criar bolão de temporada que a fonte não possui (ValueError, antes de gravar nada).
 
     Só bloqueia quando a fonte responde sem jogos; falha de rede, falta de chave ou restrição de
-    plano não impedem a criação (a importação inicial avisa depois)."""
+    plano não impedem a criação (a importação inicial avisa depois).
+
+    Devolve os jogos consultados (para a importação inicial não consultar de novo) ou None."""
     from urllib.error import HTTPError
     from flask import current_app
     from services.sync import buscar_jogos, chave_api
 
     if not current_app.config.get('IMPORTAR_JOGOS_AO_CRIAR', True) or not codigo_api:
-        return
+        return None
     token = chave_api(fonte_api)
     if fonte_api != FONTE_ESPN and not token:
-        return
+        return None
     inexistente = ValueError(f'A temporada {ano} de {campeonato_nome} não existe na {FONTES_API[fonte_api]} '
                              f'(código {codigo_api}). Confira o código e a temporada.')
     try:
@@ -127,21 +129,23 @@ def verificar_temporada(campeonato_nome, ano, codigo_api, fonte_api):
     except HTTPError as e:
         if e.code in (400, 404):
             raise inexistente from e
-        return
+        return None
     except Exception:  # rede, plano, resposta inesperada: não bloqueia
-        return
+        return None
     if not jogos:
         raise inexistente
+    return jogos
 
 
 def mensagem_criacao(selecionados):
     return f'Bolão criado com {len(selecionados)} participantes copiados, além do responsável.'
 
 
-def importar_jogos_iniciais(campeonato, fase_inicial=None):
+def importar_jogos_iniciais(campeonato, fase_inicial=None, jogos_api=None):
     """Importa o campeonato logo após criar o bolão (a partir de fase_inicial, se informada; ex.:
     'LAST_32' = dos 16 avos em diante). Nunca lança erro: a falha não desfaz o bolão (já gravado)
-    e vira aviso. Retorna (categoria, mensagem) ou None."""
+    e vira aviso. Retorna (categoria, mensagem) ou None.
+    jogos_api: jogos já consultados (ver verificar_temporada); sem eles, consulta a fonte."""
     from urllib.error import HTTPError, URLError
     from flask import current_app
     from services.importador_api_football import ErroApiFootball
@@ -159,7 +163,8 @@ def importar_jogos_iniciais(campeonato, fase_inicial=None):
         return 'warning', f'Jogos não importados: o servidor não tem chave da {FONTES_API[fonte]}. {manual}'
     try:
         r = sync_jogos(token, campeonato.id, campeonato.codigo_api, temporada=str(campeonato.ano),
-                       campeonato_completo=True, fonte_api=fonte, fase_inicial=fase_inicial)
+                       campeonato_completo=True, fonte_api=fonte, fase_inicial=fase_inicial,
+                       jogos_api=jogos_api)
     except (ErroApiFootball, ErroEspn, HTTPError, URLError, TimeoutError, OSError, ValueError) as e:
         db.session.rollback()
         detalhe = str(e) if isinstance(e, (ErroApiFootball, ErroEspn)) else 'falha ao consultar a API.'

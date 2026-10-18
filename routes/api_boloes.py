@@ -237,7 +237,7 @@ def novo_bolao():
     try:
         dados, fonte_api = _dados_competicao(c)
         fase_inicial = validar_fase_inicial(c.get('faseInicial'))
-        verificar_temporada(dados[1], dados[2], dados[3], fonte_api)
+        jogos_api = verificar_temporada(dados[1], dados[2], dados[3], fonte_api)
     except ValueError as e:
         return erro(400, str(e))
     regras = None
@@ -254,7 +254,7 @@ def novo_bolao():
     mensagem = mensagem_criacao(selecionados)
     flash(mensagem, 'success')
     resposta = {'bolaoId': novo.id, 'mensagem': mensagem}
-    importacao = importar_jogos_iniciais(novo.campeonato, fase_inicial)
+    importacao = importar_jogos_iniciais(novo.campeonato, fase_inicial, jogos_api)
     if importacao:
         flash(importacao[1], importacao[0])
         resposta['importacao'] = {'sucesso': importacao[0] == 'success', 'mensagem': importacao[1]}
