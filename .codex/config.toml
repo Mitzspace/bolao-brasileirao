@@ -1,0 +1,29 @@
+
+
+
+# alethe-managed-hooks-start
+[[hooks.SubagentStart]]
+matcher = ".*"
+
+[[hooks.SubagentStart.hooks]]
+type = "command"
+command = "true"
+commandWindows = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Arquivos\AppData\Local\Temp\alethe-codex-hook-forward-9123-7MwxCsjs78aZ5lazy6dDA.ps1"'
+timeout = 5
+
+[[hooks.SubagentStop]]
+matcher = ".*"
+
+[[hooks.SubagentStop.hooks]]
+type = "command"
+command = "true"
+commandWindows = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Arquivos\AppData\Local\Temp\alethe-codex-hook-forward-9123-7MwxCsjs78aZ5lazy6dDA.ps1"'
+timeout = 5
+
+# alethe-managed-hooks-end
+
+# alethe-managed-mcp-start
+[mcp_servers.alethe]
+command = "powershell.exe"
+args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", 'C:\Users\Arquivos\AppData\Local\Temp\alethe-codex-mcp-bridge-9123-7MwxCsjs78aZ5lazy6dDA.ps1']
+# alethe-managed-mcp-end
