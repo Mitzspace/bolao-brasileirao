@@ -62,6 +62,8 @@ def tela_palpites():
                 'palpite': {
                     'casa': p.gols_casa if p.situacao == 'valido' else None,
                     'fora': p.gols_fora if p.situacao == 'valido' else None,
+                    'penaltisCasa': p.penaltis_casa if p.situacao == 'valido' else None,
+                    'penaltisFora': p.penaltis_fora if p.situacao == 'valido' else None,
                     'primeiroGol': p.primeiro_gol or '',
                     'situacao': p.situacao,
                     'guardado': bool(p.excluido_por_desistencia),
@@ -99,6 +101,10 @@ def _formulario(corpo):
         for campo, chave in (('casa', 'casa'), ('fora', 'fora'), ('primeiro', 'primeiroGol'), ('situacao', 'situacao')):
             if chave in valores and valores[chave] is not None:
                 campos[f'{campo}_{jogo_id}'] = str(valores[chave])
+        # Pênaltis: chave presente com null/"" apaga o palpite de pênaltis; ausente mantém o anterior.
+        for campo, chave in (('pen_casa', 'penaltisCasa'), ('pen_fora', 'penaltisFora')):
+            if chave in valores:
+                campos[f'{campo}_{jogo_id}'] = '' if valores[chave] is None else str(valores[chave])
     return campos
 
 

@@ -7,12 +7,14 @@ from routes.api import api, erro, requer_gestao
 from routes.api_serializacao import serializar_item_ranking, serializar_regras
 from services.contexto_bolao import lembrar_bolao, opcoes_rodadas
 from services.edicao_bolao import alterar_status, editavel, mensagem_bloqueio, renomear
-from services.criacao_bolao import (criar_bolao, fontes_de_copia, mensagem_criacao,
+from services.competicoes import MODELOS_COMPETICAO
+from services.criacao_bolao import (aviso_plano_pago, modelos_disponiveis, validar_fonte,
+                                    criar_bolao, fontes_de_copia, mensagem_criacao,
                                     pessoas_da_origem, validar_dados)
 from models import Participacao
 from services.evolucao_ranking import evolucao, rotulo_curto
 from services.ranking import calcular_ranking, carregar_participantes, ranking_com_variacao
-from services.regras_pontuacao import aplicar_regras, validar_regras
+from services.regras_pontuacao import aplicar_regras, regras_do_bolao, validar_regras
 from services.responsaveis import bloquear_bolao
 from services.resumo_boloes import resumos_boloes
 from services.textos_whatsapp import texto_classificacao_compartilhar
@@ -48,13 +50,19 @@ def listar_boloes():
     } for b in boloes]})
 
 
-def ler_regras(dados):
-    """Converte o JSON da interface (camelCase) e valida; levanta ValueError."""
+def ler_regras(dados, bolao=None):
+    """Converte o JSON da interface (camelCase) e valida; levanta ValueError.
+
+    Pênaltis são opcionais: requisições antigas sem eles mantêm os valores do bolão (ou o padrão).
+    """
     dados = dados if isinstance(dados, dict) else {}
     return validar_regras({'comum_exato': dados.get('comumExato'), 'comum_resultado': dados.get('comumResultado'),
                            'classico_exato': dados.get('classicoExato'),
                            'classico_resultado': dados.get('classicoResultado'),
-                           'primeiro_gol': dados.get('primeiroGol')})
+                           'primeiro_gol': dados.get('primeiroGol'),
+                           'penaltis_exato': dados.get('penaltisExato'),
+                           'penaltis_vencedor': dados.get('penaltisVencedor')},
+                          regras_do_bolao(bolao) if bolao is not None else None)
 
 
 @api.put('/boloes/<int:id>')
@@ -103,7 +111,7 @@ def salvar_regras(id):
     if not editavel(bolao):
         return erro(409, mensagem_bloqueio(bolao))
     try:
-        regras = ler_regras(request.get_json(silent=True))
+        regras = ler_regras(request.get_json(silent=True), bolao)
     except ValueError as e:
         return erro(400, str(e))
     bloquear_bolao(bolao.id)  # confirma de novo que é responsável, sob bloqueio
@@ -167,6 +175,7 @@ def fontes_para_copiar():
     return jsonify({
         'fontes': [{'id': b.id, 'nome': b.nome, 'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano}
                    for b in fontes],
+        'modelos': modelos_disponiveis(),
         'pessoas': [{'id': p.id, 'nome': p.nome_exibicao, 'status': p.status}
                     for p in pessoas_da_origem(origem, current_user)],
     })
@@ -176,6 +185,11 @@ def fontes_para_copiar():
 @requer_gestao(precisa_bolao=False)
 def novo_bolao():
     c = request.get_json(silent=True) or {}
+    if not isinstance(c, dict):
+        return erro(400)
+    eliminacao = c.get('eliminacao_participantes', False)
+    if not isinstance(eliminacao, bool):
+        return erro(400, 'Eliminar participantes por fase deve ser um booleano.')
     fontes = fontes_de_copia(current_user)
     origem = None
     if c.get('origemId') not in (None, ''):
@@ -195,7 +209,12 @@ def novo_bolao():
         def txt(chave):
             return c.get(chave) if isinstance(c.get(chave), str) else None
         ano = c.get('ano') if isinstance(c.get('ano'), (str, int)) and not isinstance(c.get('ano'), bool) else None
-        dados = validar_dados(txt('nome'), txt('campeonato'), ano, txt('codigoApi'))
+        dados = validar_dados(txt('nome'), txt('campeonato_nome') or txt('campeonato'), ano,
+                              txt('codigo_api') or txt('codigoApi'), c.get('modelo'))
+        # Fonte informada prevalece; sem ela vale a do modelo (se o código for o dele) ou a inferida do código.
+        modelo = MODELOS_COMPETICAO.get(c.get('modelo') or '', {})
+        fonte = c.get('fonte_api') or (modelo.get('fonte_api') if modelo.get('codigo_api') == dados[3] else None)
+        fonte_api = validar_fonte(fonte, dados[3])
     except ValueError as e:
         return erro(400, str(e))
     regras = None
@@ -206,11 +225,17 @@ def novo_bolao():
             return erro(400, str(e))
     if origem:
         bloquear_bolao(origem.id)
-    novo = criar_bolao(current_user, *dados, pessoas, selecionados, regras)
+    novo = criar_bolao(current_user, *dados, pessoas, selecionados, regras,
+                       eliminacao_participantes=eliminacao, fonte_api=fonte_api)
     lembrar_bolao(novo.id)
     mensagem = mensagem_criacao(selecionados)
     flash(mensagem, 'success')
-    return jsonify({'bolaoId': novo.id, 'mensagem': mensagem}), 201
+    resposta = {'bolaoId': novo.id, 'mensagem': mensagem}
+    aviso = aviso_plano_pago(novo.campeonato.codigo_api, novo.campeonato.fonte_api)
+    if aviso:
+        resposta['aviso'] = aviso
+        flash(aviso, 'warning')
+    return jsonify(resposta), 201
 
 
 # ---------- Link público de consulta (docs/LINK_PUBLICO.md) ----------

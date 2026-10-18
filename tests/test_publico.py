@@ -221,7 +221,7 @@ def test_classificacao_tem_colunas_completas(client, cenario):
 def test_inicio_traz_regras_de_pontuacao(client, cenario):
     regras = client.get(cenario['base'] + '/api/inicio').get_json()['regras']
     assert regras == {'comumExato': 3, 'comumResultado': 1, 'classicoExato': 5, 'classicoResultado': 3,
-                      'primeiroGol': 2, 'politicaEntrada': cenario['bolao'].politica_entrada_tardia}
+                      'primeiroGol': 2, 'penaltisExato': 3, 'penaltisVencedor': 1, 'politicaEntrada': cenario['bolao'].politica_entrada_tardia}
 
 
 def test_detalhe_do_participante(client, cenario):

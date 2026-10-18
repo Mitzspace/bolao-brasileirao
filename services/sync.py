@@ -1,5 +1,6 @@
 """
-sync.py — Sincronização automática de jogos e resultados via football-data.org.
+sync.py — Sincronização automática de jogos e resultados via football-data.org ou API-Football
+(o provedor de cada campeonato vem de Campeonato.fonte_api).
 
 Permite:
   - Importar o campeonato completo (todas as rodadas de 1 a 38 de uma só vez)
@@ -15,10 +16,59 @@ import re
 import unicodedata
 
 
+from services.competicoes import (
+    ESTAGIOS_COM_RODADA,
+    EXTERNAL_FONTE,
+    FONTE_API_FOOTBALL,
+    FONTE_FOOTBALL_DATA,
+    nomeador_rodadas,
+    normalizar_fonte,
+)
+from services.importador_api_football import (
+    buscar_jogos_api_football,
+    buscar_resultados_api_football,
+)
 from services.importador_jogos import (
     buscar_jogos_football_data,
     buscar_resultados_football_data,
 )
+
+
+def chave_api(fonte_api):
+    """Chave do servidor para o provedor (API_FOOTBALL_KEY ou FOOTBALL_DATA_TOKEN)."""
+    variavel = "API_FOOTBALL_KEY" if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL else "FOOTBALL_DATA_TOKEN"
+    try:
+        from flask import current_app
+        valor = current_app.config.get(variavel)
+    except RuntimeError:  # fora de um app Flask
+        valor = None
+    return valor or os.environ.get(variavel) or None
+
+
+def buscar_jogos(fonte_api, chave, competicao, temporada=None, rodada=None, data_inicio=None, data_fim=None):
+    """Jogos do provedor no formato interno (uma chamada à API)."""
+    if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL:
+        return buscar_jogos_api_football(chave=chave, liga=competicao, temporada=temporada, rodada=rodada,
+                                         data_inicio=data_inicio, data_fim=data_fim)
+    return buscar_jogos_football_data(token=chave, competicao=competicao, temporada=temporada, rodada=rodada,
+                                      data_inicio=data_inicio, data_fim=data_fim)
+
+
+def buscar_resultados(fonte_api, chave, competicao, temporada=None, rodada=None, data_inicio=None, data_fim=None):
+    if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL:
+        return buscar_resultados_api_football(chave=chave, liga=competicao, temporada=temporada, rodada=rodada,
+                                              data_inicio=data_inicio, data_fim=data_fim)
+    return buscar_resultados_football_data(token=chave, competicao=competicao, temporada=temporada,
+                                           rodada=rodada, data_inicio=data_inicio, data_fim=data_fim)
+
+
+def _fonte_do_campeonato(campeonato_id, fonte_api=None):
+    if fonte_api:
+        return normalizar_fonte(fonte_api)
+    from database import db
+    from models import Campeonato
+    campeonato = db.session.get(Campeonato, campeonato_id) if campeonato_id else None
+    return normalizar_fonte(campeonato.fonte_api if campeonato else None)
 
 
 def _normalizar_texto(valor):
@@ -45,6 +95,7 @@ def _normalizar_time(nome):
         "athletico paranaense": "athletico pr",
         "athletico pr": "athletico pr",
         "athletico": "athletico pr",
+        "atletico paranaense": "athletico pr",
         "paranaense": "athletico pr",
         "atletico mineiro": "atletico mg",
         "atletico mg": "atletico mg",
@@ -109,46 +160,88 @@ def _chave_jogo(time_casa, time_fora):
     return (_normalizar_time(time_casa), _normalizar_time(time_fora))
 
 
-def _salvar_resultado_se_finalizado(db, Resultado, jogo, item):
-    if not item["finalizado"] or item["gols_casa_real"] is None or item["gols_fora_real"] is None:
-        return False
-
+def _gravar_resultado(db, Resultado, jogo, item):
+    """Placar do jogo normal (+ pênaltis, quando houver) e encerra o jogo."""
     resultado = Resultado.query.filter_by(jogo_id=jogo.id).first()
     if resultado is None:
         resultado = Resultado(jogo_id=jogo.id)
         db.session.add(resultado)
-
     resultado.gols_casa_real = item["gols_casa_real"]
     resultado.gols_fora_real = item["gols_fora_real"]
+    if item.get("penaltis_casa_real") is not None and item.get("penaltis_fora_real") is not None:
+        resultado.penaltis_casa_real = item["penaltis_casa_real"]
+        resultado.penaltis_fora_real = item["penaltis_fora_real"]
     jogo.encerrado = True
+
+
+def _salvar_resultado_se_finalizado(db, Resultado, jogo, item):
+    if not item["finalizado"] or item["gols_casa_real"] is None or item["gols_fora_real"] is None:
+        return False
+    _gravar_resultado(db, Resultado, jogo, item)
     return True
+
+
+def _ordem_cronologica(data, external_id):
+    return (data is None, data.isoformat() if data else "", str(external_id or ""))
+
+
+def _pode_penaltis(item, rodada):
+    """pode_penaltis da API, corrigido pelos jogos já salvos na mesma rodada: num import parcial
+    a ida sozinha parece jogo único; se a volta (posterior, mesmo par) já está no banco, não é."""
+    if not item.get("pode_penaltis"):
+        return False
+    par = frozenset(_chave_jogo(item["time_casa"], item["time_fora"]))
+    ordem = _ordem_cronologica(item.get("data"), item["external_id"])
+    return not any(
+        outro.external_id != item["external_id"]
+        and frozenset(_chave_jogo(outro.time_casa, outro.time_fora)) == par
+        and _ordem_cronologica(outro.data, outro.external_id) > ordem
+        for outro in rodada.jogos)
+
+
+def _aplicar_pode_penaltis(jogo, item, rodada):
+    # A sincronização só liga a opção: nunca desfaz o que o responsável marcou à mão.
+    if rodada is not None and _pode_penaltis(item, rodada):
+        jogo.pode_penaltis = True
+
+
+def _numero_da_rodada(nome):
+    match = re.search(r"\d+", nome or "")
+    return int(match.group()) if match else None
 
 
 def sync_jogos(token, campeonato_id, competicao,
                nome_rodada=None, temporada=None, rodada_api=None,
-               data_inicio=None, data_fim=None, campeonato_completo=False):
+               data_inicio=None, data_fim=None, campeonato_completo=False, jogos_api=None, fonte_api=None):
     """
     Importa jogos da API e salva no banco de dados.
     - Se campeonato_completo=True: importa todas as rodadas e cria cada uma conforme o matchday da API.
     - Se campeonato_completo=False: importa a rodada informada (ou rodada_api).
     - Salva data/hora em horário de Brasília.
-    - Se a partida já aconteceu, salva o resultado real e marca encerrado = True.
+    - Se a partida já aconteceu, salva o resultado real (e os pênaltis) e marca encerrado = True.
+    - jogos_api: lista já buscada (ex.: compartilhada entre bolões); se vier, não chama a API.
+    - fonte_api: provedor ('football-data' | 'api-football'); padrão = o do campeonato.
+      Na API-Football, rodada_api é o número da rodada local (ex.: 10 = Oitavas na Libertadores).
     """
     from database import db
     from models import Jogo, Resultado, Rodada
     from services.classicos import eh_classico
 
+    fonte = _fonte_do_campeonato(campeonato_id, fonte_api)
+    api_football = fonte == FONTE_API_FOOTBALL
+    external_fonte = EXTERNAL_FONTE[fonte]
+
     # Se for campeonato completo, não filtra por rodada na chamada da API
     filtro_rodada = None if campeonato_completo else rodada_api
 
-    jogos_api = buscar_jogos_football_data(
-        token=token,
-        competicao=competicao,
-        temporada=temporada,
-        rodada=filtro_rodada,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-    )
+    if jogos_api is None:
+        jogos_api = buscar_jogos(
+            fonte, token, competicao,
+            temporada=temporada,
+            rodada=None if api_football else filtro_rodada,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+        )
 
     criados = 0
     atualizados = 0
@@ -157,15 +250,22 @@ def sync_jogos(token, campeonato_id, competicao,
 
     # Cache de rodadas existentes no campeonato para evitar queries repetidas
     rodadas_db = {r.nome: r for r in Rodada.query.filter_by(campeonato_id=campeonato_id).all()}
+    nome_por_estagio = nomeador_rodadas(fonte, jogos_api, competicao, list(rodadas_db))
+    if api_football and filtro_rodada and str(filtro_rodada).isdigit():
+        jogos_api = [i for i in jogos_api if _numero_da_rodada(nome_por_estagio(i)) == int(filtro_rodada)]
 
     for item in jogos_api:
-        # Determina o nome da rodada
+        # Determina o nome da rodada; em copas, o mata-mata é nomeado pela fase.
+        mata_mata = item.get("estagio") not in ESTAGIOS_COM_RODADA
         if campeonato_completo:
-            matchday = item.get("matchday")
-            nome_rod = f"Rodada {matchday}" if matchday else "Rodada Geral"
+            nome_rod = nome_por_estagio(item)
+        elif api_football:
+            nome_rod = (nome_rodada or "").strip() or nome_por_estagio(item)
         else:
             if nome_rodada and nome_rodada.strip():
                 nome_rod = nome_rodada.strip()
+            elif mata_mata:
+                nome_rod = nome_por_estagio(item)
             elif item.get("matchday"):
                 nome_rod = f"Rodada {item['matchday']}"
             else:
@@ -184,11 +284,10 @@ def sync_jogos(token, campeonato_id, competicao,
         # dois bolões do mesmo torneio não podem "roubar" os jogos um do outro).
         jogo = Jogo.query.join(Rodada, Rodada.id == Jogo.rodada_id).filter(
             Rodada.campeonato_id == campeonato_id,
-            Jogo.external_fonte == "football-data.org",
+            Jogo.external_fonte == external_fonte,
             Jogo.external_id == item["external_id"],
         ).first()
 
-        novo_jogo = False
         if jogo is None:
             jogo = Jogo(
                 time_casa=nome_padrao(item["time_casa"]),
@@ -197,13 +296,13 @@ def sync_jogos(token, campeonato_id, competicao,
                 rodada_id=rodada.id,
                 especial=eh_classico(item["time_casa"], item["time_fora"]),
                 encerrado=item["finalizado"],
-                external_fonte="football-data.org",
+                pode_penaltis=_pode_penaltis(item, rodada),
+                external_fonte=external_fonte,
                 external_id=item["external_id"],
             )
             db.session.add(jogo)
             db.session.flush()
             criados += 1
-            novo_jogo = True
         else:
             # Atualiza informações que podem ter mudado (ex: data, times)
             jogo.time_casa = nome_padrao(item["time_casa"])
@@ -212,17 +311,11 @@ def sync_jogos(token, campeonato_id, competicao,
                 jogo.data = item["data"]
             if item["finalizado"]:
                 jogo.encerrado = True
+            _aplicar_pode_penaltis(jogo, item, jogo.rodada or rodada)
             atualizados += 1
 
         # Se o jogo já aconteceu / tem placar real, salva o Resultado
-        if item["finalizado"] and item["gols_casa_real"] is not None and item["gols_fora_real"] is not None:
-            resultado = Resultado.query.filter_by(jogo_id=jogo.id).first()
-            if resultado is None:
-                resultado = Resultado(jogo_id=jogo.id)
-                db.session.add(resultado)
-            resultado.gols_casa_real = item["gols_casa_real"]
-            resultado.gols_fora_real = item["gols_fora_real"]
-            jogo.encerrado = True
+        if _salvar_resultado_se_finalizado(db, Resultado, jogo, item):
             resultados_salvos += 1
 
     db.session.commit()
@@ -237,41 +330,38 @@ def sync_jogos(token, campeonato_id, competicao,
 
 
 def sync_resultados(token, competicao,
-                    temporada=None, rodada_api=None, data_inicio=None, data_fim=None):
+                    temporada=None, rodada_api=None, data_inicio=None, data_fim=None, fonte_api=None):
     """
-    Busca resultados finalizados na API e atualiza os jogos locais.
+    Busca resultados finalizados na API e atualiza os jogos locais do mesmo provedor.
     Marca os jogos como encerrados automaticamente.
     """
     from database import db
     from models import Jogo, Resultado
 
-    resultados_api = buscar_resultados_football_data(
-        token=token, competicao=competicao, temporada=temporada,
-        rodada=rodada_api, data_inicio=data_inicio, data_fim=data_fim,
+    fonte = normalizar_fonte(fonte_api)
+    resultados_api = buscar_resultados(
+        fonte, token, competicao, temporada=temporada,
+        rodada=None if fonte == FONTE_API_FOOTBALL else rodada_api,
+        data_inicio=data_inicio, data_fim=data_fim,
     )
 
     atualizados = 0
     ignorados = 0
 
     for item in resultados_api:
-        jogo = Jogo.query.filter_by(
-            external_fonte="football-data.org",
+        # Cada bolão tem a sua cópia do jogo (mesmo external_id): o resultado vale para todas.
+        jogos = Jogo.query.filter_by(
+            external_fonte=EXTERNAL_FONTE[fonte],
             external_id=item["external_id"],
-        ).first()
+        ).all()
 
-        if jogo is None:
+        if not jogos:
             ignorados += 1
             continue
 
-        resultado = Resultado.query.filter_by(jogo_id=jogo.id).first()
-        if resultado is None:
-            resultado = Resultado(jogo_id=jogo.id)
-            db.session.add(resultado)
-
-        resultado.gols_casa_real = item["gols_casa_real"]
-        resultado.gols_fora_real = item["gols_fora_real"]
-        jogo.encerrado = True
-        atualizados += 1
+        for jogo in jogos:
+            _gravar_resultado(db, Resultado, jogo, item)
+            atualizados += 1
 
     db.session.commit()
     return {"atualizados": atualizados, "ignorados": ignorados, "total_api": len(resultados_api)}
@@ -279,27 +369,34 @@ def sync_resultados(token, competicao,
 
 def sync_informacoes_jogos(token, campeonato_id, competicao,
                            temporada=None, data_inicio=None, data_fim=None,
-                           salvar_resultados=True):
+                           salvar_resultados=True, jogos_api=None, fonte_api=None):
     """
     Atualiza jogos locais já cadastrados com dados oficiais da API.
     Não cria jogos novos. Usa external_id quando disponível e, para jogos
     importados de planilha, tenta casar por rodada/matchday e mandante/visitante.
     salvar_resultados=False atualiza somente horários (e o vínculo com a API),
     sem encerrar jogos nem gravar placares.
+    jogos_api: lista já buscada (ex.: compartilhada entre bolões); se vier, não chama a API.
+    fonte_api: provedor; padrão = o do campeonato.
     """
     from database import db
-    from models import Jogo, Resultado, Rodada
+    from models import Resultado, Rodada
 
-    jogos_api = buscar_jogos_football_data(
-        token=token,
-        competicao=competicao,
-        temporada=temporada,
-        rodada=None,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-    )
+    fonte = _fonte_do_campeonato(campeonato_id, fonte_api)
+    external_fonte = EXTERNAL_FONTE[fonte]
+    if jogos_api is None:
+        jogos_api = buscar_jogos(
+            fonte, token, competicao,
+            temporada=temporada,
+            rodada=None,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+        )
 
     rodadas = Rodada.query.filter_by(campeonato_id=campeonato_id).all()
+    # Na API-Football o número que casa com a rodada local vem do nome (Rodada 10 · Oitavas...).
+    nome_por_estagio = (nomeador_rodadas(fonte, jogos_api, competicao, [r.nome for r in rodadas])
+                        if fonte == FONTE_API_FOOTBALL else None)
     rodadas_por_matchday = {
         matchday: rodada
         for rodada in rodadas
@@ -311,7 +408,7 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
         jogo.external_id: jogo
         for rodada in rodadas
         for jogo in rodada.jogos
-        if jogo.external_fonte == "football-data.org" and jogo.external_id
+        if jogo.external_fonte == external_fonte and jogo.external_id
     }
 
     jogos_por_rodada_e_times = {}
@@ -332,7 +429,8 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
         jogo = jogos_por_external_id.get(item["external_id"])
 
         if jogo is None:
-            matchday = item.get("matchday")
+            matchday = (_numero_da_rodada(nome_por_estagio(item)) if nome_por_estagio
+                        else item.get("matchday"))
             jogo = jogos_por_rodada_e_times.get(
                 (matchday, _chave_jogo(item["time_casa"], item["time_fora"]))
             )
@@ -343,8 +441,9 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
 
         data_anterior = jogo.data
 
-        jogo.external_fonte = "football-data.org"
+        jogo.external_fonte = external_fonte
         jogo.external_id = item["external_id"]
+        _aplicar_pode_penaltis(jogo, item, jogo.rodada)
 
         if item["data"]:
             jogo.data = item["data"]
@@ -371,10 +470,46 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
     }
 
 
+def campeonatos_da_competicao(competicao, temporada, fonte_api=None):
+    """Campeonatos (um por bolão) do mesmo provedor, competição e temporada que já têm rodadas."""
+    from models import Campeonato
+    from sqlalchemy import func
+    fonte = normalizar_fonte(fonte_api)
+    return [c for c in Campeonato.query.filter(
+                func.upper(func.trim(Campeonato.codigo_api)) == (competicao or "").strip().upper(),
+                Campeonato.ano == temporada,
+                func.coalesce(Campeonato.fonte_api, FONTE_FOOTBALL_DATA) == fonte).all()
+            if c.rodadas]
+
+
+def sync_competicao(token, competicao, temporada, data_inicio=None, data_fim=None, fonte_api=None):
+    """Uma chamada à API por (provedor, competição, temporada), aplicada a todos os campeonatos dela.
+
+    A falha num campeonato é registrada e não impede os demais.
+    """
+    import logging
+    from database import db
+
+    fonte = normalizar_fonte(fonte_api)
+    jogos_api = buscar_jogos(fonte, token, competicao, temporada=temporada,
+                             data_inicio=data_inicio, data_fim=data_fim)
+    resultados = {}
+    for campeonato_id in [c.id for c in campeonatos_da_competicao(competicao, temporada, fonte)]:
+        try:
+            resultados[campeonato_id] = sync_informacoes_jogos(
+                token, campeonato_id, competicao, temporada=temporada, jogos_api=jogos_api,
+                fonte_api=fonte)
+        except Exception:
+            db.session.rollback()
+            logging.getLogger(__name__).exception(
+                "Falha ao aplicar %s/%s/%s no campeonato %s", fonte, competicao, temporada, campeonato_id)
+    return resultados
+
+
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Sync bolão — football-data.org")
+    parser = argparse.ArgumentParser(description="Sync bolão — football-data.org / API-Football")
     parser.add_argument("acao", choices=["jogos", "resultados"], help="Ação a executar")
     parser.add_argument("--competicao", required=True, help="Código da competição (ex: BSA)")
     parser.add_argument("--campeonato-id", type=int, default=None, help="ID do campeonato local")
@@ -382,11 +517,14 @@ if __name__ == "__main__":
     parser.add_argument("--rodada", default=None, help="Número da rodada na API")
     parser.add_argument("--nome-rodada", default=None, help="Nome da rodada local")
     parser.add_argument("--temporada", default=None, help="Ano da temporada (ex: 2025)")
+    parser.add_argument("--fonte", choices=[FONTE_FOOTBALL_DATA, FONTE_API_FOOTBALL], default=None,
+                        help="Provedor (padrão: o do campeonato; sem campeonato, football-data)")
 
     args = parser.parse_args()
-    token = os.environ.get("FOOTBALL_DATA_TOKEN")
+    variavel = "API_FOOTBALL_KEY" if args.fonte == FONTE_API_FOOTBALL else "FOOTBALL_DATA_TOKEN"
+    token = os.environ.get(variavel)
     if not token:
-        print("Defina FOOTBALL_DATA_TOKEN.")
+        print(f"Defina {variavel}.")
         sys.exit(1)
 
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -403,6 +541,7 @@ if __name__ == "__main__":
                 temporada=args.temporada,
                 rodada_api=args.rodada,
                 campeonato_completo=args.completo,
+                fonte_api=args.fonte,
             )
             print(f"Resultado: {res}")
         elif args.acao == "resultados":
@@ -411,5 +550,6 @@ if __name__ == "__main__":
                 competicao=args.competicao,
                 temporada=args.temporada,
                 rodada_api=args.rodada,
+                fonte_api=args.fonte,
             )
             print(f"Resultado: {res}")

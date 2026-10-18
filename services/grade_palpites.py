@@ -40,16 +40,19 @@ def montar_grade(bolao, rodada):
                 pal = None
             pts = None
             eh_cravada = eh_vencedor = False
+            pts_penaltis = 0
             if pal and res:
                 detalhe = calcular_pontuacao(pal, jogo, res)
                 pts = detalhe.total
+                pts_penaltis = detalhe.pontos_penaltis
                 totais[part.id]["pontos"] += pts
                 if detalhe.placar_exato:
                     eh_cravada = True
                     totais[part.id]["cravadas"] += 1
                 elif detalhe.acertou_resultado:
                     eh_vencedor = True
-            linha["palpites"][part.id] = {"palpite": pal, "pontos": pts, "cravada": eh_cravada, "vencedor": eh_vencedor}
+            linha["palpites"][part.id] = {"palpite": pal, "pontos": pts, "cravada": eh_cravada, "vencedor": eh_vencedor,
+                                          "pontos_penaltis": pts_penaltis}
         matriz.append(linha)
 
     bonus = BonusRodada.query.filter_by(rodada_id=rodada.id).options(

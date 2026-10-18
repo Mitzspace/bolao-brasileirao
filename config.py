@@ -118,6 +118,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Token da API football-data.org (opcional: pode informar via interface admin também)
+    API_FOOTBALL_KEY = os.environ.get("API_FOOTBALL_KEY")
     FOOTBALL_DATA_TOKEN = os.environ.get("FOOTBALL_DATA_TOKEN", "")
 
     # Rate limiting

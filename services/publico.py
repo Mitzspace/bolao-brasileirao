@@ -21,6 +21,7 @@ from models import Bolao, Jogo, Palpite, Participacao, ordem_dos_jogos
 from routes.api_serializacao import serializar_regras, texto_data
 from services.contexto_bolao import opcoes_rodadas, ordem_rodada
 from services.elegibilidade import entra_no_ranking_da_rodada, palpite_elegivel
+from services.eliminacao import eliminados_no_ranking
 from services.escudos import escudo_time
 from services.evolucao_ranking import evolucao, rotulo_curto
 from services.pontuacao import calcular_pontuacao
@@ -138,6 +139,8 @@ def jogo_publico(jogo, campeonato_id, agora, numero=None):
         'status': _status(jogo, agora),
         'golsCasa': resultado.gols_casa_real if resultado else None,
         'golsFora': resultado.gols_fora_real if resultado else None,
+        'penaltisCasa': resultado.penaltis_casa_real if resultado else None,
+        'penaltisFora': resultado.penaltis_fora_real if resultado else None,
     }
     if numero is not None:
         dados['numero'] = numero
@@ -197,6 +200,9 @@ def classificacao(bolao, numero=None, ocultar_desistentes=True):
         'rodada': numero,
         'variacaoReferencia': ctx.referencia_variacao(),
         'itens': _itens_ranking(bolao, ranking),
+        'eliminadosOcultos': len(eliminados_no_ranking(
+            bolao, carregar_participantes(bolao), ctx.rodada(numero) if numero else None,
+            ate_rodada=ctx.rodada(ctx.liberada_ate))) if bolao.eliminacao_participantes else 0,
     }
 
 
@@ -318,6 +324,8 @@ def palpites(bolao, numero=None):
                     linha['situacao'] = p.situacao
                 else:
                     linha.update({'situacao': 'valido', 'casa': p.gols_casa, 'fora': p.gols_fora})
+                    if p.penaltis_casa is not None and p.penaltis_fora is not None:
+                        linha.update({'penaltisCasa': p.penaltis_casa, 'penaltisFora': p.penaltis_fora})
                     if jogo.classico and p.primeiro_gol:
                         linha['primeiroGol'] = p.primeiro_gol
                 linha['pontos'] = calcular_pontuacao(p, jogo, jogo.resultado, regras_bolao).total if p else 0

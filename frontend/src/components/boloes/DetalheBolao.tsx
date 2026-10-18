@@ -20,6 +20,7 @@ import { LinkPublico } from './LinkPublico';
 import { EditarBolao } from './EditarBolao';
 
 type Aba = 'classificacao' | 'regras' | 'publico';
+type ClassificacaoComEliminacao = ClassificacaoBolaoApi & { eliminadosOcultos?: number };
 
 /** Selo de situação: verde (em andamento), azul (finalizado) ou vermelho (desistido). */
 export function statusBolao(status: StatusBolao | string) {
@@ -41,7 +42,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
   const params = new URLSearchParams();
   if (rodadaId) params.set('rodada_id', rodadaId);
   if (ocultar) params.set('ocultar_desistentes', '1');
-  const { dados, carregando, erro, recarregar } = useRecurso<ClassificacaoBolaoApi>(`/boloes/${bolaoId}/classificacao?${params}`);
+  const { dados, carregando, erro, recarregar } = useRecurso<ClassificacaoComEliminacao>(`/boloes/${bolaoId}/classificacao?${params}`);
 
   const trocar = (id: number) => { setRodadaId(''); onTrocar(id); };
   const geral = !dados?.rodadaId;
@@ -137,6 +138,7 @@ export function DetalheBolao({ bolaoId, onTrocar, onVoltar }: { bolaoId: number;
                   <div className="sm:ml-auto"><Switch checked={ocultar} onChange={setOcultar} label="Ocultar desistentes" /></div>
                 </div>
 
+                {!!dados.eliminadosOcultos && <p className="px-5 py-3 text-xs text-gray-500 dark:text-gray-400">{dados.eliminadosOcultos} participantes eliminados nas fases anteriores não aparecem no ranking.</p>}
                 {dados.ranking.length === 0 ? (
                   <EmptyState icon={<Users className="w-10 h-10" />} title="Ninguém na classificação" description="Cadastre participantes e lance resultados para ver a classificação." />
                 ) : (

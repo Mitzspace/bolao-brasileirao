@@ -1,4 +1,5 @@
 """Textos de gestão sem dados de conta, usando os pontos já calculados."""
+from services.pontuacao import texto_penaltis
 
 
 def linha(valor):
@@ -50,6 +51,7 @@ def texto_rodada(bolao, rodada, matriz, participantes, totais):
             continue
         linhas.append(f'*{linha(jogo.time_casa)} {resultado.gols_casa_real} × '
                       f'{resultado.gols_fora_real} {linha(jogo.time_fora)}*'
+                      + texto_penaltis(resultado.penaltis_casa_real, resultado.penaltis_fora_real, ' × ')
                       + (' · clássico' if jogo.classico else ''))
         if jogo.primeiro_marcador:
             linhas.append(f'Primeiro gol: {linha(jogo.primeiro_marcador)}')
@@ -64,7 +66,7 @@ def texto_rodada(bolao, rodada, matriz, participantes, totais):
             else:
                 marcador = f' · 1º gol: {linha(palpite.primeiro_gol)}' if palpite.primeiro_gol else ''
                 linhas.append(f'• {linha(pessoa.nome)}: {palpite.gols_casa} × {palpite.gols_fora}'
-                              f'{marcador} → {detalhe["pontos"] or 0} pts')
+                              f'{texto_penaltis(palpite.penaltis_casa, palpite.penaltis_fora, " × ")}{marcador} → {detalhe["pontos"] or 0} pts')
         linhas.append('')
     if not matriz:
         linhas.extend(['Nenhum jogo cadastrado nesta rodada.', ''])

@@ -56,6 +56,7 @@ export interface PalpitePublico {
   nome: string; ref: string; status: string;
   situacao: 'valido' | 'sem_palpite' | 'nao_enviado' | 'fora_prazo';
   casa?: number; fora?: number; primeiroGol?: string; pontos?: number;
+  penaltisCasa?: number; penaltisFora?: number;
 }
 export interface JogoComPalpites extends JogoPublico { numero: number; revelado: boolean; palpites?: PalpitePublico[] }
 export interface PalpitesApi {

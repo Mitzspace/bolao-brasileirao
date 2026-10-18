@@ -108,7 +108,8 @@ def _corpo():
 def novo_jogo():
     c = _corpo()
     try:
-        jogo = criar_jogo(c.get('casa'), c.get('fora'), c.get('rodadaId'), c.get('data'), c.get('classico'))
+        jogo = criar_jogo(c.get('casa'), c.get('fora'), c.get('rodadaId'), c.get('data'), c.get('classico'),
+                          c.get('podePenaltis'))
     except ValueError as e:
         return erro(400, str(e))
     return jsonify({'mensagem': f'Jogo {jogo.time_casa} x {jogo.time_fora} cadastrado!', 'id': jogo.id}), 201
@@ -120,7 +121,8 @@ def salvar_jogo(id):
     jogo = _jogo_do_bolao(id)
     c = _corpo()
     try:
-        editar_jogo(jogo, c.get('casa'), c.get('fora'), c.get('rodadaId'), c.get('data'), c.get('classico'))
+        editar_jogo(jogo, c.get('casa'), c.get('fora'), c.get('rodadaId'), c.get('data'), c.get('classico'),
+                    pode_penaltis=c.get('podePenaltis'))
     except ValueError as e:
         return erro(400, str(e))
     return jsonify({'mensagem': f'Jogo {jogo.time_casa} x {jogo.time_fora} atualizado!'})
@@ -132,7 +134,11 @@ def salvar_resultado(id):
     jogo = _jogo_do_bolao(id)
     c = _corpo()
     try:
-        lancar_resultado(jogo, c.get('golsCasa'), c.get('golsFora'), c.get('primeiroGol') if jogo.classico else None)
+        # Pênaltis só mudam se a tela enviar os campos (null/"" apaga o placar dos pênaltis).
+        penaltis = ((c.get('penaltisCasa'), c.get('penaltisFora'))
+                    if 'penaltisCasa' in c or 'penaltisFora' in c else None)
+        lancar_resultado(jogo, c.get('golsCasa'), c.get('golsFora'), c.get('primeiroGol') if jogo.classico else None,
+                         penaltis)
     except ValueError as e:
         return erro(400, str(e))
     return jsonify({'mensagem': 'Resultado salvo!'})
@@ -176,6 +182,8 @@ def grade_rodada(id):
             p = c['palpite']
             celulas[str(pessoa.id)] = {
                 'casa': p.gols_casa, 'fora': p.gols_fora, 'primeiroGol': p.primeiro_gol or '',
+                'penaltisCasa': p.penaltis_casa, 'penaltisFora': p.penaltis_fora,
+                'pontosPenaltis': c['pontos_penaltis'],
                 'situacao': p.situacao, 'pontos': c['pontos'], 'cravada': c['cravada'], 'vencedor': c['vencedor'],
             } if p else None
         linhas.append({'jogo': serializar_jogo(linha['jogo'], bolao.campeonato_id), 'celulas': celulas})

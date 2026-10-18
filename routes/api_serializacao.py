@@ -34,6 +34,9 @@ def serializar_jogo(jogo, campeonato_id):
         'status': status_jogo(jogo),
         'golsCasa': resultado.gols_casa_real if resultado else None,
         'golsFora': resultado.gols_fora_real if resultado else None,
+        'podePenaltis': bool(jogo.pode_penaltis),
+        'penaltisCasa': resultado.penaltis_casa_real if resultado else None,
+        'penaltisFora': resultado.penaltis_fora_real if resultado else None,
     }
 
 
@@ -59,4 +62,5 @@ def serializar_regras(bolao):
     r = regras_do_bolao(bolao)
     return {'comumExato': r['comum_exato'], 'comumResultado': r['comum_resultado'],
             'classicoExato': r['classico_exato'], 'classicoResultado': r['classico_resultado'],
-            'primeiroGol': r['primeiro_gol']}
+            'primeiroGol': r['primeiro_gol'],
+            'penaltisExato': r['penaltis_exato'], 'penaltisVencedor': r['penaltis_vencedor']}

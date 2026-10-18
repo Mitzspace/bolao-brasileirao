@@ -14,9 +14,9 @@ import { GavetaAlteracoes } from '@/components/palpites/GavetaAlteracoes';
 import { useApp } from '@/context/AppContext';
 import { api, ApiError } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
-import type { JogoLancamento, LancamentoApi, SituacaoPalpite } from '@/types';
+import { textoPenaltis, type JogoLancamento, type LancamentoApi, type SituacaoPalpite } from '@/types';
 
-interface Valor { casa: string; fora: string; primeiroGol: string; situacao: SituacaoPalpite }
+interface Valor { casa: string; fora: string; primeiroGol: string; situacao: SituacaoPalpite; penCasa: string; penFora: string }
 
 const situacoes: { valor: SituacaoPalpite; texto: string }[] = [
   { valor: 'valido', texto: 'Válido' },
@@ -26,7 +26,10 @@ const situacoes: { valor: SituacaoPalpite; texto: string }[] = [
 
 function valorInicial(j: JogoLancamento): Valor {
   const p = j.palpite;
-  return { casa: p?.casa?.toString() ?? '', fora: p?.fora?.toString() ?? '', primeiroGol: p?.primeiroGol ?? '', situacao: p?.situacao ?? 'valido' };
+  return {
+    casa: p?.casa?.toString() ?? '', fora: p?.fora?.toString() ?? '', primeiroGol: p?.primeiroGol ?? '', situacao: p?.situacao ?? 'valido',
+    penCasa: p?.penaltisCasa?.toString() ?? '', penFora: p?.penaltisFora?.toString() ?? '',
+  };
 }
 
 export function PalpitesScreen() {
@@ -91,10 +94,14 @@ export function PalpitesScreen() {
     if (!dados?.pessoa || !dados.rodada || salvandoAgora.current || carregando) return;
     salvandoAgora.current = true;
     setSalvando(acao);
-    const jogos: Record<string, Partial<Valor>> = {};
+    const jogos: Record<string, Record<string, string | null>> = {};
     for (const j of editaveis) {
       const v = valores[j.id];
-      jogos[j.id] = { casa: v.casa, fora: v.fora, situacao: v.situacao, ...(j.classico ? { primeiroGol: v.primeiroGol } : {}) };
+      jogos[j.id] = {
+        casa: v.casa, fora: v.fora, situacao: v.situacao, ...(j.classico ? { primeiroGol: v.primeiroGol } : {}),
+        // Pênaltis vazios (null) apagam o palpite de pênaltis; só vão nos jogos que podem ter pênaltis.
+        ...(j.podePenaltis ? { penaltisCasa: v.penCasa || null, penaltisFora: v.penFora || null } : {}),
+      };
     }
     try {
       const r = await api.post<{ mensagem: string; avisos: string[]; proximoId: number | null }>('/palpites', {
@@ -303,6 +310,23 @@ export function PalpitesScreen() {
                             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${valido ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' : 'border-red-200 bg-red-50 text-red-700 dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-300'}`}>
                             {situacoes.map(s => <option key={s.valor} value={s.valor}>{s.texto}</option>)}
                           </select>
+                          {j.podePenaltis && (
+                            <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                              Pênaltis (se houver)
+                              {(['penCasa', 'penFora'] as const).map((lado, k) => (
+                                <span key={lado} className="contents">
+                                  {k === 1 && <span className="text-gray-300">×</span>}
+                                  <input type="text" inputMode="numeric" autoComplete="off" maxLength={2}
+                                    value={valido ? v[lado] : ''} disabled={guardado || !valido}
+                                    onChange={e => alterar(j.id, { [lado]: e.target.value.replace(/\D/g, '') })}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void salvar('ficar'); } }}
+                                    onFocus={e => e.currentTarget.select()}
+                                    aria-label={`Pênaltis de ${k === 0 ? j.casa : j.fora} no jogo ${j.numero} (se houver)`} aria-invalid={erroJogo ? true : undefined}
+                                    className="w-10 h-8 text-sm font-bold text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:bg-gray-50 disabled:dark:bg-gray-800/50 disabled:text-gray-300" />
+                                </span>
+                              ))}
+                            </span>
+                          )}
                           {j.classico && (
                             <input value={v.primeiroGol} disabled={guardado || !valido} maxLength={100} onChange={e => alterar(j.id, { primeiroGol: e.target.value })}
                               placeholder="Primeiro gol (opcional)" aria-label={`Primeiro gol no jogo ${j.numero}`}
@@ -310,7 +334,7 @@ export function PalpitesScreen() {
                           )}
                           <span className="ml-auto text-xs text-gray-500">
                             {temResultado
-                              ? <>Resultado {j.golsCasa} × {j.golsFora}{j.palpite?.pontos != null && <> · <strong className={j.palpite.pontos > 0 ? 'text-brand-600' : 'text-gray-500'}>{j.palpite.pontos} pt</strong></>}</>
+                              ? <>Resultado {j.golsCasa} × {j.golsFora}{textoPenaltis(j.penaltisCasa, j.penaltisFora)}{j.palpite?.pontos != null && <> · <strong className={j.palpite.pontos > 0 ? 'text-brand-600' : 'text-gray-500'}>{j.palpite.pontos} pt</strong></>}</>
                               : 'Aguardando resultado'}
                           </span>
                         </div>

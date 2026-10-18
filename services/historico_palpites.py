@@ -16,6 +16,7 @@ from sqlalchemy import or_, true
 from sqlalchemy.orm import joinedload
 
 from models import Jogo, Palpite, PalpiteLog, Participante
+from services.pontuacao import texto_penaltis
 
 FUSO = ZoneInfo('America/Sao_Paulo')
 JANELA = timedelta(seconds=10)
@@ -59,7 +60,9 @@ def _placar(valores):
     situacao = valores.get('situacao') or 'valido'
     if situacao != 'valido':
         return SITUACOES.get(situacao, situacao)
-    return f"{valores.get('gols_casa')} × {valores.get('gols_fora')}"
+    # Logs antigos não têm as chaves de pênaltis: sem sufixo.
+    return (f"{valores.get('gols_casa')} × {valores.get('gols_fora')}"
+            + texto_penaltis(valores.get('penaltis_casa'), valores.get('penaltis_fora'), ' × '))
 
 
 def _detalhes(antes, depois):
@@ -154,7 +157,8 @@ def historico(pessoa, rodada):
             'recebidoEm': texto_data(palpites[0].recebido_em) if palpites[0].recebido_em else None,
             'textoWhatsapp': None,
             'mudancas': [{'jogo': _nome_jogo(p.jogo), 'antes': None,
-                          'depois': _placar({'situacao': p.situacao, 'gols_casa': p.gols_casa, 'gols_fora': p.gols_fora}),
+                          'depois': _placar({'situacao': p.situacao, 'gols_casa': p.gols_casa, 'gols_fora': p.gols_fora,
+                                             'penaltis_casa': p.penaltis_casa, 'penaltis_fora': p.penaltis_fora}),
                           'detalhes': [f'Primeiro gol: {p.primeiro_gol}'] if p.primeiro_gol else []} for p in palpites],
         })
 

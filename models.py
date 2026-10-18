@@ -60,10 +60,15 @@ class Bolao(db.Model):
     pontos_classico_exato = db.Column(db.Integer, nullable=False, default=5, server_default="5")
     pontos_classico_resultado = db.Column(db.Integer, nullable=False, default=3, server_default="3")
     pontos_primeiro_gol = db.Column(db.Integer, nullable=False, default=2, server_default="2")
+    # Disputa de pênaltis: palpite próprio do placar dos pênaltis.
+    pontos_penaltis_exato = db.Column(db.Integer, nullable=False, default=3, server_default="3")
+    pontos_penaltis_vencedor = db.Column(db.Integer, nullable=False, default=1, server_default="1")
     # Link público de consulta (somente leitura, sem login). Vazio = link desligado.
     codigo_publico = db.Column(db.String(64), unique=True, nullable=True)
     # Classificação pública liberada até esta rodada (inclusive). Vazio = oculta.
     rodada_publica_id = db.Column(db.Integer, db.ForeignKey("rodada.id"), nullable=True)
+    # Corte por fase: quem fica fora dos classificados sai do ranking.
+    eliminacao_participantes = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
     __table_args__ = (db.CheckConstraint(
         "politica_entrada_tardia IN ('zero', 'fora_da_conta')", name="bolao_entrada_tardia"),)
     campeonato = db.relationship("Campeonato", backref="boloes")
@@ -79,6 +84,22 @@ class Bolao(db.Model):
     def chave(self):
         """Identificação pública estável; não concede acesso nem substitui convite."""
         return f"BOL-{self.id:06d}"
+
+
+class CorteEliminacao(db.Model):
+    """Após a rodada indicada, só os `classificados` melhores seguem no bolão."""
+    __tablename__ = "corte_eliminacao"
+
+    id = db.Column(db.Integer, primary_key=True)
+    bolao_id = db.Column(db.Integer, db.ForeignKey("bolao.id"), nullable=False)
+    rodada_id = db.Column(db.Integer, db.ForeignKey("rodada.id"), nullable=False)
+    classificados = db.Column(db.Integer, nullable=False)
+    bolao = db.relationship("Bolao", backref="cortes_eliminacao")
+    rodada = db.relationship("Rodada")
+    __table_args__ = (
+        db.UniqueConstraint("bolao_id", "rodada_id", name="unique_corte_bolao_rodada"),
+        db.CheckConstraint("classificados > 0", name="corte_classificados"),
+    )
 
 
 class Participacao(db.Model):
@@ -142,6 +163,8 @@ class Campeonato(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     ano = db.Column(db.Integer)
     codigo_api = db.Column(db.String(20), default="BSA", nullable=True)
+    # Provedor dos dados: "football-data" (codigo_api = BSA, CL...) ou "api-football" (codigo_api = id da liga).
+    fonte_api = db.Column(db.String(20), nullable=False, default="football-data", server_default="football-data")
 
     rodadas = db.relationship("Rodada", backref="campeonato", lazy=True)
 
@@ -196,6 +219,8 @@ class Jogo(db.Model):
     external_id = db.Column(db.String(100))
     # Posição do jogo na aba da planilha importada (nula para jogos da API).
     ordem = db.Column(db.Integer, nullable=True)
+    # Jogo de mata-mata que pode ser decidido nos pênaltis (jogo único ou volta).
+    pode_penaltis = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
     rodada_id = db.Column(
         db.Integer, db.ForeignKey("rodada.id"), nullable=False, index=True
     )
@@ -234,6 +259,9 @@ class Palpite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     gols_casa = db.Column(db.Integer, nullable=False)
     gols_fora = db.Column(db.Integer, nullable=False)
+    # Placar previsto da disputa de pênaltis (só em jogos com pode_penaltis).
+    penaltis_casa = db.Column(db.Integer, nullable=True)
+    penaltis_fora = db.Column(db.Integer, nullable=True)
     jogador_primeiro_gol = db.Column("primeiro_gol", db.String(100))
     primeiro_gol = synonym("jogador_primeiro_gol")
     participante_id = db.Column(
@@ -258,6 +286,8 @@ class Palpite(db.Model):
         db.UniqueConstraint("participacao_id", "jogo_id", name="unique_palpite_participacao"),
         db.CheckConstraint("origem IS NULL OR origem IN ('responsavel', 'proprio')", name="palpite_origem"),
         db.CheckConstraint("gols_casa >= 0 AND gols_fora >= 0", name="palpite_gols"),
+        db.CheckConstraint("(penaltis_casa IS NULL AND penaltis_fora IS NULL) OR "
+                           "(penaltis_casa >= 0 AND penaltis_fora >= 0)", name="palpite_penaltis"),
     )
 
 
@@ -277,6 +307,9 @@ class Resultado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     gols_casa_real = db.Column(db.Integer, nullable=False)
     gols_fora_real = db.Column(db.Integer, nullable=False)
+    # Placar ao fim do tempo normal + prorrogação fica em gols_*_real; pênaltis à parte.
+    penaltis_casa_real = db.Column(db.Integer, nullable=True)
+    penaltis_fora_real = db.Column(db.Integer, nullable=True)
     primeiro_gol_real = db.Column(db.String(100))
     jogo_id = db.Column(
         db.Integer, db.ForeignKey("jogo.id"), nullable=False, unique=True

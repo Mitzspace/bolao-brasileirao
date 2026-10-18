@@ -1,4 +1,4 @@
-import type { Regras } from '@/types';
+import { REGRAS_PADRAO, type Regras } from '@/types';
 
 export const CAMPOS_REGRAS: { chave: keyof Regras; label: string; desc: string; extra?: boolean }[] = [
   { chave: 'comumExato', label: 'Placar exato', desc: 'Jogo comum' },
@@ -6,12 +6,15 @@ export const CAMPOS_REGRAS: { chave: keyof Regras; label: string; desc: string; 
   { chave: 'classicoExato', label: 'Placar exato em clássico', desc: 'Jogo marcado como clássico' },
   { chave: 'classicoResultado', label: 'Vencedor ou empate em clássico', desc: 'Clássico, sem acertar o placar' },
   { chave: 'primeiroGol', label: 'Primeiro gol', desc: 'Bônus no clássico ao acertar quem marcou primeiro (não vale em 0×0)', extra: true },
+  { chave: 'penaltisExato', label: 'Placar exato dos pênaltis', desc: 'Jogo decidido nos pênaltis; soma aos pontos do jogo', extra: true },
+  { chave: 'penaltisVencedor', label: 'Vencedor nos pênaltis', desc: 'Acertou só quem venceu a disputa de pênaltis', extra: true },
 ];
 
 export type RegrasEditaveis = Record<keyof Regras, string>;
 
 export function paraEdicao(r: Regras): RegrasEditaveis {
-  return Object.fromEntries(CAMPOS_REGRAS.map(c => [c.chave, String(r[c.chave])])) as RegrasEditaveis;
+  // Respostas antigas sem as chaves dos pênaltis caem nos valores padrão.
+  return Object.fromEntries(CAMPOS_REGRAS.map(c => [c.chave, String(r[c.chave] ?? REGRAS_PADRAO[c.chave])])) as RegrasEditaveis;
 }
 
 /** Mesmas regras do servidor: inteiros de 0 a 99 e exato ≥ resultado. */
@@ -24,6 +27,8 @@ export function validarRegras(r: RegrasEditaveis): { regras: Regras | null; erro
   }
   if (numeros.comumExato < numeros.comumResultado || numeros.classicoExato < numeros.classicoResultado)
     return { regras: null, erro: 'O placar exato precisa valer pelo menos o mesmo que acertar só o resultado.' };
+  if (numeros.penaltisExato < numeros.penaltisVencedor)
+    return { regras: null, erro: 'O placar exato dos pênaltis precisa valer pelo menos o mesmo que acertar só o vencedor.' };
   return { regras: numeros, erro: '' };
 }
 

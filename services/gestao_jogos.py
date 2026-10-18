@@ -22,17 +22,19 @@ def validar_dados_jogo(time_casa, time_fora, rodada_id, data):
     return casa, fora, rodada, data
 
 
-def criar_jogo(time_casa, time_fora, rodada_id, data, classico):
+def criar_jogo(time_casa, time_fora, rodada_id, data, classico, pode_penaltis=False):
     casa, fora, rodada, data = validar_dados_jogo(time_casa, time_fora, rodada_id, data)
     # Clássico da lista (services/classicos.py) é marcado sozinho; a caixa marcada vale para outros confrontos.
     jogo = Jogo(time_casa=casa, time_fora=fora, rodada_id=rodada.id,
-                especial=bool(classico) or eh_classico(casa, fora), data=data)
+                especial=bool(classico) or eh_classico(casa, fora), data=data,
+                pode_penaltis=bool(pode_penaltis))
     db.session.add(jogo)
     db.session.commit()
     return jogo
 
 
-def editar_jogo(jogo, time_casa, time_fora, rodada_id, data, classico, encerrado=None):
+def editar_jogo(jogo, time_casa, time_fora, rodada_id, data, classico, encerrado=None, pode_penaltis=None):
+    """pode_penaltis=None mantém o valor atual (clientes antigos não enviam o campo)."""
     casa, fora, rodada, data = validar_dados_jogo(time_casa, time_fora, rodada_id, data)
     jogo.time_casa = casa
     jogo.time_fora = fora
@@ -40,6 +42,12 @@ def editar_jogo(jogo, time_casa, time_fora, rodada_id, data, classico, encerrado
     jogo.especial = bool(classico)
     if encerrado is not None:
         jogo.encerrado = bool(encerrado)
+    if pode_penaltis is not None:
+        jogo.pode_penaltis = bool(pode_penaltis)
+        if not jogo.pode_penaltis and jogo.resultado is not None:
+            # Sem disputa de pênaltis, o placar dos pênaltis do resultado deixa de existir
+            # (e os palpites de pênaltis deixam de pontuar). Os palpites ficam como estão.
+            jogo.resultado.penaltis_casa_real = jogo.resultado.penaltis_fora_real = None
     jogo.data = data
     db.session.commit()
     return jogo
@@ -50,8 +58,26 @@ def definir_encerrado(jogo, encerrado):
     db.session.commit()
 
 
-def lancar_resultado(jogo, gols_casa, gols_fora, primeiro_gol=None):
+def validar_penaltis(jogo, casa, fora):
+    """(casa, fora) inteiros ou (None, None) se ambos vazios; levanta ValueError."""
+    vazio = [v is None or str(v).strip() == '' for v in (casa, fora)]
+    if all(vazio):
+        return None, None
+    if not jogo.pode_penaltis:
+        raise ValueError('Este jogo não tem disputa de pênaltis. Marque "Pode ter pênaltis" no jogo primeiro.')
+    if any(vazio):
+        raise ValueError('Informe os dois lados do placar dos pênaltis (ou deixe ambos vazios).')
+    casa, fora = inteiro(casa, 'Pênaltis da casa', 0, 99), inteiro(fora, 'Pênaltis de fora', 0, 99)
+    if casa == fora:
+        raise ValueError('A disputa de pênaltis não termina empatada.')
+    return casa, fora
+
+
+def lancar_resultado(jogo, gols_casa, gols_fora, primeiro_gol=None, penaltis=None):
+    """penaltis: (casa, fora) do placar dos pênaltis; None mantém o que já estava gravado."""
     gols_casa, gols_fora = placar(gols_casa, gols_fora)
+    if penaltis is not None:
+        penaltis = validar_penaltis(jogo, *penaltis)
     resultado = Resultado.query.filter_by(jogo_id=jogo.id).first()
     if resultado is None:
         resultado = Resultado(jogo_id=jogo.id)
@@ -59,6 +85,8 @@ def lancar_resultado(jogo, gols_casa, gols_fora, primeiro_gol=None):
     resultado.gols_casa_real = gols_casa
     resultado.gols_fora_real = gols_fora
     resultado.primeiro_gol_real = (primeiro_gol or '').strip() or None
+    if penaltis is not None:
+        resultado.penaltis_casa_real, resultado.penaltis_fora_real = penaltis
     db.session.commit()
     return resultado
 

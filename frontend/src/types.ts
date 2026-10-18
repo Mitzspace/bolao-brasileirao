@@ -62,6 +62,16 @@ export interface JogoApi {
   status: StatusJogo;
   golsCasa: number | null;
   golsFora: number | null;
+  /** Mata-mata que pode ir aos pênaltis (palpite extra do placar dos pênaltis). */
+  podePenaltis?: boolean;
+  /** Placar da disputa de pênaltis, quando houve. */
+  penaltisCasa?: number | null;
+  penaltisFora?: number | null;
+}
+
+/** Sufixo do placar dos pênaltis, ex.: " (pên. 4 × 3)"; vazio se não houve. */
+export function textoPenaltis(casa?: number | null, fora?: number | null): string {
+  return casa != null && fora != null ? ` (pên. ${casa} × ${fora})` : '';
 }
 
 /** Jogo sem id: formato comum à gestão e à página pública (que não recebe ids do banco). */
@@ -193,8 +203,13 @@ export interface GestaoRodadasApi {
 }
 
 /** Regras de pontuação de um bolão. */
-export interface Regras { comumExato: number; comumResultado: number; classicoExato: number; classicoResultado: number; primeiroGol: number }
-export const REGRAS_PADRAO: Regras = { comumExato: 3, comumResultado: 1, classicoExato: 5, classicoResultado: 3, primeiroGol: 2 };
+export interface Regras {
+  comumExato: number; comumResultado: number; classicoExato: number; classicoResultado: number; primeiroGol: number;
+  penaltisExato: number; penaltisVencedor: number;
+}
+export const REGRAS_PADRAO: Regras = {
+  comumExato: 3, comumResultado: 1, classicoExato: 5, classicoResultado: 3, primeiroGol: 2, penaltisExato: 3, penaltisVencedor: 1,
+};
 
 /** GET /interface/api/rodadas/:id/classificacao */
 export interface ClassificacaoRodadaApi { rodada: string; ranking: ItemRanking[] }
@@ -206,6 +221,7 @@ export interface JogoLancamento extends JogoApi {
   iniciado: boolean;
   palpite: {
     casa: number | null; fora: number | null; primeiroGol: string; situacao: SituacaoPalpite;
+    penaltisCasa: number | null; penaltisFora: number | null;
     guardado: boolean; pontos: number | null;
   } | null;
 }
@@ -242,7 +258,7 @@ export interface ItemHistoricoPalpite {
 /** POST /interface/api/palpites/previa-whatsapp */
 export interface PreviaWhatsapp {
   linhas: { texto: string; jogo_id: number | null; casa: string; fora: string; primeiro_gol: string; avisos: string[] }[];
-  jogos: { id: number; nome: string; avisos: string[]; bloqueado: boolean; primeiro_gol_permitido: boolean }[];
+  jogos: { id: number; nome: string; avisos: string[]; bloqueado: boolean; primeiro_gol_permitido: boolean; pode_penaltis: boolean }[];
   reconhecido: boolean;
   token: string;
 }
@@ -253,7 +269,10 @@ export interface GradeApi {
   participantes: { id: number; nome: string; pontos: number; cravadas: number; bonus: number }[];
   linhas: {
     jogo: JogoApi;
-    celulas: Record<string, { casa: number; fora: number; primeiroGol: string; situacao: SituacaoPalpite; pontos: number | null; cravada: boolean; vencedor: boolean } | null>;
+    celulas: Record<string, {
+      casa: number; fora: number; primeiroGol: string; situacao: SituacaoPalpite; pontos: number | null; cravada: boolean; vencedor: boolean;
+      penaltisCasa: number | null; penaltisFora: number | null; pontosPenaltis: number;
+    } | null>;
   }[];
   textoWhatsapp: string;
 }
@@ -336,7 +355,18 @@ export interface ClassificacaoBolaoApi {
 }
 
 /** GET /interface/api/boloes/fontes */
+export interface ModeloCompeticao {
+  chave: string;
+  rotulo: string;
+  nome: string;
+  codigo_api: string;
+  eliminacao: boolean;
+  descricao: string;
+  aviso: string | null;
+}
+
 export interface FontesBolaoApi {
+  modelos: ModeloCompeticao[];
   fontes: { id: number; nome: string; campeonato: string; ano: number | null }[];
   pessoas: { id: number; nome: string; status: string }[];
 }

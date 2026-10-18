@@ -4,6 +4,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Switch } from '@/components/ui/Form';
 import { useRecurso } from '@/lib/useRecurso';
+import { textoPenaltis } from '@/types';
 import { cartao, idDoNome, LinhaJogo, Rodadas } from '../comum';
 import type { AbrirParticipante, JogoComPalpites, PalpitePublico, PalpitesApi } from '../tipos';
 
@@ -20,7 +21,7 @@ function Palpite({ p, pontos, onAbrir }: { p: PalpitePublico; pontos: boolean; o
         {p.primeiroGol && <span className="block text-xs text-gold-600 dark:text-gold-400 truncate">1º gol: {p.primeiroGol}</span>}
       </span>
       <span className={`text-sm font-bold tabular-nums ${valido ? 'text-gray-900 dark:text-white' : 'text-xs font-medium text-gray-400'}`}>
-        {valido ? `${p.casa} × ${p.fora}` : SEM_PALPITE[p.situacao]}
+        {valido ? `${p.casa} × ${p.fora}${textoPenaltis(p.penaltisCasa, p.penaltisFora)}` : SEM_PALPITE[p.situacao]}
       </span>
       {pontos && (
         <span className={`min-w-[3rem] text-center text-xs font-bold rounded-full px-2 py-0.5 ${p.pontos ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}>

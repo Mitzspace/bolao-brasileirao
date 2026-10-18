@@ -71,12 +71,12 @@ def test_worker_chama_sync_com_temporada_e_isola_falha(app, monkeypatch):
         db.session.add(Rodada(nome='Rodada 1', campeonato_id=c.id))
     db.session.commit()
     chamadas = []
-    def fake(token, id, codigo, temporada):
+    def fake(token, codigo, temporada):
         chamadas.append(temporada)
         if temporada == 2025:
             raise RuntimeError('API indisponível')
         return {}
-    monkeypatch.setattr('services.sync_automatico.sync_informacoes_jogos', fake)
+    monkeypatch.setattr('services.sync_automatico.sync_competicao', fake)
     app.config['FOOTBALL_DATA_TOKEN'] = 'teste'
     sincronizar_ciclo(app)
     assert chamadas == [2025, 2026]

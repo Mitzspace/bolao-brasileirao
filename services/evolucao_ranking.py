@@ -9,6 +9,7 @@ import re
 from models import Jogo, Resultado, Rodada
 from services.contexto_bolao import ordem_rodada
 from services.elegibilidade import dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel
+from services.eliminacao import participacoes_eliminadas
 from services.ranking import _chave_nome, carregar_participantes, pontuacao_palpite
 from services.regras_pontuacao import regras_do_bolao
 
@@ -37,6 +38,8 @@ def evolucao(bolao, todos=None):
     if todos is None:
         todos = carregar_participantes(bolao)
     todas, rodadas = rodadas_com_resultado(bolao.campeonato_id)
+    eliminados = (participacoes_eliminadas(bolao, carregar_participantes(bolao))
+                  if bolao.eliminacao_participantes else {})
     indice = {r.id: i for i, r in enumerate(todas)}
     regras = regras_do_bolao(bolao) if bolao else None
     n = len(todas)
@@ -70,14 +73,17 @@ def evolucao(bolao, todos=None):
             pts, crav, acertos, _ = por_rodada[p.id][i]
             a = acumulado[p.id]
             a[0] += pts; a[1] += crav; a[2] += acertos
-        ordem = sorted(todos, key=lambda p: (-acumulado[p.id][0], -acumulado[p.id][1],
+        vivos = [p for p in todos if p.id not in eliminados
+                 or ordem_rodada(eliminados[p.id].rodada) > ordem_rodada(rodada)]
+        ordem = sorted(vivos, key=lambda p: (-acumulado[p.id][0], -acumulado[p.id][1],
                                              -acumulado[p.id][2], _chave_nome(p.nome)))
         posicoes = {p.id: pos for pos, p in enumerate(ordem, 1)}
         for p in todos:
             pts, crav, _, qtd = por_rodada[p.id][i]
             resultado[p.id].append({
                 'rodada': rodada, 'pontos': pts, 'cravadas': crav, 'palpites': qtd,
-                'acumulado': acumulado[p.id][0], 'posicao': posicoes[p.id],
-                'participa': entra_no_ranking_da_rodada(p, rodada),
+                'acumulado': acumulado[p.id][0], 'posicao': posicoes.get(p.id),
+                'participa': entra_no_ranking_da_rodada(p, rodada) and (
+                    p.id not in eliminados or ordem_rodada(eliminados[p.id].rodada) >= ordem_rodada(rodada)),
             })
     return resultado

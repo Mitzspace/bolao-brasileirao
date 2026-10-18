@@ -37,6 +37,7 @@ def test_tela_abre_no_primeiro_pendente_e_mostra_palpites(client, gestao):
     assert dados['pessoa']['nome'] == 'Ana'  # Ana tem 1 de 2: ainda pendente
     assert [j['numero'] for j in dados['jogos']] == [1, 2]
     assert dados['jogos'][0]['palpite'] == {'casa': 1, 'fora': 0, 'primeiroGol': '', 'situacao': 'valido',
+                                            'penaltisCasa': None, 'penaltisFora': None,
                                             'guardado': False, 'pontos': None}
     assert dados['jogos'][1]['iniciado'] is True and dados['jogos'][1]['palpite'] is None
     outra = client.get(f'/interface/api/palpites?rodada_id={r1.id}&participacao_id={bia.id}').get_json()

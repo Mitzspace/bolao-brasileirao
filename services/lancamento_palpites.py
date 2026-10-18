@@ -59,7 +59,7 @@ def salvar_lote(bolao, pessoa, rodada, form, autor_id):
     if erros:
         db.session.rollback()
         return 0, erros
-    for jogo, casa, fora, primeiro in itens:
+    for jogo, casa, fora, primeiro, (pen_casa, pen_fora) in itens:
         palpite = existentes.get(jogo.id)
         if palpite is None:
             palpite = Palpite(
@@ -71,6 +71,7 @@ def salvar_lote(bolao, pessoa, rodada, form, autor_id):
         palpite.gols_casa = casa
         palpite.gols_fora = fora
         palpite.primeiro_gol = primeiro
+        palpite.penaltis_casa, palpite.penaltis_fora = pen_casa, pen_fora
         palpite.origem = 'responsavel'
         # Origem registrada no log (services/auditoria): jogos preenchidos pela mensagem são "whatsapp".
         palpite._canal = 'whatsapp' if jogo.id in jogos_texto else 'painel'
@@ -108,6 +109,7 @@ def gerar_previa(bolao, pessoa, rodada, texto, autor_id):
         if not rodada.aberta or jogo.encerrado or (jogo.data and jogo.data <= agora_brasilia()):
             avisos.append('Jogo iniciado ou fechado: lançamento permitido ao responsável e auditado.')
         opcoes.append({'id': jogo.id, 'nome': f'{jogo.time_casa} × {jogo.time_fora}', 'avisos': avisos,
-                       'bloqueado': bloqueado, 'primeiro_gol_permitido': bool(jogo.especial)})
+                       'bloqueado': bloqueado, 'primeiro_gol_permitido': bool(jogo.especial),
+                       'pode_penaltis': bool(jogo.pode_penaltis)})
     return {'linhas': linhas, 'jogos': opcoes, 'reconhecido': any(i['jogo_id'] is not None for i in linhas),
             'token': assinatura(texto, autor_id, bolao.id, pessoa.id, rodada.id)}, 200

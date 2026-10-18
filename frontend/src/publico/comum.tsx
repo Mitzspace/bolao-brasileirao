@@ -52,6 +52,9 @@ export function LinhaJogo({ jogo, compacto = false }: { jogo: JogoPublico; compa
         </div>
         <div className={`min-w-[4.5rem] text-center rounded-xl px-3 py-1.5 font-bold ${placar ? 'text-lg text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800' : 'text-sm text-gray-400'}`}>
           {placar ? `${jogo.golsCasa} × ${jogo.golsFora}` : '×'}
+          {placar && jogo.penaltisCasa != null && jogo.penaltisFora != null && (
+            <span className="block text-[11px] font-semibold text-gray-500">pên. {jogo.penaltisCasa} × {jogo.penaltisFora}</span>
+          )}
         </div>
         <div className="flex items-center gap-2 min-w-0">
           <TeamCrest nome={jogo.fora} escudo={jogo.escudoFora} size="sm" />

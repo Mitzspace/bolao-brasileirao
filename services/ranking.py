@@ -75,6 +75,19 @@ def pontuacao_palpite(pal, regras, cache):
 
 
 def calcular_ranking(bolao, rodada=None, ocultar_desistentes=False, *, ate_rodada=None, todos=None, cache=None):
+    from services.eliminacao import eliminados_no_ranking
+
+    if todos is None:
+        todos = carregar_participantes(bolao)
+    # O universo dos cortes independe dos filtros de visualização e de subconjuntos.
+    universo = carregar_participantes(bolao) if bolao and bolao.eliminacao_participantes else todos
+    eliminados = eliminados_no_ranking(bolao, universo, rodada, ate_rodada=ate_rodada)
+    return _calcular_ranking_sem_eliminacao(
+        bolao, rodada, ocultar_desistentes, ate_rodada=ate_rodada,
+        todos=[p for p in todos if p.id not in eliminados], cache=cache)
+
+
+def _calcular_ranking_sem_eliminacao(bolao, rodada=None, ocultar_desistentes=False, *, ate_rodada=None, todos=None, cache=None):
     """Lista ordenada de dicionários (participante, pontos, bônus, cravadas...).
 
     rodada: ranking somente daquela rodada (comportamento da tela atual).

@@ -5,11 +5,16 @@ import { Input, Select } from '@/components/ui/Form';
 import { Avatar } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import { REGRAS_PADRAO, type FontesBolaoApi } from '@/types';
+import { REGRAS_PADRAO, type FontesBolaoApi, type ModeloCompeticao } from '@/types';
 import { EditorRegras, paraEdicao, validarRegras } from './EditorRegras';
 
+/** Provedor de jogos/resultados; o modelo vem com fonte_api de GET /boloes/fontes. */
+type FonteApi = 'football-data' | 'api-football';
+type Modelo = ModeloCompeticao & { fonte_api?: FonteApi };
+const AVISO_API_FOOTBALL = 'A temporada atual na API-Football exige plano pago; o plano gratuito só dá acesso às temporadas 2022 a 2024.';
+
 const ETAPAS = ['Dados do bolão', 'Campeonato', 'Regras', 'Participantes'];
-const vazio = () => ({ nome: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: 'BSA', origemId: '', marcados: [] as number[], regras: paraEdicao(REGRAS_PADRAO) });
+const vazio = () => ({ nome: '', modelo: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: '', fonteApi: 'football-data' as FonteApi, eliminacao: false, origemId: '', marcados: [] as number[], regras: paraEdicao(REGRAS_PADRAO) });
 
 /** Assistente do Bolt adaptado à criação real: nome, campeonato próprio e cópia opcional de nomes. */
 export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () => void }) {
@@ -32,12 +37,22 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
   const pessoas = form.origemId ? fontes?.pessoas ?? [] : [];
   const regras = validarRegras(form.regras);
   const todos = pessoas.length > 0 && pessoas.every(p => form.marcados.includes(p.id));
+  const modelos: Modelo[] = fontes?.modelos ?? [];
+  const aviso = form.fonteApi === 'api-football' ? AVISO_API_FOOTBALL
+    : modelos.find(m => (m.fonte_api ?? 'football-data') === 'football-data' && m.codigo_api === form.codigoApi.trim().toUpperCase())?.aviso;
+
+  const escolherModelo = (chave: string) => {
+    const modelo = modelos.find(m => m.chave === chave);
+    setForm(atual => ({ ...atual, modelo: chave, campeonato: modelo?.nome ?? '',
+      codigoApi: modelo?.codigo_api ?? '', fonteApi: modelo?.fonte_api ?? 'football-data', eliminacao: modelo?.eliminacao ?? false }));
+  };
 
   const criar = async () => {
     setSalvando(true); setErro('');
     try {
       await api.post('/boloes', {
-        nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.codigoApi,
+        nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.codigoApi, fonte_api: form.fonteApi,
+        modelo: form.modelo || undefined, eliminacao_participantes: form.eliminacao,
         origemId: form.origemId ? Number(form.origemId) : null, participacaoIds: form.marcados, regras: regras.regras,
       });
       // Abre a interface já no bolão novo, na aba Participantes (como a tela atual).
@@ -85,11 +100,43 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
 
       {etapa === 1 && (
         <div className="space-y-4">
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-semibold text-gray-700 dark:text-gray-300">Modelo de competição</legend>
+            <p className="text-xs text-gray-400">Escolha um modelo para preencher o campeonato e o código da API. Você pode ajustar os campos depois.</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[...modelos, { chave: '', rotulo: 'Outro campeonato', descricao: 'Preencha nome, fonte e código manualmente.' }].map(modelo => (
+                <label key={modelo.chave} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.modelo === modelo.chave ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-gray-100 dark:border-gray-800 hover:border-gray-200'}`}>
+                  <input type="radio" name="modelo" value={modelo.chave} checked={form.modelo === modelo.chave}
+                    onChange={() => escolherModelo(modelo.chave)} className="w-4 h-4 mt-0.5 accent-brand-600 shrink-0" />
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-700 dark:text-gray-300">{modelo.rotulo}</span>
+                    <span className="block text-xs text-gray-400">{modelo.descricao}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {!fontes && !erro && <p role="status" className="text-xs text-gray-400">Carregando modelos…</p>}
+          </fieldset>
+          {!form.modelo && (
+            <Select label="Fonte dos jogos e resultados" value={form.fonteApi} onChange={e => setForm({ ...form, fonteApi: e.target.value as FonteApi })}>
+              <option value="football-data">football-data.org (código, ex.: BSA)</option>
+              <option value="api-football">API-Football (ID da liga, ex.: 13)</option>
+            </Select>
+          )}
           <Input label="Campeonato deste bolão" value={form.campeonato} maxLength={100} onChange={e => setForm({ ...form, campeonato: e.target.value })} placeholder="Ex.: Brasileirão Série A" />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Temporada" type="number" min={1} max={9999} value={form.ano} onChange={e => setForm({ ...form, ano: e.target.value })} />
-            <Input label="Código na API (opcional)" value={form.codigoApi} maxLength={20} onChange={e => setForm({ ...form, codigoApi: e.target.value.toUpperCase() })} hint="BSA = Brasileirão" />
+            <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API (opcional)' : 'Código na API (opcional)'} value={form.codigoApi} maxLength={20} onChange={e => setForm({ ...form, codigoApi: e.target.value.toUpperCase() })} />
           </div>
+          {aviso && <p role="status" className="rounded-xl border border-gold-200 dark:border-gold-800/50 bg-gold-50 dark:bg-gold-900/20 p-3 text-sm text-gold-800 dark:text-gold-200">{aviso}</p>}
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer">
+            <input type="checkbox" checked={form.eliminacao} onChange={e => setForm({ ...form, eliminacao: e.target.checked })}
+              className="w-4 h-4 mt-0.5 rounded accent-brand-600 shrink-0" />
+            <span>
+              <span className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Eliminar participantes por fase</span>
+              <span className="block text-xs text-gray-400">Como os times na copa: ao fim de cada fase, só os mais bem pontuados seguem no ranking. Os cortes são configurados depois.</span>
+            </span>
+          </label>
           <p className="text-xs text-gray-400">Rodadas e jogos são cadastrados depois, em Configurações › Campeonatos.</p>
         </div>
       )}

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
-import { Input } from '@/components/ui/Form';
+import { Input, Select } from '@/components/ui/Form';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
@@ -18,6 +18,10 @@ import { useRecurso } from '@/lib/useRecurso';
 import type { CampeonatoApi, RodadaGestao } from '@/types';
 
 type Aba = 'rodadas' | 'tabela';
+/** Provedor de jogos/resultados do campeonato (GET /campeonato → campeonato.fonteApi). */
+type FonteApi = 'football-data' | 'api-football';
+type CampeonatoComFonte = CampeonatoApi['campeonato'] & { fonteApi?: FonteApi };
+const NOMES_FONTE: Record<FonteApi, string> = { 'football-data': 'football-data.org', 'api-football': 'API-Football' };
 
 const botaoSecundario = 'px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors';
 const botaoPrimario = 'px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-60';
@@ -29,7 +33,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
   const { dados, carregando, erro, recarregar } = useRecurso<CampeonatoApi>('/campeonato');
   const [menuAberto, setMenuAberto] = useState(false);
   const [editando, setEditando] = useState(false);
-  const [form, setForm] = useState({ nome: '', ano: '', codigoApi: '' });
+  const [form, setForm] = useState<{ nome: string; ano: string; codigoApi: string; fonteApi: FonteApi }>({ nome: '', ano: '', codigoApi: '', fonteApi: 'football-data' });
   const [novaRodada, setNovaRodada] = useState<{ nome: string; aberta: boolean } | null>(null);
   const [excluir, setExcluir] = useState<RodadaGestao | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -50,8 +54,8 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
 
   const abrirEdicao = () => {
     if (!dados) return;
-    const c = dados.campeonato;
-    setForm({ nome: c.nome, ano: String(c.ano ?? ''), codigoApi: c.codigoApi || 'BSA' });
+    const c = dados.campeonato as CampeonatoComFonte;
+    setForm({ nome: c.nome, ano: String(c.ano ?? ''), codigoApi: c.codigoApi || 'BSA', fonteApi: c.fonteApi ?? 'football-data' });
     setMenuAberto(false);
     setEditando(true);
   };
@@ -69,7 +73,8 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
     catch { /* aviso já exibido */ } finally { setSalvando(false); }
   };
 
-  const c = dados?.campeonato;
+  const c = dados?.campeonato as CampeonatoComFonte | undefined;
+  const fonte: FonteApi = c?.fonteApi ?? 'football-data';
   const progresso = c && c.totalRodadas ? Math.round((c.rodadasConcluidas / c.totalRodadas) * 100) : 0;
 
   return (
@@ -121,7 +126,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
                   <Badge color={c.rodadasConcluidas === c.totalRodadas && c.totalRodadas > 0 ? 'gray' : 'green'}>
                     {c.rodadasConcluidas === c.totalRodadas && c.totalRodadas > 0 ? 'Encerrado' : 'Em andamento'}
                   </Badge>
-                  {c.codigoApi && <Badge color="purple">API: {c.codigoApi}</Badge>}
+                  {c.codigoApi && <Badge color="purple">{NOMES_FONTE[fonte]}: {c.codigoApi}</Badge>}
                 </div>
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><Calendar className="w-3 h-3" />{c.rodadasConcluidas} de {c.totalRodadas} rodadas concluídas</span>
@@ -135,7 +140,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
               {/* Jogos: cadastro manual fica na aba Rodadas; a API só para o administrador geral */}
               <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
                 <h3 className="font-bold text-gray-900 dark:text-white mb-1">Jogos</h3>
-                <p className="text-xs text-gray-400 mb-4">Cadastre jogos e resultados na aba Rodadas{dados.adminGlobal ? ' ou busque tudo na API football-data.org' : ''}.</p>
+                <p className="text-xs text-gray-400 mb-4">Cadastre jogos e resultados na aba Rodadas{dados.adminGlobal ? ` ou busque tudo na ${NOMES_FONTE[fonte]}` : ''}.</p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <button onClick={() => setView('rodadas')} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
                     <span className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-600 flex items-center justify-center"><Plus className="w-4 h-4" /></span>
@@ -219,12 +224,18 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
         </>}>
         <div className="space-y-4">
           <Input label="Nome do campeonato" value={form.nome} maxLength={100} onChange={e => setForm({ ...form, nome: e.target.value })} />
+          <Select label="Fonte dos jogos e resultados" value={form.fonteApi} onChange={e => setForm({ ...form, fonteApi: e.target.value as FonteApi })}>
+            <option value="football-data">football-data.org</option>
+            <option value="api-football">API-Football (api-sports.io)</option>
+          </Select>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Temporada" type="number" value={form.ano} onChange={e => setForm({ ...form, ano: e.target.value })} />
-            <Input label="Código na API" value={form.codigoApi} maxLength={20} onChange={e => setForm({ ...form, codigoApi: e.target.value.toUpperCase() })}
-              hint="BSA = Brasileirão" />
+            <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API' : 'Código na API'} value={form.codigoApi} maxLength={20} onChange={e => setForm({ ...form, codigoApi: e.target.value.toUpperCase() })}
+              hint={form.fonteApi === 'api-football' ? '13 = Libertadores, 11 = Sul-Americana, 73 = Copa do Brasil, 629 = Mineiro' : 'BSA = Brasileirão'} />
           </div>
-          <p className="text-xs text-gray-400">O código e a temporada são usados para buscar horários e a tabela na football-data.org.</p>
+          <p className="text-xs text-gray-400">{form.fonteApi === 'api-football'
+            ? 'A liga e a temporada são usadas para importar jogos e resultados na API-Football (o plano gratuito só tem as temporadas 2022 a 2024).'
+            : 'O código e a temporada são usados para buscar horários e a tabela na football-data.org.'}</p>
         </div>
       </Modal>
 
@@ -242,7 +253,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
       </Modal>
 
 
-      {c && <SincronizarApi aberto={sincronizar} onClose={() => setSincronizar(false)} codigoApi={c.codigoApi} ano={c.ano} onConcluido={() => void recarregar()} />}
+      {c && <SincronizarApi aberto={sincronizar} onClose={() => setSincronizar(false)} codigoApi={c.codigoApi} ano={c.ano} fonteApi={fonte} onConcluido={() => void recarregar()} />}
 
       <ConfirmDialog
         open={!!excluir}

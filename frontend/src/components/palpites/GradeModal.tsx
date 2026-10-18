@@ -49,7 +49,7 @@ export function GradeModal({ rodadaId, onClose }: { rodadaId: number | null; onC
                     <div className="flex items-center gap-1.5 whitespace-nowrap">
                       <TeamCrest nome={l.jogo.casa} escudo={l.jogo.escudoCasa} size="xs" />
                       <span className="text-xs font-semibold">{l.jogo.escudoCasa.sigla}</span>
-                      <span className="text-xs font-bold text-gray-500">{l.jogo.golsCasa ?? ''}×{l.jogo.golsFora ?? ''}</span>
+                      <span className="text-xs font-bold text-gray-500">{l.jogo.golsCasa ?? ''}×{l.jogo.golsFora ?? ''}{l.jogo.penaltisCasa != null && l.jogo.penaltisFora != null ? ` (pên. ${l.jogo.penaltisCasa}×${l.jogo.penaltisFora})` : ''}</span>
                       <span className="text-xs font-semibold">{l.jogo.escudoFora.sigla}</span>
                       <TeamCrest nome={l.jogo.fora} escudo={l.jogo.escudoFora} size="xs" />
                     </div>
@@ -63,6 +63,9 @@ export function GradeModal({ rodadaId, onClose }: { rodadaId: number | null; onC
                       <td key={p.id} className={`px-2 py-2 text-center whitespace-nowrap border-b border-gray-100 dark:border-gray-800 ${cor}`}
                         title={c?.primeiroGol ? `1º gol: ${c.primeiroGol}` : undefined}>
                         {!c ? '—' : c.situacao === 'nao_enviado' ? 'N/E' : c.situacao === 'fora_prazo' ? 'F/P' : `${c.casa}×${c.fora}`}
+                        {c?.situacao === 'valido' && c.penaltisCasa != null && c.penaltisFora != null && (
+                          <span className="block text-[10px] opacity-80">pên. {c.penaltisCasa}×{c.penaltisFora}</span>
+                        )}
                         {c?.pontos != null && <span className="block text-[10px] opacity-80">{c.pontos} pt{c.primeiroGol ? ' ★' : ''}</span>}
                       </td>
                     );

@@ -12,7 +12,7 @@ from models import (Bolao, Participacao, Participante, Jogo, Resultado,
 
 def valores_palpite(palpite):
     return {campo: getattr(palpite, campo) for campo in (
-        "participacao_id", "gols_casa", "gols_fora", "jogador_primeiro_gol",
+        "participacao_id", "gols_casa", "gols_fora", "penaltis_casa", "penaltis_fora", "jogador_primeiro_gol",
         "origem", "lancado_por", "recebido_em", "lancado_apos_inicio", "auditoria_legada",
         "excluido_por_desistencia", "situacao")}
 
@@ -85,7 +85,7 @@ def auditar(session, flush_context, instances):
         if not novo and not session.is_modified(obj, include_collections=False):
             continue
         altera_placar = novo or any(inspect(obj).attrs[c].history.has_changes()
-            for c in ('gols_casa', 'gols_fora', 'jogador_primeiro_gol', 'situacao'))
+            for c in ('gols_casa', 'gols_fora', 'penaltis_casa', 'penaltis_fora', 'jogador_primeiro_gol', 'situacao'))
         from services.elegibilidade import dentro_do_periodo
         if altera_placar and (not dentro_do_periodo(part, jogo.rodada) or obj.excluido_por_desistencia):
             raise ValueError('Palpite fora do período de participação ou guardado após desistência; revise a participação primeiro.')

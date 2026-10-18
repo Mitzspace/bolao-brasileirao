@@ -5,7 +5,10 @@ from types import MappingProxyType
 REGRAS_PONTUACAO = MappingProxyType({
     "comum_exato": 3, "comum_resultado": 1,
     "classico_exato": 5, "classico_resultado": 3, "primeiro_gol": 2,
+    "penaltis_exato": 3, "penaltis_vencedor": 1,
 })
+# Chaves que requisições antigas podem omitir (mantêm o valor atual do bolão ou o padrão).
+OPCIONAIS = frozenset({"penaltis_exato", "penaltis_vencedor"})
 
 # chave da regra -> coluna em Bolao
 COLUNAS = {chave: f"pontos_{chave}" for chave in REGRAS_PONTUACAO}
@@ -25,13 +28,20 @@ def regras_do_palpite(palpite):
     return regras_do_bolao(getattr(participacao, "bolao", None))
 
 
-def validar_regras(valores):
-    """Recebe {chave: valor} com todas as chaves; devolve inteiros ou levanta ValueError."""
+def validar_regras(valores, atuais=None):
+    """Recebe {chave: valor}; devolve inteiros ou levanta ValueError.
+
+    Todas as chaves são obrigatórias, exceto as de OPCIONAIS: se ausentes (ou None),
+    ficam fora do resultado e aplicar_regras não mexe nelas. A comparação exato >= vencedor
+    dos pênaltis usa `atuais` (regras vigentes) para a chave que faltar.
+    """
     if not isinstance(valores, dict):
         raise ValueError("Informe as regras de pontuação.")
     regras = {}
     for chave in REGRAS_PONTUACAO:
         valor = valores.get(chave)
+        if chave in OPCIONAIS and valor is None:
+            continue
         if isinstance(valor, bool) or not isinstance(valor, (int, str)) or not str(valor).strip().isdecimal():
             raise ValueError(f"Informe um número inteiro de 0 a {MAXIMO} em todas as regras.")
         numero = int(str(valor).strip())
@@ -40,9 +50,15 @@ def validar_regras(valores):
         regras[chave] = numero
     if regras["comum_exato"] < regras["comum_resultado"] or regras["classico_exato"] < regras["classico_resultado"]:
         raise ValueError("O placar exato precisa valer pelo menos o mesmo que acertar só o resultado.")
+    base = atuais or REGRAS_PONTUACAO
+    pen_exato = regras.get("penaltis_exato", base["penaltis_exato"])
+    pen_vencedor = regras.get("penaltis_vencedor", base["penaltis_vencedor"])
+    if pen_exato < pen_vencedor:
+        raise ValueError("O placar exato dos pênaltis precisa valer pelo menos o mesmo que acertar só o vencedor.")
     return regras
 
 
 def aplicar_regras(bolao, regras):
     for chave, coluna in COLUNAS.items():
-        setattr(bolao, coluna, regras[chave])
+        if chave in regras:
+            setattr(bolao, coluna, regras[chave])

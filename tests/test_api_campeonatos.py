@@ -111,6 +111,7 @@ def test_sincronizar_com_a_api_so_admin_geral_e_usa_campeonato_do_bolao(client, 
         chamadas.append(kw)
         return {'atualizados': 3, 'horarios_atualizados': 1, 'resultados_salvos': 2, 'ignorados': 0}
     monkeypatch.setattr('services.sync.sync_informacoes_jogos', falso)
+    monkeypatch.setattr('services.importador_jogos.buscar_jogos_football_data', lambda **kw: [])
     r = client.post('/interface/api/campeonato/sincronizar', json={'acao': 'informacoes', 'token': 't'})
     assert r.status_code == 200 and '3 jogos' in r.get_json()['mensagem']
     assert chamadas[0]['campeonato_id'] == bolao.campeonato_id and chamadas[0]['competicao'] == 'BSA'

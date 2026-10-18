@@ -21,7 +21,7 @@ import type { ClassificacaoRodadaApi, GestaoRodadasApi, JogoGestao } from '@/typ
 import { REGRAS_PADRAO } from '@/types';
 
 type Aba = 'jogos' | 'classificacao';
-interface FormJogo { id: number | null; casa: string; fora: string; rodadaId: string; data: string; classico: boolean }
+interface FormJogo { id: number | null; casa: string; fora: string; rodadaId: string; data: string; classico: boolean; podePenaltis: boolean }
 
 const statusJogo = {
   encerrado: { cor: 'green', texto: 'Encerrado' },
@@ -43,9 +43,12 @@ export function RodadasScreen() {
   const r = dados?.rodada;
   const classificacao = useRecurso<ClassificacaoRodadaApi>(aba === 'classificacao' && r ? `/rodadas/${r.id}/classificacao` : null);
 
-  const [resultado, setResultado] = useState<{ jogo: JogoGestao; casa: string; fora: string; primeiroGol: string; focoGol?: boolean } | null>(null);
+  const [resultado, setResultado] = useState<{
+    jogo: JogoGestao; casa: string; fora: string; primeiroGol: string; penCasa: string; penFora: string; focoGol?: boolean;
+  } | null>(null);
   const abrirResultado = (jogo: JogoGestao, focoGol = false) => setResultado({
-    jogo, casa: jogo.golsCasa?.toString() ?? '', fora: jogo.golsFora?.toString() ?? '', primeiroGol: jogo.primeiroGol ?? '', focoGol,
+    jogo, casa: jogo.golsCasa?.toString() ?? '', fora: jogo.golsFora?.toString() ?? '', primeiroGol: jogo.primeiroGol ?? '',
+    penCasa: jogo.penaltisCasa?.toString() ?? '', penFora: jogo.penaltisFora?.toString() ?? '', focoGol,
   });
   const [formJogo, setFormJogo] = useState<FormJogo | null>(null);
   const [excluir, setExcluir] = useState<JogoGestao | null>(null);
@@ -70,12 +73,17 @@ export function RodadasScreen() {
   };
   const tentar = (acao: () => Promise<{ mensagem?: string }>, depois?: () => void) => { gravar(acao, depois).catch(() => undefined); };
 
-  const abrirNovoJogo = () => r && setFormJogo({ id: null, casa: '', fora: '', rodadaId: String(r.id), data: '', classico: false });
-  const abrirEdicao = (j: JogoGestao) => setFormJogo({ id: j.id, casa: j.casa, fora: j.fora, rodadaId: String(j.rodadaId), data: j.dataInput, classico: j.classico });
+  const abrirNovoJogo = () => r && setFormJogo({ id: null, casa: '', fora: '', rodadaId: String(r.id), data: '', classico: false, podePenaltis: false });
+  const abrirEdicao = (j: JogoGestao) => setFormJogo({
+    id: j.id, casa: j.casa, fora: j.fora, rodadaId: String(j.rodadaId), data: j.dataInput, classico: j.classico, podePenaltis: !!j.podePenaltis,
+  });
 
   const salvarJogo = () => {
     if (!formJogo) return;
-    const corpo = { casa: formJogo.casa, fora: formJogo.fora, rodadaId: formJogo.rodadaId, data: formJogo.data, classico: formJogo.classico };
+    const corpo = {
+      casa: formJogo.casa, fora: formJogo.fora, rodadaId: formJogo.rodadaId, data: formJogo.data, classico: formJogo.classico,
+      podePenaltis: formJogo.podePenaltis,
+    };
     tentar(() => formJogo.id ? api.put(`/jogos/${formJogo.id}`, corpo) : api.post('/jogos', corpo), () => setFormJogo(null));
   };
 
@@ -84,6 +92,8 @@ export function RodadasScreen() {
     tentar(() => api.post(`/jogos/${resultado.jogo.id}/resultado`, {
       golsCasa: resultado.casa, golsFora: resultado.fora,
       primeiroGol: Number(resultado.casa) + Number(resultado.fora) === 0 ? '' : resultado.primeiroGol,
+      // Vazios apagam o placar dos pênaltis; só vai em jogos que podem ter pênaltis.
+      ...(resultado.jogo.podePenaltis ? { penaltisCasa: resultado.penCasa || null, penaltisFora: resultado.penFora || null } : {}),
     }), () => setResultado(null));
   };
 
@@ -161,6 +171,7 @@ export function RodadasScreen() {
                         <div className="flex items-center gap-3 text-xs text-gray-400 min-w-0">
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{jogo.dataTexto ?? 'Horário a definir'}</span>
                           {jogo.classico && <span className="flex items-center gap-1 text-gold-600"><Star className="w-3 h-3 fill-gold-400" />Clássico</span>}
+                          {jogo.podePenaltis && <span className="flex items-center gap-1"><Target className="w-3 h-3" />Pode ter pênaltis</span>}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {jogo.encerrado && !temPlacar && <Badge color="red" icon={<Lock className="w-3 h-3" />}>Encerrado p/ palpites</Badge>}
@@ -182,6 +193,9 @@ export function RodadasScreen() {
                               <span className="text-xl font-bold text-gray-900 dark:text-white">{jogo.golsCasa}</span>
                               <span className="text-gray-400 text-sm">×</span>
                               <span className="text-xl font-bold text-gray-900 dark:text-white">{jogo.golsFora}</span>
+                              {jogo.penaltisCasa != null && jogo.penaltisFora != null && (
+                                <span className="text-xs font-semibold text-gray-500" title="Placar dos pênaltis">pên. {jogo.penaltisCasa}×{jogo.penaltisFora}</span>
+                              )}
                             </div>
                           ) : <div className="text-gray-300 text-xl font-bold">×</div>}
                         </div>
@@ -292,6 +306,22 @@ export function RodadasScreen() {
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{resultado.jogo.escudoFora.sigla}</p>
               </div>
             </div>
+            {resultado.jogo.podePenaltis && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Pênaltis (se houver)</p>
+                <div className="flex items-center justify-center gap-2">
+                  <input type="number" min={0} max={99} inputMode="numeric" aria-label={`Pênaltis ${resultado.jogo.casa}`}
+                    value={resultado.penCasa} onChange={e => setResultado({ ...resultado, penCasa: e.target.value })} className={placarInput} />
+                  <span className="text-2xl text-gray-300">×</span>
+                  <input type="number" min={0} max={99} inputMode="numeric" aria-label={`Pênaltis ${resultado.jogo.fora}`}
+                    value={resultado.penFora} onChange={e => setResultado({ ...resultado, penFora: e.target.value })} className={placarInput} />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  O placar acima é o do tempo normal + prorrogação. Deixe os pênaltis vazios se o jogo não foi decidido nos pênaltis.
+                  Placar exato dos pênaltis vale +{regras.penaltisExato}; só o vencedor, +{regras.penaltisVencedor}.
+                </p>
+              </div>
+            )}
             {resultado.jogo.classico && (() => {
               const semGols = resultado.casa !== '' && resultado.fora !== '' && Number(resultado.casa) + Number(resultado.fora) === 0;
               return (
@@ -345,6 +375,8 @@ export function RodadasScreen() {
               <Input label="Data e hora (Brasília)" type="datetime-local" value={formJogo.data} onChange={e => setFormJogo({ ...formJogo, data: e.target.value })} />
             </div>
             <Switch checked={formJogo.classico} onChange={v => setFormJogo({ ...formJogo, classico: v })} label="Clássico" description={`Placar exato vale ${regras.classicoExato} e resultado ${regras.classicoResultado}; primeiro gol vale +${regras.primeiroGol}`} />
+            <Switch checked={formJogo.podePenaltis} onChange={v => setFormJogo({ ...formJogo, podePenaltis: v })} label="Pode ter pênaltis"
+              description={`Mata-mata: palpite extra do placar dos pênaltis (exato +${regras.penaltisExato}, vencedor +${regras.penaltisVencedor}). Desmarcar apaga o placar dos pênaltis do resultado.`} />
           </div>
         )}
       </Modal>

@@ -35,6 +35,10 @@ def ultima_atualizacao(campeonato_id):
 
 def atualizar_horarios(campeonato, forcar=False):
     """Retorna um resumo; nunca lança erro de rede para quem chamou."""
+    if campeonato.fonte_api == 'api-football':
+        # Cota de 100 requisições/dia no plano gratuito: os horários vêm só da sincronização.
+        return {'status': 'sem_codigo', 'mensagem': 'Campeonato da API-Football: os horários são atualizados '
+                'pela sincronização do campeonato (Configurações › Campeonatos).'}
     token = token_api()
     if not token:
         return {'status': 'sem_token', 'mensagem': 'Configure FOOTBALL_DATA_TOKEN para buscar os horários oficiais.'}

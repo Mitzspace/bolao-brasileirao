@@ -4,11 +4,13 @@ import { Header } from '@/components/layout/Header';
 import { SecaoAparencia, SecaoPerfil, SecaoResponsaveis, SecaoSeguranca } from '@/components/configuracoes/Secoes';
 import { useApp } from '@/context/AppContext';
 import { CampeonatosScreen } from '@/screens/CampeonatosScreen';
+import { EliminacaoPainel } from '@/components/EliminacaoPainel';
 
-type Aba = 'campeonatos' | 'perfil' | 'seguranca' | 'responsaveis' | 'aparencia';
+type Aba = 'campeonatos' | 'eliminacao' | 'perfil' | 'seguranca' | 'responsaveis' | 'aparencia';
 
 const ABAS: { id: Aba; label: string; icon: typeof Target }[] = [
   { id: 'campeonatos', label: 'Campeonatos', icon: Target },
+  { id: 'eliminacao', label: 'Eliminação', icon: Target },
   { id: 'perfil', label: 'Perfil', icon: User },
   { id: 'seguranca', label: 'Segurança', icon: Shield },
   { id: 'responsaveis', label: 'Responsáveis', icon: UserCog },
@@ -56,6 +58,7 @@ export function ConfiguracoesScreen() {
       <div className="p-4 md:p-8 space-y-6 pb-28 md:pb-8">
         {abas}
         <div className="max-w-3xl">
+          {aba === 'eliminacao' && (bolao ? <EliminacaoPainel key={bolao.id} /> : <p className="text-sm text-gray-500">Selecione um bolão para configurar a eliminação.</p>)}
           {aba === 'perfil' && <SecaoPerfil />}
           {aba === 'seguranca' && <SecaoSeguranca />}
           {aba === 'responsaveis' && <SecaoResponsaveis />}

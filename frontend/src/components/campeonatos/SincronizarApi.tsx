@@ -13,10 +13,12 @@ const ACOES: { id: Acao; label: string; desc: string }[] = [
   { id: 'resultados', label: 'Sincronizar resultados', desc: 'Grava os placares encerrados dos jogos que vieram da API.' },
 ];
 
-/** Ferramentas da football-data.org (só para o administrador geral), no campeonato deste bolão. */
-export function SincronizarApi({ aberto, onClose, codigoApi, ano, onConcluido }: {
-  aberto: boolean; onClose: () => void; codigoApi: string; ano: number | null; onConcluido: () => void;
+/** Ferramentas da API do campeonato (football-data.org ou API-Football; só para o administrador geral). */
+export function SincronizarApi({ aberto, onClose, codigoApi, ano, fonteApi = 'football-data', onConcluido }: {
+  aberto: boolean; onClose: () => void; codigoApi: string; ano: number | null;
+  fonteApi?: 'football-data' | 'api-football'; onConcluido: () => void;
 }) {
+  const apiFootball = fonteApi === 'api-football';
   const showToast = useToast();
   const [acao, setAcao] = useState<Acao>('jogos');
   const [form, setForm] = useState({ completo: false, rodadaApi: '', nomeRodada: '', token: '', competicao: '', temporada: '' });
@@ -57,10 +59,11 @@ export function SincronizarApi({ aberto, onClose, codigoApi, ano, onConcluido }:
 
         {acao === 'jogos' && (
           <div className="space-y-3">
-            <Switch checked={form.completo} onChange={v => setForm({ ...form, completo: v })} label="Campeonato completo" description="Todas as rodadas de uma vez, com o nome da API (Rodada 1, Rodada 2…)" />
+            <Switch checked={form.completo} onChange={v => setForm({ ...form, completo: v })} label="Campeonato completo"
+              description={apiFootball ? 'Toda a temporada numa só consulta, com rodadas em ordem (Rodada 1 · 1ª fase … Rodada 10 · Oitavas de final…)' : 'Todas as rodadas de uma vez, com o nome da API (Rodada 1, Rodada 2…)'} />
             {!form.completo && (
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Rodada na API" inputMode="numeric" placeholder="Ex.: 31" value={form.rodadaApi} onChange={e => setForm({ ...form, rodadaApi: e.target.value.replace(/\D/g, '') })} />
+                <Input label={apiFootball ? 'Número da rodada' : 'Rodada na API'} inputMode="numeric" placeholder={apiFootball ? 'Ex.: 10' : 'Ex.: 31'} value={form.rodadaApi} onChange={e => setForm({ ...form, rodadaApi: e.target.value.replace(/\D/g, '') })} />
                 <Input label="Nome da rodada (opcional)" placeholder="Ex.: 31ª Rodada" maxLength={100} value={form.nomeRodada} onChange={e => setForm({ ...form, nomeRodada: e.target.value })} />
               </div>
             )}
@@ -70,16 +73,19 @@ export function SincronizarApi({ aberto, onClose, codigoApi, ano, onConcluido }:
           <Input label="Rodada na API (opcional)" inputMode="numeric" placeholder="Todas" value={form.rodadaApi} onChange={e => setForm({ ...form, rodadaApi: e.target.value.replace(/\D/g, '') })} />
         )}
 
+        <p className="text-xs text-gray-400">
+          Fonte: <strong>{apiFootball ? 'API-Football' : 'football-data.org'}</strong>{apiFootball ? ', com a chave do servidor. O plano gratuito tem 100 consultas por dia e só as temporadas 2022 a 2024.' : '.'}
+        </p>
         <details className="rounded-xl border border-gray-100 dark:border-gray-800 px-4 py-2">
           <summary className="text-sm font-medium text-gray-600 dark:text-gray-300 cursor-pointer">Opções avançadas</summary>
           <div className="grid sm:grid-cols-3 gap-3 py-3">
-            <Input label="Competição" placeholder={codigoApi || 'BSA'} maxLength={20} value={form.competicao} onChange={e => setForm({ ...form, competicao: e.target.value.toUpperCase() })} />
+            <Input label={apiFootball ? 'ID da liga' : 'Competição'} placeholder={codigoApi || (apiFootball ? '13' : 'BSA')} maxLength={20} value={form.competicao} onChange={e => setForm({ ...form, competicao: e.target.value.toUpperCase() })} />
             <Input label="Temporada" placeholder={ano ? String(ano) : 'Atual'} inputMode="numeric" value={form.temporada} onChange={e => setForm({ ...form, temporada: e.target.value.replace(/\D/g, '') })} />
-            <Select label="Token" value={form.token ? 'outro' : ''} onChange={e => setForm({ ...form, token: e.target.value ? ' ' : '' })}>
+            <Select label={apiFootball ? 'Chave' : 'Token'} value={form.token ? 'outro' : ''} onChange={e => setForm({ ...form, token: e.target.value ? ' ' : '' })}>
               <option value="">Do servidor</option><option value="outro">Informar outro</option>
             </Select>
             {form.token !== '' && (
-              <div className="sm:col-span-3"><Input label="Token da API" type="password" autoComplete="off" value={form.token.trim()} onChange={e => setForm({ ...form, token: e.target.value || ' ' })} /></div>
+              <div className="sm:col-span-3"><Input label={apiFootball ? 'Chave da API-Football' : 'Token da API'} type="password" autoComplete="off" value={form.token.trim()} onChange={e => setForm({ ...form, token: e.target.value || ' ' })} /></div>
             )}
           </div>
         </details>

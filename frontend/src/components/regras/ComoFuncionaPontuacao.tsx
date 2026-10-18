@@ -1,4 +1,4 @@
-import { Award, CircleSlash, Crown, ListOrdered, Star, Target } from 'lucide-react';
+import { Award, CircleSlash, Crown, Goal, ListOrdered, Star, Target } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import type { Regras } from '@/types';
 
@@ -57,6 +57,16 @@ export function ComoFuncionaPontuacao({ aberto, onClose, regras, politicaEntrada
             </div>
           </div>
 
+          {regras.penaltisExato !== undefined && (
+            <div className="flex gap-3">
+              <Goal className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Pênaltis: +{pts(regras.penaltisExato)} no placar exato, +{pts(regras.penaltisVencedor)} só no vencedor</p>
+                <p className="mt-1">Nos jogos de mata-mata que podem ir aos pênaltis há um palpite extra do placar da disputa (opcional). Ele só vale se o jogo realmente for decidido nos pênaltis e soma aos pontos do jogo; não conta como cravada.</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <CircleSlash className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
             <p>Palpite não enviado ou enviado fora do prazo vale 0. {politicaEntrada === 'fora_da_conta'
@@ -67,7 +77,7 @@ export function ComoFuncionaPontuacao({ aberto, onClose, regras, politicaEntrada
           <div className="flex gap-3">
             <ListOrdered className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
             <div>
-              <p><strong className="text-gray-900 dark:text-white">Total</strong> = pontos dos placares + bônus.</p>
+              <p><strong className="text-gray-900 dark:text-white">Total</strong> = pontos dos placares + bônus (+ pênaltis, quando houver).</p>
               <p className="mt-1"><strong className="text-gray-900 dark:text-white">Desempate:</strong> total de pontos, depois mais cravadas, depois mais resultados (vencedor ou empate) e, por fim, ordem alfabética.</p>
             </div>
           </div>

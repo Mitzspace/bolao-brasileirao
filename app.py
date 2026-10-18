@@ -193,6 +193,12 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
                 raise RuntimeError('Migração pendente: execute python -m migrations.ordem_jogo CAMINHO_DO_BANCO. Consulte docs/DESEMPENHO.md.')
             if 'codigo_publico' not in {c['name'] for c in inspector.get_columns('bolao')}:
                 raise RuntimeError('Migração pendente: execute python -m migrations.link_publico CAMINHO_DO_BANCO. Consulte docs/LINK_PUBLICO.md.')
+            if ('eliminacao_participantes' not in {c['name'] for c in inspector.get_columns('bolao')}
+                    or 'corte_eliminacao' not in inspector.get_table_names()):
+                raise RuntimeError('Migração pendente: execute python -m migrations.eliminacao CAMINHO_DO_BANCO. Consulte docs/COPAS_ELIMINACAO.md.')
+            if ('pode_penaltis' not in {c['name'] for c in inspector.get_columns('jogo')}
+                    or 'fonte_api' not in {c['name'] for c in inspector.get_columns('campeonato')}):
+                raise RuntimeError('Migração pendente: execute python -m migrations.penaltis CAMINHO_DO_BANCO. Consulte docs/COPAS_ELIMINACAO.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')

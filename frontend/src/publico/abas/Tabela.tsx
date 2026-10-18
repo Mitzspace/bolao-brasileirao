@@ -10,6 +10,7 @@ import { useRecurso } from '@/lib/useRecurso';
 import type { ItemRanking } from '@/types';
 import { cartao, idDoNome, Titulo } from '../comum';
 import type { AbrirParticipante, ClassificacaoApi } from '../tipos';
+type ClassificacaoComEliminacao = ClassificacaoApi & { eliminadosOcultos?: number };
 
 /** Mensagem enquanto o admin não libera a classificação. */
 export function TabelaEmBreve() {
@@ -31,7 +32,7 @@ export function Tabela({ onAbrirParticipante, onRegras }: { onAbrirParticipante:
   const params = new URLSearchParams();
   if (rodada) params.set('rodada', rodada);
   if (!ocultar) params.set('desistentes', 'mostrar');
-  const { dados, carregando, erro, recarregar } = useRecurso<ClassificacaoApi>(`/classificacao?${params}`);
+  const { dados, carregando, erro, recarregar } = useRecurso<ClassificacaoComEliminacao>(`/classificacao?${params}`);
 
   if (erro && !dados) return <ErroCarga mensagem={erro} onTentar={recarregar} />;
   if (!dados) return <Carregando linhas={4} />;
@@ -57,6 +58,7 @@ export function Tabela({ onAbrirParticipante, onRegras }: { onAbrirParticipante:
         </div>
       </div>
       <div className={`transition-opacity ${carregando ? 'opacity-60' : ''}`}>
+        {!!dados.eliminadosOcultos && <p className="px-5 py-3 text-xs text-gray-500 dark:text-gray-400">{dados.eliminadosOcultos} participantes eliminados nas fases anteriores não aparecem no ranking.</p>}
         {dados.itens.length === 0 ? (
           <EmptyState icon={<Users className="w-10 h-10" />} title="Ninguém na classificação ainda" />
         ) : (

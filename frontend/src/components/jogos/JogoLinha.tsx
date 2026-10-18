@@ -27,6 +27,9 @@ export function JogoLinha({ jogo, mostrarData = false }: { jogo: JogoBase; mostr
           <span className="font-bold text-gray-900 dark:text-white">{jogo.golsCasa}</span>
           <span className="text-gray-400 text-xs">×</span>
           <span className="font-bold text-gray-900 dark:text-white">{jogo.golsFora}</span>
+          {jogo.penaltisCasa != null && jogo.penaltisFora != null && (
+            <span className="text-[10px] font-semibold text-gray-500" title="Placar dos pênaltis">({jogo.penaltisCasa}×{jogo.penaltisFora})</span>
+          )}
         </div>
       ) : (
         <p className="text-[11px] leading-tight font-semibold text-gray-500 dark:text-gray-400 text-center">
