@@ -19,7 +19,7 @@ import unicodedata
 from services.competicoes import (
     ESTAGIOS_COM_RODADA,
     EXTERNAL_FONTE,
-    FONTE_API_FOOTBALL,
+    FONTE_API_FOOTBALL, FONTE_ESPN,
     FONTE_FOOTBALL_DATA,
     nomeador_rodadas,
     normalizar_fonte,
@@ -35,8 +35,11 @@ from services.importador_jogos import (
 
 
 def chave_api(fonte_api):
-    """Chave do servidor para o provedor (API_FOOTBALL_KEY ou FOOTBALL_DATA_TOKEN)."""
-    variavel = "API_FOOTBALL_KEY" if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL else "FOOTBALL_DATA_TOKEN"
+    """Chave do servidor para o provedor; ESPN não exige chave (retorna None)."""
+    fonte = normalizar_fonte(fonte_api)
+    if fonte == FONTE_ESPN:
+        return None
+    variavel = "API_FOOTBALL_KEY" if fonte == FONTE_API_FOOTBALL else "FOOTBALL_DATA_TOKEN"
     try:
         from flask import current_app
         valor = current_app.config.get(variavel)
@@ -47,6 +50,9 @@ def chave_api(fonte_api):
 
 def buscar_jogos(fonte_api, chave, competicao, temporada=None, rodada=None, data_inicio=None, data_fim=None):
     """Jogos do provedor no formato interno (uma chamada à API)."""
+    if normalizar_fonte(fonte_api) == FONTE_ESPN:
+        from services.importador_espn import buscar_jogos_espn
+        return buscar_jogos_espn(competicao, temporada, data_inicio=data_inicio, data_fim=data_fim)
     if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL:
         return buscar_jogos_api_football(chave=chave, liga=competicao, temporada=temporada, rodada=rodada,
                                          data_inicio=data_inicio, data_fim=data_fim)
@@ -55,6 +61,9 @@ def buscar_jogos(fonte_api, chave, competicao, temporada=None, rodada=None, data
 
 
 def buscar_resultados(fonte_api, chave, competicao, temporada=None, rodada=None, data_inicio=None, data_fim=None):
+    if normalizar_fonte(fonte_api) == FONTE_ESPN:
+        from services.importador_espn import buscar_resultados_espn
+        return buscar_resultados_espn(competicao, temporada, data_inicio=data_inicio, data_fim=data_fim)
     if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL:
         return buscar_resultados_api_football(chave=chave, liga=competicao, temporada=temporada, rodada=rodada,
                                               data_inicio=data_inicio, data_fim=data_fim)
@@ -228,7 +237,7 @@ def sync_jogos(token, campeonato_id, competicao,
     from services.classicos import eh_classico
 
     fonte = _fonte_do_campeonato(campeonato_id, fonte_api)
-    api_football = fonte == FONTE_API_FOOTBALL
+    rodada_local = fonte in (FONTE_API_FOOTBALL, FONTE_ESPN)
     external_fonte = EXTERNAL_FONTE[fonte]
 
     # Se for campeonato completo, não filtra por rodada na chamada da API
@@ -238,7 +247,7 @@ def sync_jogos(token, campeonato_id, competicao,
         jogos_api = buscar_jogos(
             fonte, token, competicao,
             temporada=temporada,
-            rodada=None if api_football else filtro_rodada,
+            rodada=None if rodada_local else filtro_rodada,
             data_inicio=data_inicio,
             data_fim=data_fim,
         )
@@ -251,7 +260,7 @@ def sync_jogos(token, campeonato_id, competicao,
     # Cache de rodadas existentes no campeonato para evitar queries repetidas
     rodadas_db = {r.nome: r for r in Rodada.query.filter_by(campeonato_id=campeonato_id).all()}
     nome_por_estagio = nomeador_rodadas(fonte, jogos_api, competicao, list(rodadas_db))
-    if api_football and filtro_rodada and str(filtro_rodada).isdigit():
+    if rodada_local and filtro_rodada and str(filtro_rodada).isdigit():
         jogos_api = [i for i in jogos_api if _numero_da_rodada(nome_por_estagio(i)) == int(filtro_rodada)]
 
     for item in jogos_api:
@@ -259,7 +268,7 @@ def sync_jogos(token, campeonato_id, competicao,
         mata_mata = item.get("estagio") not in ESTAGIOS_COM_RODADA
         if campeonato_completo:
             nome_rod = nome_por_estagio(item)
-        elif api_football:
+        elif rodada_local:
             nome_rod = (nome_rodada or "").strip() or nome_por_estagio(item)
         else:
             if nome_rodada and nome_rodada.strip():
@@ -350,10 +359,13 @@ def sync_resultados(token, competicao,
 
     for item in resultados_api:
         # Cada bolão tem a sua cópia do jogo (mesmo external_id): o resultado vale para todas.
-        jogos = Jogo.query.filter_by(
+        consulta = Jogo.query.filter_by(
             external_fonte=EXTERNAL_FONTE[fonte],
             external_id=item["external_id"],
-        ).all()
+        )
+        jogos = consulta.all()
+        if fonte in (FONTE_API_FOOTBALL, FONTE_ESPN) and rodada_api:
+            jogos = [j for j in jogos if _matchday_da_rodada(j.rodada) == int(rodada_api)]
 
         if not jogos:
             ignorados += 1
@@ -396,7 +408,7 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
     rodadas = Rodada.query.filter_by(campeonato_id=campeonato_id).all()
     # Na API-Football o número que casa com a rodada local vem do nome (Rodada 10 · Oitavas...).
     nome_por_estagio = (nomeador_rodadas(fonte, jogos_api, competicao, [r.nome for r in rodadas])
-                        if fonte == FONTE_API_FOOTBALL else None)
+                        if fonte in (FONTE_API_FOOTBALL, FONTE_ESPN) else None)
     rodadas_por_matchday = {
         matchday: rodada
         for rodada in rodadas
@@ -509,7 +521,7 @@ def sync_competicao(token, competicao, temporada, data_inicio=None, data_fim=Non
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Sync bolão — football-data.org / API-Football")
+    parser = argparse.ArgumentParser(description="Sync bolão — football-data.org / API-Football / ESPN")
     parser.add_argument("acao", choices=["jogos", "resultados"], help="Ação a executar")
     parser.add_argument("--competicao", required=True, help="Código da competição (ex: BSA)")
     parser.add_argument("--campeonato-id", type=int, default=None, help="ID do campeonato local")
@@ -517,21 +529,20 @@ if __name__ == "__main__":
     parser.add_argument("--rodada", default=None, help="Número da rodada na API")
     parser.add_argument("--nome-rodada", default=None, help="Nome da rodada local")
     parser.add_argument("--temporada", default=None, help="Ano da temporada (ex: 2025)")
-    parser.add_argument("--fonte", choices=[FONTE_FOOTBALL_DATA, FONTE_API_FOOTBALL], default=None,
+    parser.add_argument("--fonte", choices=[FONTE_FOOTBALL_DATA, FONTE_API_FOOTBALL, FONTE_ESPN], default=None,
                         help="Provedor (padrão: o do campeonato; sem campeonato, football-data)")
 
     args = parser.parse_args()
-    variavel = "API_FOOTBALL_KEY" if args.fonte == FONTE_API_FOOTBALL else "FOOTBALL_DATA_TOKEN"
-    token = os.environ.get(variavel)
-    if not token:
-        print(f"Defina {variavel}.")
-        sys.exit(1)
-
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app import create_app
     app = create_app()
 
     with app.app_context():
+        fonte = _fonte_do_campeonato(args.campeonato_id, args.fonte)
+        token = chave_api(fonte)
+        if fonte != FONTE_ESPN and not token:
+            variavel = "API_FOOTBALL_KEY" if fonte == FONTE_API_FOOTBALL else "FOOTBALL_DATA_TOKEN"
+            parser.error(f"Defina {variavel}.")
         if args.acao == "jogos":
             res = sync_jogos(
                 token=token,
@@ -541,7 +552,7 @@ if __name__ == "__main__":
                 temporada=args.temporada,
                 rodada_api=args.rodada,
                 campeonato_completo=args.completo,
-                fonte_api=args.fonte,
+                fonte_api=fonte,
             )
             print(f"Resultado: {res}")
         elif args.acao == "resultados":
@@ -550,6 +561,6 @@ if __name__ == "__main__":
                 competicao=args.competicao,
                 temporada=args.temporada,
                 rodada_api=args.rodada,
-                fonte_api=args.fonte,
+                fonte_api=fonte,
             )
             print(f"Resultado: {res}")

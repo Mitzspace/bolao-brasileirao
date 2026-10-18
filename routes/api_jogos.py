@@ -11,6 +11,7 @@ from services.horarios import atualizar_horarios, token_api, ultima_atualizacao
 from services.relogio import agora_brasilia
 from services.resumo_boloes import rodadas_de_referencia
 from services.estado_rodadas import estados_das_rodadas
+from services.competicoes import FONTE_ESPN, FONTE_FOOTBALL_DATA, FONTES_API, normalizar_fonte
 
 
 def _ordenar_jogos(jogos):
@@ -48,6 +49,7 @@ def agenda_jogos():
 
     estados = estados_das_rodadas(bolao, rodadas)
     atualizado = ultima_atualizacao(campeonato_id)
+    fonte = normalizar_fonte(bolao.campeonato.fonte_api)
     return jsonify({
         'agora': agora_brasilia().isoformat(),
         'rodada': {
@@ -66,8 +68,9 @@ def agenda_jogos():
         'jogos': [serializar_jogo(j, campeonato_id) for j in jogos],
         'atrasados': atrasados,
         'horarios': {
-            'fonte': 'football-data.org',
-            'configurado': bool(token_api() and bolao.campeonato.codigo_api),
+            'fonte': FONTES_API[fonte],
+            'configurado': bool(bolao.campeonato.codigo_api and (
+                fonte == FONTE_ESPN or (fonte == FONTE_FOOTBALL_DATA and token_api()))),
             'ultimaAtualizacao': atualizado.strftime('%d/%m %H:%M') if atualizado else None,
         },
     })

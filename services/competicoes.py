@@ -3,30 +3,43 @@ import re
 
 FONTE_FOOTBALL_DATA = "football-data"
 FONTE_API_FOOTBALL = "api-football"
-FONTES_API = {FONTE_FOOTBALL_DATA: "football-data.org", FONTE_API_FOOTBALL: "API-Football"}
+FONTE_ESPN = "espn"  # API pública e não oficial da ESPN, gratuita e sem chave
+FONTES_API = {FONTE_FOOTBALL_DATA: "football-data.org", FONTE_API_FOOTBALL: "API-Football", FONTE_ESPN: "ESPN"}
 # Valor de Jogo.external_fonte de cada provedor.
-EXTERNAL_FONTE = {FONTE_FOOTBALL_DATA: "football-data.org", FONTE_API_FOOTBALL: "api-football"}
+EXTERNAL_FONTE = {FONTE_FOOTBALL_DATA: "football-data.org", FONTE_API_FOOTBALL: "api-football", FONTE_ESPN: "espn"}
 
 
 def normalizar_fonte(fonte):
     return fonte if fonte in FONTES_API else FONTE_FOOTBALL_DATA
 
 
+def normalizar_codigo_api(codigo):
+    """Preserva slug ESPN (com ponto), id numérico da API-Football e código em maiúsculas da football-data."""
+    codigo = (codigo or "").strip()
+    if not codigo:
+        return codigo
+    if "." in codigo:
+        return codigo.casefold()
+    if codigo.isdigit():
+        return codigo
+    return codigo.upper()
+
+
 MODELOS_COMPETICAO = {
     "brasileirao": {"rotulo": "Brasileirão", "nome": "Brasileirão Série A", "codigo_api": "BSA",
                     "fonte_api": FONTE_FOOTBALL_DATA, "eliminacao": False,
                     "descricao": "Pontos corridos, 38 rodadas."},
-    "libertadores": {"rotulo": "Libertadores", "nome": "Copa Libertadores", "codigo_api": "13",
-                     "fonte_api": FONTE_API_FOOTBALL, "eliminacao": True,
+    "libertadores": {"rotulo": "Libertadores", "nome": "Copa Libertadores", "codigo_api": "conmebol.libertadores",
+                     "fonte_api": FONTE_ESPN, "eliminacao": True,
                      "descricao": "Fases preliminares, fase de grupos e mata-mata."},
-    "sulamericana": {"rotulo": "Sul-Americana", "nome": "Copa Sul-Americana", "codigo_api": "11",
-                     "fonte_api": FONTE_API_FOOTBALL, "eliminacao": True,
+    "sulamericana": {"rotulo": "Sul-Americana", "nome": "Copa Sul-Americana", "codigo_api": "conmebol.sudamericana",
+                     "fonte_api": FONTE_ESPN, "eliminacao": True,
                      "descricao": "Fase preliminar, fase de grupos, playoffs e mata-mata."},
-    "copadobrasil": {"rotulo": "Copa do Brasil", "nome": "Copa do Brasil", "codigo_api": "73",
-                     "fonte_api": FONTE_API_FOOTBALL, "eliminacao": True,
+    "copadobrasil": {"rotulo": "Copa do Brasil", "nome": "Copa do Brasil", "codigo_api": "bra.copa_do_brazil",
+                     "fonte_api": FONTE_ESPN, "eliminacao": True,
                      "descricao": "Só mata-mata, da 1ª fase à final."},
-    "mineiro": {"rotulo": "Campeonato Mineiro", "nome": "Campeonato Mineiro", "codigo_api": "629",
-                "fonte_api": FONTE_API_FOOTBALL, "eliminacao": True,
+    "mineiro": {"rotulo": "Campeonato Mineiro", "nome": "Campeonato Mineiro", "codigo_api": "bra.camp.mineiro",
+                "fonte_api": FONTE_ESPN, "eliminacao": True,
                 "descricao": "Primeira fase, semifinal e final."},
 }
 
@@ -232,6 +245,21 @@ def nomes_rodadas_api_football(itens, liga=None, nomes_existentes=()):
 
 
 def nomeador_rodadas(fonte_api, itens, competicao=None, nomes_existentes=()):
+    if normalizar_fonte(fonte_api) == FONTE_ESPN:
+        from services.importador_espn import FORMATO_DA_LIGA
+        liga = FORMATO_DA_LIGA.get(competicao, competicao)
+        nome_base = nomes_rodadas_api_football(itens, liga, nomes_existentes)
+        formato = FORMATO_API_FOOTBALL.get(liga, {})
+        antes = formato.get('fases_numeradas', 0) + int(formato.get('preliminar', False))
+        por_rotulo = {n.split(' · ', 1)[1]: n for n in nomes_existentes if ' · ' in n}
+
+        def nome_espn(item):
+            if item.get('estagio') in ESTAGIOS_COM_RODADA and not item.get('matchday'):
+                rotulo = 'Fase de grupos' if item.get('estagio') == 'GROUP_STAGE' else 'Fase de liga'
+                return por_rotulo.get(rotulo) or f'Rodada {antes + 1} · {rotulo}'
+            return nome_base(item)
+
+        return nome_espn
     if normalizar_fonte(fonte_api) == FONTE_API_FOOTBALL:
         return nomes_rodadas_api_football(itens, competicao, nomes_existentes)
     return nomes_rodadas_por_estagio(itens, competicao, nomes_existentes)

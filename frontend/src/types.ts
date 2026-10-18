@@ -151,9 +151,12 @@ export interface RodadaGestao {
   podeExcluir: boolean;
 }
 
+/** Provedor de jogos e resultados. */
+export type FonteApi = 'football-data' | 'api-football' | 'espn';
+
 /** GET /interface/api/campeonato */
 export interface CampeonatoApi {
-  campeonato: { id: number; nome: string; ano: number | null; codigoApi: string; totalRodadas: number; rodadasConcluidas: number };
+  campeonato: { id: number; nome: string; ano: number | null; codigoApi: string; fonteApi?: FonteApi; totalRodadas: number; rodadasConcluidas: number };
   rodadas: RodadaGestao[];
   campeonatosDoBolao: { bolaoId: number; nome: string; ano: number | null; atual: boolean }[];
   adminGlobal: boolean;
@@ -360,6 +363,7 @@ export interface ModeloCompeticao {
   rotulo: string;
   nome: string;
   codigo_api: string;
+  fonte_api?: FonteApi;
   eliminacao: boolean;
   descricao: string;
   aviso: string | null;

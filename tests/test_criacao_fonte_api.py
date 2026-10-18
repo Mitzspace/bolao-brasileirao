@@ -18,10 +18,11 @@ def _criar(client, **campos):
 
 
 @pytest.mark.parametrize('campos,fonte', [
-    ({'modelo': 'libertadores'}, 'api-football'),
+    ({'modelo': 'libertadores'}, 'espn'),
     ({'modelo': 'brasileirao'}, 'football-data'),
     ({'campeonato': 'Liga X', 'codigoApi': '999', 'fonte_api': 'api-football'}, 'api-football'),
     ({'campeonato': 'Liga Y', 'codigoApi': 'PL'}, 'football-data'),
+    ({'campeonato': 'Liberta', 'codigoApi': 'conmebol.libertadores'}, 'espn'),
 ])
 def test_fonte_gravada(autenticado, campos, fonte):
     assert _criar(autenticado, **campos).fonte_api == fonte

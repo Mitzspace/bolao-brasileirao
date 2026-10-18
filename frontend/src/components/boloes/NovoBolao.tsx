@@ -5,13 +5,10 @@ import { Input, Select } from '@/components/ui/Form';
 import { Avatar } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import { REGRAS_PADRAO, type FontesBolaoApi, type ModeloCompeticao } from '@/types';
+import { REGRAS_PADRAO, type FontesBolaoApi, type FonteApi } from '@/types';
 import { EditorRegras, paraEdicao, validarRegras } from './EditorRegras';
 
-/** Provedor de jogos/resultados; o modelo vem com fonte_api de GET /boloes/fontes. */
-type FonteApi = 'football-data' | 'api-football';
-type Modelo = ModeloCompeticao & { fonte_api?: FonteApi };
-const AVISO_API_FOOTBALL = 'A temporada atual na API-Football exige plano pago; o plano gratuito só dá acesso às temporadas 2022 a 2024.';
+const AVISO_API_FOOTBALL = 'O plano gratuito da API-Football tem restrições de temporadas. Confirme o acesso ao ano desejado; ele pode exigir plano pago.';
 
 const ETAPAS = ['Dados do bolão', 'Campeonato', 'Regras', 'Participantes'];
 const vazio = () => ({ nome: '', modelo: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: '', fonteApi: 'football-data' as FonteApi, eliminacao: false, origemId: '', marcados: [] as number[], regras: paraEdicao(REGRAS_PADRAO) });
@@ -37,8 +34,9 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
   const pessoas = form.origemId ? fontes?.pessoas ?? [] : [];
   const regras = validarRegras(form.regras);
   const todos = pessoas.length > 0 && pessoas.every(p => form.marcados.includes(p.id));
-  const modelos: Modelo[] = fontes?.modelos ?? [];
+  const modelos = fontes?.modelos ?? [];
   const aviso = form.fonteApi === 'api-football' ? AVISO_API_FOOTBALL
+    : form.fonteApi === 'espn' ? 'ESPN: importação de jogos e resultados sem token ou chave. API pública não oficial; a disponibilidade depende da competição e da temporada.'
     : modelos.find(m => (m.fonte_api ?? 'football-data') === 'football-data' && m.codigo_api === form.codigoApi.trim().toUpperCase())?.aviso;
 
   const escolherModelo = (chave: string) => {
@@ -51,7 +49,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
     setSalvando(true); setErro('');
     try {
       await api.post('/boloes', {
-        nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.codigoApi, fonte_api: form.fonteApi,
+        nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase(), fonte_api: form.fonteApi,
         modelo: form.modelo || undefined, eliminacao_participantes: form.eliminacao,
         origemId: form.origemId ? Number(form.origemId) : null, participacaoIds: form.marcados, regras: regras.regras,
       });
@@ -120,13 +118,17 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
           {!form.modelo && (
             <Select label="Fonte dos jogos e resultados" value={form.fonteApi} onChange={e => setForm({ ...form, fonteApi: e.target.value as FonteApi })}>
               <option value="football-data">football-data.org (código, ex.: BSA)</option>
+              <option value="espn">ESPN (sem token ou chave)</option>
               <option value="api-football">API-Football (ID da liga, ex.: 13)</option>
             </Select>
           )}
           <Input label="Campeonato deste bolão" value={form.campeonato} maxLength={100} onChange={e => setForm({ ...form, campeonato: e.target.value })} placeholder="Ex.: Brasileirão Série A" />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Temporada" type="number" min={1} max={9999} value={form.ano} onChange={e => setForm({ ...form, ano: e.target.value })} />
-            <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API (opcional)' : 'Código na API (opcional)'} value={form.codigoApi} maxLength={20} onChange={e => setForm({ ...form, codigoApi: e.target.value.toUpperCase() })} />
+            <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API (opcional)' : form.fonteApi === 'espn' ? 'Slug na ESPN (opcional)' : 'Código na API (opcional)'}
+              value={form.codigoApi} maxLength={40}
+              onChange={e => setForm({ ...form, codigoApi: form.fonteApi === 'espn' ? e.target.value.toLowerCase() : e.target.value.toUpperCase() })}
+              hint={form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro.' : undefined} />
           </div>
           {aviso && <p role="status" className="rounded-xl border border-gold-200 dark:border-gold-800/50 bg-gold-50 dark:bg-gold-900/20 p-3 text-sm text-gold-800 dark:text-gold-200">{aviso}</p>}
           <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer">
@@ -137,7 +139,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
               <span className="block text-xs text-gray-400">Como os times na copa: ao fim de cada fase, só os mais bem pontuados seguem no ranking. Os cortes são configurados depois.</span>
             </span>
           </label>
-          <p className="text-xs text-gray-400">Rodadas e jogos são cadastrados depois, em Configurações › Campeonatos.</p>
+          <p className="text-xs text-gray-400">Depois de criar o bolão, cadastre rodadas e jogos em Configurações › Campeonatos. O administrador geral também pode importar jogos e sincronizar resultados pela fonte selecionada.</p>
         </div>
       )}
 

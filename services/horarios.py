@@ -35,12 +35,15 @@ def ultima_atualizacao(campeonato_id):
 
 def atualizar_horarios(campeonato, forcar=False):
     """Retorna um resumo; nunca lança erro de rede para quem chamou."""
-    if campeonato.fonte_api == 'api-football':
+    from services.competicoes import FONTE_API_FOOTBALL, FONTE_ESPN, normalizar_codigo_api, normalizar_fonte
+    from services.importador_espn import ErroEspn
+    fonte = normalizar_fonte(campeonato.fonte_api)
+    if fonte == FONTE_API_FOOTBALL:
         # Cota de 100 requisições/dia no plano gratuito: os horários vêm só da sincronização.
         return {'status': 'sem_codigo', 'mensagem': 'Campeonato da API-Football: os horários são atualizados '
                 'pela sincronização do campeonato (Configurações › Campeonatos).'}
-    token = token_api()
-    if not token:
+    token = None if fonte == FONTE_ESPN else token_api()
+    if fonte != FONTE_ESPN and not token:
         return {'status': 'sem_token', 'mensagem': 'Configure FOOTBALL_DATA_TOKEN para buscar os horários oficiais.'}
     if not campeonato.codigo_api:
         return {'status': 'sem_codigo', 'mensagem': 'O campeonato não tem código da API configurado.'}
@@ -53,14 +56,17 @@ def atualizar_horarios(campeonato, forcar=False):
         _tentativas[campeonato.id] = agora
     try:
         resultado = sync_informacoes_jogos(
-            token, campeonato.id, campeonato.codigo_api.strip().upper(),
+            token, campeonato.id, normalizar_codigo_api(campeonato.codigo_api),
             temporada=str(campeonato.ano) if campeonato.ano else None,
-            salvar_resultados=False)
+            salvar_resultados=False, fonte_api=fonte)
     except HTTPError as e:
         db.session.rollback()
         mensagem = ('Limite de consultas da API atingido; tente em alguns minutos.' if e.code == 429
                     else f'A API recusou a consulta ({e.code}). Verifique o token e o código do campeonato.')
         return {'status': 'erro', 'mensagem': mensagem}
+    except ErroEspn as e:
+        db.session.rollback()
+        return {'status': 'erro', 'mensagem': str(e)}
     except (URLError, TimeoutError, OSError):
         db.session.rollback()
         return {'status': 'erro', 'mensagem': 'Não foi possível conectar à API de horários.'}

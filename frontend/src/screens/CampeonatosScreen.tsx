@@ -15,13 +15,12 @@ import { SincronizarApi } from '@/components/campeonatos/SincronizarApi';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
-import type { CampeonatoApi, RodadaGestao } from '@/types';
+import type { CampeonatoApi, FonteApi, RodadaGestao } from '@/types';
 
 type Aba = 'rodadas' | 'tabela';
-/** Provedor de jogos/resultados do campeonato (GET /campeonato → campeonato.fonteApi). */
-type FonteApi = 'football-data' | 'api-football';
-type CampeonatoComFonte = CampeonatoApi['campeonato'] & { fonteApi?: FonteApi };
-const NOMES_FONTE: Record<FonteApi, string> = { 'football-data': 'football-data.org', 'api-football': 'API-Football' };
+const NOMES_FONTE: Record<FonteApi, string> = {
+  'football-data': 'football-data.org', 'api-football': 'API-Football', espn: 'ESPN',
+};
 
 const botaoSecundario = 'px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors';
 const botaoPrimario = 'px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-60';
@@ -54,15 +53,15 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
 
   const abrirEdicao = () => {
     if (!dados) return;
-    const c = dados.campeonato as CampeonatoComFonte;
-    setForm({ nome: c.nome, ano: String(c.ano ?? ''), codigoApi: c.codigoApi || 'BSA', fonteApi: c.fonteApi ?? 'football-data' });
+    const c = dados.campeonato;
+    setForm({ nome: c.nome, ano: String(c.ano ?? ''), codigoApi: c.codigoApi, fonteApi: c.fonteApi ?? 'football-data' });
     setMenuAberto(false);
     setEditando(true);
   };
 
   const salvarCampeonato = async () => {
     setSalvando(true);
-    try { await executar(() => api.put<{ mensagem: string }>('/campeonato', form)); setEditando(false); }
+    try { await executar(() => api.put<{ mensagem: string }>('/campeonato', { ...form, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase() })); setEditando(false); }
     catch { /* aviso já exibido */ } finally { setSalvando(false); }
   };
 
@@ -73,7 +72,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
     catch { /* aviso já exibido */ } finally { setSalvando(false); }
   };
 
-  const c = dados?.campeonato as CampeonatoComFonte | undefined;
+  const c = dados?.campeonato;
   const fonte: FonteApi = c?.fonteApi ?? 'football-data';
   const progresso = c && c.totalRodadas ? Math.round((c.rodadasConcluidas / c.totalRodadas) * 100) : 0;
 
@@ -226,16 +225,22 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
           <Input label="Nome do campeonato" value={form.nome} maxLength={100} onChange={e => setForm({ ...form, nome: e.target.value })} />
           <Select label="Fonte dos jogos e resultados" value={form.fonteApi} onChange={e => setForm({ ...form, fonteApi: e.target.value as FonteApi })}>
             <option value="football-data">football-data.org</option>
+            <option value="espn">ESPN (sem chave)</option>
             <option value="api-football">API-Football (api-sports.io)</option>
           </Select>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Temporada" type="number" value={form.ano} onChange={e => setForm({ ...form, ano: e.target.value })} />
-            <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API' : 'Código na API'} value={form.codigoApi} maxLength={20} onChange={e => setForm({ ...form, codigoApi: e.target.value.toUpperCase() })}
-              hint={form.fonteApi === 'api-football' ? '13 = Libertadores, 11 = Sul-Americana, 73 = Copa do Brasil, 629 = Mineiro' : 'BSA = Brasileirão'} />
+            <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API' : form.fonteApi === 'espn' ? 'Slug na ESPN' : 'Código na API'}
+              value={form.codigoApi} maxLength={40}
+              onChange={e => setForm({ ...form, codigoApi: form.fonteApi === 'espn' ? e.target.value.toLowerCase() : e.target.value.toUpperCase() })}
+              hint={form.fonteApi === 'api-football' ? '13 = Libertadores, 11 = Sul-Americana, 73 = Copa do Brasil, 629 = Mineiro'
+                : form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro.' : 'BSA = Brasileirão'} />
           </div>
           <p className="text-xs text-gray-400">{form.fonteApi === 'api-football'
             ? 'A liga e a temporada são usadas para importar jogos e resultados na API-Football (o plano gratuito só tem as temporadas 2022 a 2024).'
-            : 'O código e a temporada são usados para buscar horários e a tabela na football-data.org.'}</p>
+            : form.fonteApi === 'espn'
+              ? 'A ESPN permite importar jogos e sincronizar resultados sem token ou chave. API pública não oficial; a disponibilidade depende da competição e da temporada.'
+              : 'O código e a temporada são usados para buscar horários e a tabela na football-data.org.'}</p>
         </div>
       </Modal>
 
@@ -253,7 +258,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
       </Modal>
 
 
-      {c && <SincronizarApi aberto={sincronizar} onClose={() => setSincronizar(false)} codigoApi={c.codigoApi} ano={c.ano} fonteApi={fonte} onConcluido={() => void recarregar()} />}
+      {c && <SincronizarApi key={`${c.id}:${fonte}:${c.codigoApi}:${c.ano}`} aberto={sincronizar} onClose={() => setSincronizar(false)} codigoApi={c.codigoApi} ano={c.ano} fonteApi={fonte} onConcluido={() => void recarregar()} />}
 
       <ConfirmDialog
         open={!!excluir}

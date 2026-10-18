@@ -152,10 +152,17 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
         inspector = inspect(db.engine)
         if db.engine.dialect.name == 'postgresql' and inspector.get_table_names():
             tabelas_pg = set(inspector.get_table_names())
-            if any(t.name not in tabelas_pg or not set(t.columns.keys()).issubset(
-                    {c['name'] for c in inspector.get_columns(t.name)})
-                   for t in db.metadata.sorted_tables):
-                raise RuntimeError('Schema PostgreSQL incompleto. Prepare migração SQL explícita com backup; não execute os scripts legados SQLite neste banco.')
+            faltantes = []
+            for tabela in db.metadata.sorted_tables:
+                presentes = ({c['name'] for c in inspector.get_columns(tabela.name)}
+                             if tabela.name in tabelas_pg else set())
+                faltantes.extend(f'{tabela.name}.{coluna}' for coluna in tabela.columns.keys()
+                                 if coluna not in presentes)
+            if faltantes:
+                raise RuntimeError(
+                    'Schema PostgreSQL incompleto. Faltam: ' + ', '.join(faltantes) +
+                    '. Aplique as migrações SQL pendentes em migrations/sql após backup; '
+                    'não execute os scripts legados SQLite neste banco.')
         if "participante" in inspector.get_table_names():
             obrigatorias = {
                 "participante": {"admin_global", "conta_ativa"},
@@ -199,6 +206,12 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             if ('pode_penaltis' not in {c['name'] for c in inspector.get_columns('jogo')}
                     or 'fonte_api' not in {c['name'] for c in inspector.get_columns('campeonato')}):
                 raise RuntimeError('Migração pendente: execute python -m migrations.penaltis CAMINHO_DO_BANCO. Consulte docs/COPAS_ELIMINACAO.md.')
+            codigo_api = next(c for c in inspector.get_columns('campeonato') if c['name'] == 'codigo_api')
+            tamanho = getattr(codigo_api['type'], 'length', None)
+            if tamanho is not None and tamanho < 40 and not db.engine.dialect.name.startswith('sqlite'):
+                raise RuntimeError(
+                    'Migração pendente: aplique migrations/sql/012_codigo_api_espn.sql '
+                    '(ou python -m migrations.codigo_api_espn no SQLite). Consulte docs/COPAS_ELIMINACAO.md.')
         else:
             if app.config['PRODUCTION'] and not initialize_database:
                 raise RuntimeError('Banco não inicializado. Execute python -m scripts.inicializar_banco ou migre o SQLite antes do deploy.')

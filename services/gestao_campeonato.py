@@ -6,6 +6,7 @@ import re
 
 from database import db
 from models import BonusRodada, Jogo, Palpite, Rodada
+from services.competicoes import normalizar_codigo_api
 from services.validacao_formularios import inteiro, texto
 
 
@@ -14,9 +15,9 @@ def validar_campeonato(nome, ano, codigo_api=None):
     nome = texto(nome, 'Nome')
     ano = inteiro(ano, 'Temporada', 1, 9999)
     if codigo_api is not None:
-        codigo_api = (codigo_api or 'BSA').strip().upper()
-        if not re.fullmatch(r'[A-Z0-9]{1,20}', codigo_api):
-            raise ValueError('Código da API: use somente letras e números (ex.: BSA).')
+        codigo_api = normalizar_codigo_api(codigo_api or 'BSA')
+        if not re.fullmatch(r'[A-Za-z0-9._-]{1,40}', codigo_api):
+            raise ValueError('Código da API: use letras, números, ponto ou hífen (ex.: BSA ou conmebol.libertadores).')
     return nome, ano, codigo_api
 
 

@@ -162,8 +162,8 @@ class Campeonato(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     ano = db.Column(db.Integer)
-    codigo_api = db.Column(db.String(20), default="BSA", nullable=True)
-    # Provedor dos dados: "football-data" (codigo_api = BSA, CL...) ou "api-football" (codigo_api = id da liga).
+    codigo_api = db.Column(db.String(40), default="BSA", nullable=True)
+    # Provedor: football-data (BSA…), api-football (id numérico) ou espn (slug, ex.: conmebol.libertadores).
     fonte_api = db.Column(db.String(20), nullable=False, default="football-data", server_default="football-data")
 
     rodadas = db.relationship("Rodada", backref="campeonato", lazy=True)

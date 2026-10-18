@@ -7,7 +7,8 @@ from flask_login import current_user
 from database import db
 from models import Rodada
 from routes.api import api, erro, requer_gestao
-from services.competicoes import FONTE_API_FOOTBALL, FONTES_API, normalizar_fonte
+from services.competicoes import (FONTE_API_FOOTBALL, FONTE_ESPN, FONTES_API, normalizar_codigo_api,
+                                  normalizar_fonte)
 from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.estado_rodadas import estados_das_rodadas
 from services.grupos_bolao import campeonatos_do_grupo
@@ -67,7 +68,7 @@ def salvar_campeonato():
     camp = bolao_atual().campeonato
     fonte = corpo.get('fonteApi')
     if fonte is not None and fonte not in FONTES_API:
-        return erro(400, 'Fonte da API inválida (use football-data ou api-football).')
+        return erro(400, 'Fonte da API inválida (use football-data, api-football ou espn).')
     try:
         editar_campeonato(camp, corpo.get('nome'), corpo.get('ano'), corpo.get('codigoApi'))
     except ValueError as e:
@@ -136,7 +137,7 @@ def _opcional(c, chave, limite=20):
 @requer_gestao()
 def sincronizar_campeonato():
     """Ferramentas de API (só administrador geral), no campeonato do bolão atual, pelo provedor
-    do campeonato (fonte_api): football-data.org ou API-Football (com a chave do servidor).
+    do campeonato (fonte_api): football-data.org, API-Football ou ESPN.
 
     jogos: importa/atualiza jogos (rodada ou campeonato completo) e resultados já finalizados;
     informacoes: atualiza horários e resultados dos jogos já cadastrados (não cria jogos);
@@ -145,8 +146,9 @@ def sincronizar_campeonato():
     from urllib.error import HTTPError, URLError
     from flask import current_app
     from services.importador_api_football import ErroApiFootball
-    from services.sync import (campeonatos_da_competicao, chave_api, sync_informacoes_jogos, sync_jogos,
-                               sync_resultados)
+    from services.importador_espn import ErroEspn
+    from services.sync import (buscar_jogos, campeonatos_da_competicao, chave_api, sync_informacoes_jogos,
+                               sync_jogos, sync_resultados)
     from services.validacao_formularios import texto
     if not current_user.admin_global:
         return erro(403, 'Disponível só para o administrador geral.')
@@ -155,7 +157,7 @@ def sincronizar_campeonato():
     camp = bolao_atual().campeonato
     fonte = normalizar_fonte(camp.fonte_api)
     token = (c.get('token') if isinstance(c.get('token'), str) else '').strip() or chave_api(fonte)
-    if not token:
+    if fonte != FONTE_ESPN and not token:
         if fonte == FONTE_API_FOOTBALL:
             return erro(400, 'Configure API_FOOTBALL_KEY no servidor para sincronizar com a API-Football.')
         return erro(400, 'Informe o token da API ou configure FOOTBALL_DATA_TOKEN.')
@@ -163,11 +165,14 @@ def sincronizar_campeonato():
     try:
         if acao not in {'jogos', 'informacoes', 'resultados'}:
             raise ValueError('Selecione uma ação de sincronização válida.')
-        competicao = texto(_opcional(c, 'competicao') or camp.codigo_api or '', 'Competição', 20).strip().upper()
+        competicao = normalizar_codigo_api(
+            texto(_opcional(c, 'competicao', 40) or camp.codigo_api or '', 'Competição', 40))
         temporada = _opcional(c, 'temporada') or (str(camp.ano) if camp.ano else None)
         data_inicio, data_fim = _opcional(c, 'dataInicio'), _opcional(c, 'dataFim')
         completo = c.get('campeonatoCompleto') is True
         rodada_api = _opcional(c, 'rodadaApi')
+        if fonte in (FONTE_API_FOOTBALL, FONTE_ESPN) and rodada_api and not rodada_api.isdecimal():
+            raise ValueError('Informe um número de rodada válido.')
         nome_rodada = _opcional(c, 'nomeRodada', 100)
         if acao == 'jogos' and not completo and not nome_rodada and not rodada_api:
             raise ValueError('Informe o número da rodada na API, o nome da rodada ou marque o campeonato completo.')
@@ -187,6 +192,9 @@ def sincronizar_campeonato():
                 from services.importador_api_football import buscar_jogos_api_football
                 jogos_api = buscar_jogos_api_football(chave=token, liga=competicao, temporada=temporada,
                                                       data_inicio=data_inicio, data_fim=data_fim)
+            elif fonte == FONTE_ESPN:
+                jogos_api = buscar_jogos(fonte, token, competicao, temporada=temporada,
+                                         data_inicio=data_inicio, data_fim=data_fim)
             else:
                 from services.importador_jogos import buscar_jogos_football_data
                 jogos_api = buscar_jogos_football_data(token=token, competicao=competicao, temporada=temporada,
@@ -195,7 +203,7 @@ def sincronizar_campeonato():
                                        temporada=temporada, data_inicio=data_inicio, data_fim=data_fim,
                                        jogos_api=jogos_api, fonte_api=fonte)
             # A mesma resposta atualiza os outros bolões do provedor/competição/temporada, sem nova chamada.
-            mesma_competicao = ((camp.codigo_api or '').strip().upper() == competicao
+            mesma_competicao = (normalizar_codigo_api(camp.codigo_api) == competicao
                                 and temporada == (str(camp.ano) if camp.ano else None))
             irmaos = [x.id for x in campeonatos_da_competicao(competicao, camp.ano, fonte)
                       if x.id != camp.id] if mesma_competicao else []
@@ -219,13 +227,13 @@ def sincronizar_campeonato():
                                 rodada_api=rodada_api, data_inicio=data_inicio, data_fim=data_fim,
                                 fonte_api=fonte)
             mensagem = f"Resultados sincronizados: {r['atualizados']} atualizados, {r['ignorados']} ignorados."
-    except ErroApiFootball as e:  # plano/temporada, chave inválida, limite diário...
+    except (ErroApiFootball, ErroEspn) as e:
         db.session.rollback()
         return erro(502, str(e))
     except HTTPError as e:
         db.session.rollback()
         return erro(502, _mensagem_http(e, fonte))
-    except URLError:
+    except (URLError, TimeoutError):
         db.session.rollback()
         return erro(502, 'Não foi possível conectar à API. Tente novamente em instantes.')
     return jsonify({'mensagem': mensagem, 'outrosCampeonatos': aplicados})

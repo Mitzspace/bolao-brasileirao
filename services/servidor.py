@@ -16,8 +16,7 @@ def main():
     with app.app_context():
         db.engine.dispose()
     sincronizar = os.environ.get('SYNC_ENABLED', 'false').lower() == 'true'
-    if sincronizar and not app.config.get('FOOTBALL_DATA_TOKEN'):
-        raise SystemExit('SYNC_ENABLED requer FOOTBALL_DATA_TOKEN.')
+    # O worker verifica as chaves por provedor; ESPN não exige token.
     processos = []
     encerrando = False
 

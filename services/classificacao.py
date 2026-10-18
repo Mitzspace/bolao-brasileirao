@@ -54,9 +54,10 @@ def _formatar_horario_brasilia(dt_utc):
     return dt_br.strftime("%H:%M de %d/%m")
 
 
-def buscar_classificacao(token=None, competicao="BSA", temporada=None, campeonato_id=None):
+def buscar_classificacao(token=None, competicao="BSA", temporada=None, campeonato_id=None, fonte_api=None):
     """
     Busca a classificação de uma competição na API ou no cache do banco de dados.
+    fonte_api='espn' consulta a ESPN (services/classificacao_espn.py, sem token); o resto, a football-data.
     
     Retorna um dicionário:
     {
@@ -94,6 +95,7 @@ def buscar_classificacao(token=None, competicao="BSA", temporada=None, campeonat
         "erro": str | None
     }
     """
+    espn = fonte_api == "espn"
     token = token or os.environ.get("FOOTBALL_DATA_TOKEN")
 
     camp = None
@@ -125,14 +127,12 @@ def buscar_classificacao(token=None, competicao="BSA", temporada=None, campeonat
     # 2. Se o cache expirou ou não existe, consulta a API football-data.org
     try:
         aviso = None
-        try:
-            dados_api = _requisitar_api(token, competicao, temporada)
-        except HTTPError as erro:
-            if competicao.upper() not in {"CL", "WC", "EC", "CLI", "FAC"} or erro.code != 404:
-                raise
-            dados_api = _requisitar_api(token, competicao, temporada, recurso="matches")
-            dados_api.setdefault("standings", [])
-        if dados_api.get("competition", {}).get("type") == "CUP" and "matches" not in dados_api:
+        if espn:
+            from services.classificacao_espn import buscar_classificacao_espn
+            dados_api = buscar_classificacao_espn(competicao, temporada)
+        else:
+            dados_api = _buscar_football_data(token, competicao, temporada)
+        if not espn and dados_api.get("competition", {}).get("type") == "CUP" and "matches" not in dados_api:
             try:
                 partidas = _requisitar_api(token, competicao, temporada, recurso="matches")
                 dados_api["matches"] = partidas.get("matches", [])
@@ -186,7 +186,9 @@ def buscar_classificacao(token=None, competicao="BSA", temporada=None, campeonat
 
         # Sem cache disponível para fallback
         msg_erro = f"Não foi possível carregar a tabela da competição {competicao}."
-        if isinstance(erro, HTTPError):
+        if espn:
+            msg_erro = "Não foi possível carregar a tabela da ESPN agora. Tente novamente em alguns minutos."
+        elif isinstance(erro, HTTPError):
             if erro.code == 429:
                 msg_erro = "Limite de requisições da API atingido. Tente novamente em alguns minutos."
             elif erro.code == 403:
@@ -205,6 +207,17 @@ def buscar_classificacao(token=None, competicao="BSA", temporada=None, campeonat
         }
 
 
+def _buscar_football_data(token, competicao, temporada):
+    try:
+        return _requisitar_api(token, competicao, temporada)
+    except HTTPError as erro:
+        if competicao.upper() not in {"CL", "WC", "EC", "CLI", "FAC"} or erro.code != 404:
+            raise
+        dados_api = _requisitar_api(token, competicao, temporada, recurso="matches")
+        dados_api.setdefault("standings", [])
+        return dados_api
+
+
 def _processar_resposta(dados_api, competicao_codigo, fonte_cache=False, horario_cache=""):
     """Normaliza o payload retornado pela API football-data.org para a estrutura de grupos e linhas."""
     standings = dados_api.get("standings", [])
@@ -212,6 +225,8 @@ def _processar_resposta(dados_api, competicao_codigo, fonte_cache=False, horario
     season_info = dados_api.get("season", {})
 
     grupos = []
+    # Zonas que vêm da própria API (ESPN: table[]._zona), agregadas para a legenda.
+    legendas_api = {}
 
     for st in standings:
         tipo = st.get("type", "TOTAL")
@@ -231,6 +246,10 @@ def _processar_resposta(dados_api, competicao_codigo, fonte_cache=False, horario
             team = table_row.get("team", {})
             
             zona = obter_zona(competicao_codigo, pos, st.get("stage"))
+            if table_row.get("_zona"):
+                zona = {**table_row["_zona"], "faixa": (pos, pos)}
+                atual = legendas_api.setdefault(zona["nome"], {**zona})
+                atual["faixa"] = (min(atual["faixa"][0], pos), max(atual["faixa"][1], pos))
 
             linhas.append({
                 "posicao": pos,
@@ -262,7 +281,8 @@ def _processar_resposta(dados_api, competicao_codigo, fonte_cache=False, horario
         "competicao_nome": competition_info.get("name", "Campeonato"),
         "temporada": season_info.get("startDate", "")[:4] if season_info.get("startDate") else "",
         "grupos": grupos,
-        "legendas": obter_legendas(competicao_codigo, [g["estagio"] for g in grupos]),
+        "legendas": (sorted(legendas_api.values(), key=lambda z: z["faixa"]) if legendas_api
+                     else obter_legendas(competicao_codigo, [g["estagio"] for g in grupos])),
         "mata_mata": _processar_mata_mata(dados_api.get("matches", [])),
         "fonte_cache": fonte_cache,
         "horario_cache": horario_cache,
