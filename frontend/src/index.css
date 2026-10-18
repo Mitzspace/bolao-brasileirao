@@ -47,6 +47,130 @@
   }
 }
 
+/* Paletas (canais RGB) lidas pelo tailwind.config.js. O padrão é o visual verde de sempre; um campeonato
+   com tema (data-tema na <html>, ver lib/temaCampeonato.ts) redefine só as variáveis que quiser. */
+:root {
+  --brand-50: 236 253 245; --brand-100: 209 250 229; --brand-200: 167 243 208; --brand-300: 110 231 183;
+  --brand-400: 52 211 153; --brand-500: 16 185 129; --brand-600: 5 150 105; --brand-700: 4 120 87;
+  --brand-800: 6 95 70; --brand-900: 6 78 59; --brand-950: 2 44 34;
+  --gold-50: 255 251 235; --gold-100: 254 243 199; --gold-200: 253 230 138; --gold-300: 252 211 77;
+  --gold-400: 251 191 36; --gold-500: 245 158 11; --gold-600: 217 119 6; --gold-700: 180 83 9;
+  --gold-800: 146 64 14; --gold-900: 120 53 15;
+  --gray-50: 249 250 251; --gray-100: 243 244 246; --gray-200: 229 231 235; --gray-300: 209 213 219;
+  --gray-400: 156 163 175; --gray-500: 107 114 128; --gray-600: 75 85 99; --gray-700: 55 65 81;
+  --gray-800: 31 41 55; --gray-900: 17 24 39; --gray-950: 3 7 18;
+}
+
+/* Copa do Mundo: azul-royal como cor principal, dourado de troféu, cinzas azulados (noite de estádio). */
+:root[data-tema='copa-do-mundo'] {
+  --brand-50: 239 246 255; --brand-100: 219 234 254; --brand-200: 191 219 254; --brand-300: 147 197 253; --brand-400: 96 165 250; --brand-500: 59 130 246; --brand-600: 37 99 235; --brand-700: 29 78 216; --brand-800: 30 64 175; --brand-900: 30 58 138; --brand-950: 23 37 84;
+  --gold-400: 250 204 21; --gold-500: 234 179 8; --gold-600: 202 138 4;
+  --gray-50: 248 250 252; --gray-100: 241 245 249; --gray-200: 226 232 240; --gray-300: 203 213 225; --gray-400: 148 163 184; --gray-500: 100 116 139; --gray-600: 71 85 105; --gray-700: 51 65 85; --gray-800: 30 41 59; --gray-900: 15 23 42; --gray-950: 2 6 23;
+  --tema-fio: linear-gradient(90deg, #16a34a 0 20%, #f8fafc 20% 40%, #dc2626 40% 60%, rgb(var(--brand-600)) 60% 80%, rgb(var(--gold-400)) 80%);
+}
+
+/* Libertadores: ouro sobre cinzas quentes, quase preto. */
+:root[data-tema='libertadores'] {
+  --brand-50: 255 251 235; --brand-100: 254 243 199; --brand-200: 253 230 138; --brand-300: 252 211 77; --brand-400: 251 191 36; --brand-500: 245 158 11; --brand-600: 217 119 6; --brand-700: 180 83 9; --brand-800: 146 64 14; --brand-900: 120 53 15; --brand-950: 69 26 3;
+  --gray-50: 250 250 249; --gray-100: 245 245 244; --gray-200: 231 229 228; --gray-300: 214 211 209; --gray-400: 168 162 158; --gray-500: 120 113 108; --gray-600: 87 83 78; --gray-700: 68 64 60; --gray-800: 41 37 36; --gray-900: 28 25 23; --gray-950: 12 10 9;
+  --tema-fio: linear-gradient(90deg, #0c0a09 0 34%, rgb(var(--gold-400)) 34% 67%, #0c0a09 67%);
+}
+
+/* Sul-Americana: verde-água com o amarelo da taça. */
+:root[data-tema='sul-americana'] {
+  --brand-50: 240 253 250; --brand-100: 204 251 241; --brand-200: 153 246 228; --brand-300: 94 234 212; --brand-400: 45 212 191; --brand-500: 20 184 166; --brand-600: 13 148 136; --brand-700: 15 118 110; --brand-800: 17 94 89; --brand-900: 19 78 74; --brand-950: 4 47 46;
+  --gold-400: 250 204 21; --gold-500: 234 179 8; --gold-600: 202 138 4;
+  --tema-fio: linear-gradient(90deg, rgb(var(--brand-600)) 0 34%, #facc15 34% 67%, #1d4ed8 67%);
+}
+
+/* Copa do Brasil: verde e amarelo. */
+:root[data-tema='copa-do-brasil'] {
+  --brand-50: 240 253 244; --brand-100: 220 252 231; --brand-200: 187 247 208; --brand-300: 134 239 172; --brand-400: 74 222 128; --brand-500: 34 197 94; --brand-600: 22 163 74; --brand-700: 21 128 61; --brand-800: 22 101 52; --brand-900: 20 83 45; --brand-950: 5 46 22;
+  --gold-400: 250 204 21; --gold-500: 234 179 8; --gold-600: 202 138 4;
+  --tema-fio: linear-gradient(90deg, rgb(var(--brand-600)) 0 34%, #facc15 34% 67%, #1d4ed8 67%);
+}
+
+/* Brasileirão: índigo (a silhueta de fundo vem do bloco do estádio, mais abaixo). */
+:root[data-tema='brasileirao'] {
+  --brand-50: 238 242 255; --brand-100: 224 231 255; --brand-200: 199 210 254; --brand-300: 165 180 252;
+  --brand-400: 129 140 248; --brand-500: 99 102 241; --brand-600: 79 70 229; --brand-700: 67 56 202;
+  --brand-800: 55 48 163; --brand-900: 49 46 129; --brand-950: 30 27 75;
+  --tema-fio: linear-gradient(90deg, rgb(var(--brand-600)) 0 34%, #facc15 34% 67%, #16a34a 67%);
+}
+
+/* Campeonato Mineiro: vermelho e preto. */
+:root[data-tema='mineiro'] {
+  --brand-50: 254 242 242; --brand-100: 254 226 226; --brand-200: 254 202 202; --brand-300: 252 165 165; --brand-400: 248 113 113; --brand-500: 239 68 68; --brand-600: 220 38 38; --brand-700: 185 28 28; --brand-800: 153 27 27; --brand-900: 127 29 29; --brand-950: 69 10 10;
+  --gray-50: 250 250 249; --gray-100: 245 245 244; --gray-200: 231 229 228; --gray-300: 214 211 209; --gray-400: 168 162 158; --gray-500: 120 113 108; --gray-600: 87 83 78; --gray-700: 68 64 60; --gray-800: 41 37 36; --gray-900: 28 25 23; --gray-950: 12 10 9;
+  --tema-fio: linear-gradient(90deg, rgb(var(--brand-600)) 0 34%, #f8fafc 34% 67%, #0c0a09 67%);
+}
+
+/* Regras comuns a todo campeonato com tema (as cores vêm das variáveis acima). */
+:root[data-tema] body {
+  background-image:
+    radial-gradient(circle at 100% 0, rgb(var(--brand-500) / 0.10), transparent 38%),
+    radial-gradient(circle at 0 100%, rgb(var(--gold-400) / 0.10), transparent 34%);
+  background-attachment: fixed;
+}
+:root[data-tema] body::before {
+  content: ''; position: fixed; inset: 0 0 auto 0; height: 4px; z-index: 60; pointer-events: none;
+  background: var(--tema-fio);
+}
+:root[data-tema] .panel { box-shadow: inset 0 2px 0 rgb(var(--gold-400) / 0.55), 0 1px 2px rgb(0 0 0 / 0.05); }
+:root[data-tema] .bg-gradient-to-r.from-brand-600 {
+  background-image:
+    radial-gradient(circle at 92% 18%, rgb(var(--gold-400) / 0.35), transparent 22%),
+    linear-gradient(120deg, rgb(var(--brand-800)), rgb(var(--brand-600)) 55%, rgb(var(--brand-700)));
+}
+
+/* ===== EXPERIMENTO: plano de fundo próprio de cada campeonato. Para voltar ao fundo único de antes,
+   apague este bloco inteiro (até o fim do comentário "FIM DO EXPERIMENTO"). ===== */
+/* Copa do Mundo: faixas de gramado. */
+:root[data-tema='copa-do-mundo'] body {
+  background-image:
+    radial-gradient(circle at 100% 0, rgb(var(--gold-400) / 0.12), transparent 38%),
+    repeating-linear-gradient(90deg, rgb(var(--brand-600) / 0.05) 0 80px, transparent 80px 160px);
+}
+/* Libertadores: listras diagonais douradas. */
+:root[data-tema='libertadores'] body {
+  background-image:
+    radial-gradient(circle at 50% 0, rgb(var(--gold-400) / 0.14), transparent 45%),
+    repeating-linear-gradient(135deg, rgb(var(--gold-500) / 0.07) 0 2px, transparent 2px 26px);
+}
+/* Sul-Americana: grade de pontos. */
+:root[data-tema='sul-americana'] body {
+  background-image:
+    radial-gradient(circle at 0 0, rgb(var(--gold-400) / 0.12), transparent 36%),
+    radial-gradient(rgb(var(--brand-500) / 0.16) 1.5px, transparent 1.5px);
+  background-size: auto, 22px 22px;
+}
+/* Copa do Brasil: losangos da bandeira. */
+:root[data-tema='copa-do-brasil'] body {
+  background-image:
+    linear-gradient(45deg, rgb(var(--gold-400) / 0.08) 25%, transparent 25% 75%, rgb(var(--gold-400) / 0.08) 75%),
+    linear-gradient(-45deg, rgb(var(--brand-500) / 0.07) 25%, transparent 25% 75%, rgb(var(--brand-500) / 0.07) 75%);
+  background-size: 56px 56px;
+}
+/* Mineiro: listras verticais de camisa. */
+:root[data-tema='mineiro'] body {
+  background-image:
+    radial-gradient(circle at 100% 100%, rgb(var(--brand-500) / 0.10), transparent 40%),
+    repeating-linear-gradient(90deg, rgb(var(--brand-600) / 0.06) 0 36px, rgb(var(--gray-900) / 0.05) 36px 72px);
+}
+/* Estádio de fundo: silhueta (SVG usado como máscara) pintada com a cor principal do tema. */
+:root[data-tema] body::after {
+  content: ''; position: fixed; inset: auto 0 0 0; height: min(46vh, 380px); z-index: -1; pointer-events: none;
+  background: rgb(var(--brand-600) / 0.16);
+  -webkit-mask: var(--estadio) center bottom / cover no-repeat; mask: var(--estadio) center bottom / cover no-repeat;
+}
+:root[data-tema='copa-do-mundo'] { --estadio: url('./assets/estadios/mundo.svg'); }
+:root[data-tema='libertadores'] { --estadio: url('./assets/estadios/luzes.svg'); }
+:root[data-tema='sul-americana'] { --estadio: url('./assets/estadios/arcadas.svg'); }
+:root[data-tema='copa-do-brasil'] { --estadio: url('./assets/estadios/bacia.svg'); }
+:root[data-tema='mineiro'] { --estadio: url('./assets/estadios/colunas.svg'); }
+:root[data-tema='brasileirao'] { --estadio: url('./assets/estadios/anel.svg'); }
+/* ===== FIM DO EXPERIMENTO ===== */
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -15,6 +15,8 @@ export interface BolaoResumo {
   ano: number | null;
   /** Bolão principal do grupo: campeonatos do mesmo bolão têm o mesmo grupoId. */
   grupoId: number;
+  /** Tema visual do campeonato ('copa-do-mundo'); null/ausente = visual padrão. */
+  tema?: string | null;
 }
 
 export interface Mensagem {
@@ -179,9 +181,13 @@ export interface TabelaApi {
   fonteCache: boolean;
   horarioCache: string;
   competicao: string;
+  /** Nome do provedor (football-data.org, ESPN…); ausente em respostas de erro. */
+  fonte?: string;
   grupos: { nome: string; linhas: LinhaTabela[] }[];
   legendas: ZonaTabela[];
   mataMata: { nome: string; jogos: { id?: number; casa: string; fora: string; gols_casa: number | null; gols_fora: number | null; status: string; horario: string | null }[] }[];
+  /** Jogos importados (ESPN), por rodada/fase; vazio nas outras fontes. */
+  confrontos: { nome: string; jogos: JogoBase[] }[];
 }
 
 export interface JogoGestao extends JogoApi {
@@ -365,6 +371,8 @@ export interface ModeloCompeticao {
   codigo_api: string;
   fonte_api?: FonteApi;
   eliminacao: boolean;
+  /** Estágio a partir do qual importar por padrão (ex.: LAST_32 na Copa do Brasil). */
+  fase_inicial?: string;
   descricao: string;
   aviso: string | null;
 }

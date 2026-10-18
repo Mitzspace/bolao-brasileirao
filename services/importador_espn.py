@@ -20,13 +20,15 @@ from services.importador_jogos import _parse_data_brasilia
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 # Liga ESPN -> id da liga na API-Football (formato fixo de rodadas em FORMATO_API_FOOTBALL).
 FORMATO_DA_LIGA = {"conmebol.libertadores": "13", "conmebol.sudamericana": "11",
-                   "bra.copa_do_brazil": "73", "bra.camp.mineiro": "629"}
+                   "bra.copa_do_brazil": "73", "bra.camp.mineiro": "629", "fifa.world": "1"}
 # season.slug da ESPN -> league.round da API-Football. None = fase fora do bolão (ex.: Troféu Inconfidência).
 FASES = {"first-stage": "1st Round", "second-stage": "2nd Round", "third-stage": "3rd Round",
          "first-round": "1st Round", "second-round": "2nd Round", "third-round": "3rd Round",
          "fourth-round": "4th Round", "fifth-round": "5th Round",
-         "knockout-round-playoffs": "Knockout Round Play-offs", "round-of-16": "Round of 16",
+         "knockout-round-playoffs": "Knockout Round Play-offs", "round-of-32": "Round of 32",
+         "round-of-16": "Round of 16",
          "quarterfinals": "Quarter-finals", "semifinals": "Semi-finals",
+         "3rd-place-match": "Third Place", "third-place-match": "Third Place", "3rd-place-game": "Third Place",
          "final": "Final", "finals": "Final",
          "playoffs---semifinals": "Semi-finals",
          "playoffs---final": "Final", "playoffs---finals": "Final"}

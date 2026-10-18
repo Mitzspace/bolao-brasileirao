@@ -8,7 +8,7 @@ from database import db
 from models import Rodada
 from routes.api import api, erro, requer_gestao
 from services.competicoes import (FONTE_API_FOOTBALL, FONTE_ESPN, FONTES_API, normalizar_codigo_api,
-                                  normalizar_fonte)
+                                  normalizar_fonte, validar_fase_inicial)
 from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.estado_rodadas import estados_das_rodadas
 from services.grupos_bolao import campeonatos_do_grupo
@@ -174,6 +174,8 @@ def sincronizar_campeonato():
         if fonte in (FONTE_API_FOOTBALL, FONTE_ESPN) and rodada_api and not rodada_api.isdecimal():
             raise ValueError('Informe um número de rodada válido.')
         nome_rodada = _opcional(c, 'nomeRodada', 100)
+        # Só vale na importação de jogos (rodada específica já define o que entra).
+        fase_inicial = validar_fase_inicial(c.get('faseInicial')) if acao == 'jogos' and completo else None
         if acao == 'jogos' and not completo and not nome_rodada and not rodada_api:
             raise ValueError('Informe o número da rodada na API, o nome da rodada ou marque o campeonato completo.')
     except ValueError as e:
@@ -184,7 +186,8 @@ def sincronizar_campeonato():
             r = sync_jogos(token=token, campeonato_id=camp.id, competicao=competicao,
                            nome_rodada=None if completo else nome_rodada, temporada=temporada,
                            rodada_api=None if completo else rodada_api, data_inicio=data_inicio,
-                           data_fim=data_fim, campeonato_completo=completo, fonte_api=fonte)
+                           data_fim=data_fim, campeonato_completo=completo, fonte_api=fonte,
+                           fase_inicial=fase_inicial)
             mensagem = (f"Sincronização concluída: {r['criados']} jogos novos, {r['atualizados']} atualizados, "
                         f"{r['resultados_salvos']} resultados salvos e {r['rodadas_criadas']} rodadas criadas.")
         elif acao == 'informacoes':

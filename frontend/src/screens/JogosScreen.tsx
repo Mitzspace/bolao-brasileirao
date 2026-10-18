@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
+import { TabelaConteudo } from '@/components/campeonatos/TabelaOficial';
 import { Header } from '@/components/layout/Header';
-import { AgendaRodada, SeletorVisaoJogos, type VisaoJogos } from '@/components/jogos/AgendaRodada';
+import { AgendaRodada, SeletorVisaoJogos, opcoesDaCompeticao, type VisaoJogos } from '@/components/jogos/AgendaRodada';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { useToast } from '@/components/ui/Toast';
 import { useRecurso } from '@/lib/useRecurso';
 import { api } from '@/lib/api';
-import type { AgendaApi, AtualizacaoHorarios } from '@/types';
+import type { AgendaApi, AtualizacaoHorarios, TabelaApi } from '@/types';
 
 export function JogosScreen() {
   const showToast = useToast();
   const [rodadaId, setRodadaId] = useState<number | null>(null);
   const { dados, carregando, erro, recarregar } = useRecurso<AgendaApi>(rodadaId ? `/jogos?rodada_id=${rodadaId}` : '/jogos');
   const [atualizando, setAtualizando] = useState(false);
-  const [visao, setVisao] = useState<VisaoJogos>('jogos');
+  const [escolhida, setVisao] = useState<VisaoJogos>('jogos');
+  const tabela = useRecurso<TabelaApi>('/tabela');
+  const opcoes = opcoesDaCompeticao(tabela.dados);
+  const visao = opcoes.includes(escolhida) ? escolhida : 'jogos';
   const automatico = useRef(false);
 
   const atualizarHorarios = useCallback(async (forcar: boolean) => {
@@ -52,7 +55,7 @@ export function JogosScreen() {
     <div>
       <Header
         title="Jogos"
-        subtitle={visao === 'tabela' ? 'Classificação do campeonato agora' : 'Próxima rodada e jogos atrasados'}
+        subtitle={visao === 'jogos' ? 'Próxima rodada e jogos atrasados' : visao === 'confrontos' ? 'Chave do mata-mata' : 'Classificação do campeonato agora'}
         actions={visao === 'jogos' && dados?.horarios.configurado ? (
           <button onClick={() => atualizarHorarios(true)} disabled={atualizando} title="Buscar horários oficiais na API"
             className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors">
@@ -62,8 +65,8 @@ export function JogosScreen() {
         ) : undefined}
       />
       <div className="p-4 md:p-8 space-y-6 pb-28 md:pb-8">
-        <SeletorVisaoJogos visao={visao} onMudar={setVisao} />
-        {visao === 'tabela' && <TabelaOficial />}
+        <SeletorVisaoJogos visao={visao} onMudar={setVisao} opcoes={opcoes} />
+        {visao !== 'jogos' && <TabelaConteudo recurso={tabela} visao={visao} />}
         {visao === 'jogos' && erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
         {visao === 'jogos' && !dados && carregando && <Carregando linhas={4} />}
         {visao === 'jogos' && dados && r && (

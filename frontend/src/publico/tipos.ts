@@ -2,7 +2,7 @@
 import type { JogoBase, Regras } from '@/types';
 
 export interface DadosPagina {
-  bolao: { nome: string; campeonato: string; ano: number | null };
+  bolao: { nome: string; campeonato: string; ano: number | null; tema?: string | null };
   apiBase: string;
 }
 

@@ -7,10 +7,10 @@ from routes.api import api, erro, requer_gestao
 from routes.api_serializacao import serializar_item_ranking, serializar_regras
 from services.contexto_bolao import lembrar_bolao, opcoes_rodadas
 from services.edicao_bolao import alterar_status, editavel, mensagem_bloqueio, renomear
-from services.competicoes import MODELOS_COMPETICAO
+from services.competicoes import MODELOS_COMPETICAO, tema_do_campeonato, validar_fase_inicial
 from services.criacao_bolao import (aviso_plano_pago, modelos_disponiveis, validar_fonte,
-                                    criar_bolao, fontes_de_copia, mensagem_criacao,
-                                    pessoas_da_origem, validar_dados)
+                                    criar_bolao, fontes_de_copia, importar_jogos_iniciais, mensagem_criacao,
+                                    pessoas_da_origem, validar_dados, verificar_temporada)
 from models import Participacao
 from services.evolucao_ranking import evolucao, rotulo_curto
 from services.ranking import calcular_ranking, carregar_participantes, ranking_com_variacao
@@ -43,6 +43,7 @@ def listar_boloes():
     return jsonify({'boloes': [{
         'id': b.id, 'nome': b.nome, 'chave': b.chave, 'grupoId': b.grupo_raiz_id,
         'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano, 'status': b.status,
+        'tema': tema_do_campeonato(b.campeonato.codigo_api),
         'participantesAtivos': resumos[b.id]['ativos'],
         'rodada': resumos[b.id]['rodada'].nome if resumos[b.id]['rodada'] else None,
         # Mesma regra do dashboard: quem tem algum jogo em branco na rodada atual.
@@ -181,6 +182,34 @@ def fontes_para_copiar():
     })
 
 
+def _dados_competicao(c, nome_padrao=None):
+    """Campeonato, temporada, código e fonte normalizados (ValueError se inválidos)."""
+    def txt(chave):
+        return c.get(chave) if isinstance(c.get(chave), str) else None
+    ano = c.get('ano') if isinstance(c.get('ano'), (str, int)) and not isinstance(c.get('ano'), bool) else None
+    dados = validar_dados(txt('nome') or nome_padrao, txt('campeonato_nome') or txt('campeonato'), ano,
+                          txt('codigo_api') or txt('codigoApi'), c.get('modelo'))
+    # Fonte informada prevalece; sem ela vale a do modelo (se o código for o dele) ou a inferida do código.
+    modelo = MODELOS_COMPETICAO.get(c.get('modelo') or '', {})
+    fonte = c.get('fonte_api') or (modelo.get('fonte_api') if modelo.get('codigo_api') == dados[3] else None)
+    return dados, validar_fonte(fonte, dados[3])
+
+
+@api.post('/boloes/verificar-temporada')
+@requer_gestao(precisa_bolao=False)
+def checar_temporada():
+    """Confere, antes de criar, se a fonte tem a temporada escolhida."""
+    c = request.get_json(silent=True) or {}
+    if not isinstance(c, dict):
+        return erro(400)
+    try:
+        dados, fonte_api = _dados_competicao(c, 'Bolão')
+        verificar_temporada(dados[1], dados[2], dados[3], fonte_api)
+    except ValueError as e:
+        return erro(400, str(e))
+    return jsonify({'ok': True})
+
+
 @api.post('/boloes')
 @requer_gestao(precisa_bolao=False)
 def novo_bolao():
@@ -206,15 +235,9 @@ def novo_bolao():
     if selecionados - {p.id for p in pessoas}:
         return erro(403)
     try:
-        def txt(chave):
-            return c.get(chave) if isinstance(c.get(chave), str) else None
-        ano = c.get('ano') if isinstance(c.get('ano'), (str, int)) and not isinstance(c.get('ano'), bool) else None
-        dados = validar_dados(txt('nome'), txt('campeonato_nome') or txt('campeonato'), ano,
-                              txt('codigo_api') or txt('codigoApi'), c.get('modelo'))
-        # Fonte informada prevalece; sem ela vale a do modelo (se o código for o dele) ou a inferida do código.
-        modelo = MODELOS_COMPETICAO.get(c.get('modelo') or '', {})
-        fonte = c.get('fonte_api') or (modelo.get('fonte_api') if modelo.get('codigo_api') == dados[3] else None)
-        fonte_api = validar_fonte(fonte, dados[3])
+        dados, fonte_api = _dados_competicao(c)
+        fase_inicial = validar_fase_inicial(c.get('faseInicial'))
+        verificar_temporada(dados[1], dados[2], dados[3], fonte_api)
     except ValueError as e:
         return erro(400, str(e))
     regras = None
@@ -231,6 +254,10 @@ def novo_bolao():
     mensagem = mensagem_criacao(selecionados)
     flash(mensagem, 'success')
     resposta = {'bolaoId': novo.id, 'mensagem': mensagem}
+    importacao = importar_jogos_iniciais(novo.campeonato, fase_inicial)
+    if importacao:
+        flash(importacao[1], importacao[0])
+        resposta['importacao'] = {'sucesso': importacao[0] == 'success', 'mensagem': importacao[1]}
     aviso = aviso_plano_pago(novo.campeonato.codigo_api, novo.campeonato.fonte_api)
     if aviso:
         resposta['aviso'] = aviso

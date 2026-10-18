@@ -84,7 +84,8 @@ def test_tabela_espn_nao_consulta_provedor_errado(client, gestao):
         tabela = client.get('/interface/api/tabela').get_json()
     football_data.assert_not_called()
     espn.assert_called_once()
-    assert not tabela['sucesso'] and 'aba Jogos' in tabela['erro']
+    # Sem grupos na ESPN, a tabela mostra os confrontos já importados do campeonato.
+    assert tabela['sucesso'] and tabela['confrontos'] and not tabela['grupos']
 
 
 def test_erro_espn_em_horarios_nao_vira_erro_500(client, gestao):

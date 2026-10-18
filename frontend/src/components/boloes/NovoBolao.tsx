@@ -6,12 +6,13 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { REGRAS_PADRAO, type FontesBolaoApi, type FonteApi } from '@/types';
+import { DICA_FASE_INICIAL, FASES_INICIAIS } from '@/lib/fases';
 import { EditorRegras, paraEdicao, validarRegras } from './EditorRegras';
 
 const AVISO_API_FOOTBALL = 'O plano gratuito da API-Football tem restrições de temporadas. Confirme o acesso ao ano desejado; ele pode exigir plano pago.';
 
 const ETAPAS = ['Dados do bolão', 'Campeonato', 'Regras', 'Participantes'];
-const vazio = () => ({ nome: '', modelo: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: '', fonteApi: 'football-data' as FonteApi, eliminacao: false, origemId: '', marcados: [] as number[], regras: paraEdicao(REGRAS_PADRAO) });
+const vazio = () => ({ nome: '', modelo: '', campeonato: '', ano: String(new Date().getFullYear()), codigoApi: '', fonteApi: 'football-data' as FonteApi, eliminacao: false, faseInicial: '', origemId: '', marcados: [] as number[], regras: paraEdicao(REGRAS_PADRAO) });
 
 /** Assistente do Bolt adaptado à criação real: nome, campeonato próprio e cópia opcional de nomes. */
 export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () => void }) {
@@ -21,6 +22,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
   const [fontes, setFontes] = useState<FontesBolaoApi | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
+  const [verificando, setVerificando] = useState(false);
 
   useEffect(() => {
     if (!aberto) return;
@@ -42,7 +44,8 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
   const escolherModelo = (chave: string) => {
     const modelo = modelos.find(m => m.chave === chave);
     setForm(atual => ({ ...atual, modelo: chave, campeonato: modelo?.nome ?? '',
-      codigoApi: modelo?.codigo_api ?? '', fonteApi: modelo?.fonte_api ?? 'football-data', eliminacao: modelo?.eliminacao ?? false }));
+      codigoApi: modelo?.codigo_api ?? '', fonteApi: modelo?.fonte_api ?? 'football-data', eliminacao: modelo?.eliminacao ?? false,
+      faseInicial: modelo?.fase_inicial ?? '' }));
   };
 
   const criar = async () => {
@@ -51,6 +54,7 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
       await api.post('/boloes', {
         nome: form.nome, campeonato: form.campeonato, ano: form.ano, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase(), fonte_api: form.fonteApi,
         modelo: form.modelo || undefined, eliminacao_participantes: form.eliminacao,
+        faseInicial: form.fonteApi === 'espn' && form.faseInicial ? form.faseInicial : undefined,
         origemId: form.origemId ? Number(form.origemId) : null, participacaoIds: form.marcados, regras: regras.regras,
       });
       // Abre a interface já no bolão novo, na aba Participantes (como a tela atual).
@@ -62,17 +66,31 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
     }
   };
 
+  const avancar = async () => {
+    if (etapa !== 1) { setEtapa(etapa + 1); return; }
+    setVerificando(true); setErro('');
+    try {
+      await api.post('/boloes/verificar-temporada', {
+        campeonato: form.campeonato, ano: form.ano, codigoApi: form.fonteApi === 'espn' ? form.codigoApi.trim().toLowerCase() : form.codigoApi.trim().toUpperCase(),
+        fonte_api: form.fonteApi, modelo: form.modelo || undefined,
+      });
+      setEtapa(2);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível verificar a temporada.');
+    } finally { setVerificando(false); }
+  };
+
   const podeAvancar = etapa === 0 ? nomeOk : etapa === 1 ? campeonatoOk : !!regras.regras;
 
   return (
     <Modal open={aberto} onClose={fechar} title="Novo bolão" size="lg"
       footer={<>
-        {etapa > 0 && <button onClick={() => setEtapa(etapa - 1)} className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Voltar</button>}
+        {etapa > 0 && <button onClick={() => { setErro(''); setEtapa(etapa - 1); }} className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Voltar</button>}
         {etapa < ETAPAS.length - 1 ? (
-          <button onClick={() => setEtapa(etapa + 1)} disabled={!podeAvancar} className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-50">Avançar</button>
+          <button onClick={avancar} disabled={!podeAvancar || verificando} className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors disabled:opacity-50">{verificando ? 'Verificando temporada…' : 'Avançar'}</button>
         ) : (
           <button onClick={criar} disabled={salvando || !nomeOk || !campeonatoOk || !regras.regras} className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors flex items-center gap-2 disabled:opacity-60">
-            <Check className="w-4 h-4" /> {salvando ? 'Criando…' : 'Criar bolão'}
+            <Check className="w-4 h-4" /> {salvando ? 'Criando e importando jogos…' : 'Criar bolão'}
           </button>
         )}
       </>}>
@@ -128,8 +146,16 @@ export function NovoBolao({ aberto, onClose }: { aberto: boolean; onClose: () =>
             <Input label={form.fonteApi === 'api-football' ? 'ID da liga na API (opcional)' : form.fonteApi === 'espn' ? 'Slug na ESPN (opcional)' : 'Código na API (opcional)'}
               value={form.codigoApi} maxLength={40}
               onChange={e => setForm({ ...form, codigoApi: form.fonteApi === 'espn' ? e.target.value.toLowerCase() : e.target.value.toUpperCase() })}
-              hint={form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro.' : undefined} />
+              hint={form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro; Copa do Mundo: fifa.world.' : undefined} />
           </div>
+          {form.fonteApi === 'espn' && (
+            <div className="space-y-1">
+              <Select label="Importar jogos a partir de" value={form.faseInicial} onChange={e => setForm({ ...form, faseInicial: e.target.value })}>
+                {FASES_INICIAIS.map(f => <option key={f.valor} value={f.valor}>{f.rotulo}</option>)}
+              </Select>
+              <p className="text-xs text-gray-400">Para copas de mata-mata. {DICA_FASE_INICIAL}</p>
+            </div>
+          )}
           {aviso && <p role="status" className="rounded-xl border border-gold-200 dark:border-gold-800/50 bg-gold-50 dark:bg-gold-900/20 p-3 text-sm text-gold-800 dark:text-gold-200">{aviso}</p>}
           <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer">
             <input type="checkbox" checked={form.eliminacao} onChange={e => setForm({ ...form, eliminacao: e.target.checked })}

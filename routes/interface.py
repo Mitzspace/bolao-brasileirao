@@ -4,6 +4,7 @@ from flask_login import current_user, login_required
 from flask_wtf.csrf import generate_csrf
 
 from services.acesso import pode_acessar_gestao
+from services.competicoes import tema_do_campeonato
 from services.contexto_bolao import bolao_atual, lembrar_bolao
 
 interface = Blueprint('interface', __name__, url_prefix='/interface')
@@ -47,6 +48,7 @@ def index():
             'id': b.id, 'nome': b.nome, 'chave': b.chave,
             'campeonato': b.campeonato.nome, 'ano': b.campeonato.ano,
             'grupoId': b.grupo_raiz_id, 'status': b.status,
+            'tema': tema_do_campeonato(b.campeonato.codigo_api),
         } for b in boloes],
         'bolaoAtualId': atual.id if atual else None,
         'csrfToken': generate_csrf(),

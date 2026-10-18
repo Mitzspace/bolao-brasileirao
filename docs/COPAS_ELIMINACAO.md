@@ -48,6 +48,7 @@ Ao criar um bolão, o responsável escolhe um modelo (`services/competicoes.py: 
 | Sul-Americana | espn | `conmebol.sudamericana` | sim |
 | Copa do Brasil | espn | `bra.copa_do_brazil` | sim |
 | Campeonato Mineiro | espn | `bra.camp.mineiro` | sim |
+| Copa do Mundo | espn | `fifa.world` | sim |
 
 ou Outro campeonato (nome, fonte e código manuais). O modelo preenche nome, código e fonte (campos
 informados prevalecem). Códigos numéricos ainda podem usar `api-football` (com aviso de plano pago);
@@ -59,6 +60,22 @@ Configurações › Campeonatos › Editar.
 PostgreSQL: `migrations/sql/012_codigo_api_espn.sql`. SQLite já aceita textos maiores mesmo quando
 a declaração é VARCHAR(20); `python -m migrations.codigo_api_espn instance/banco.db` apenas confere
 as colunas, sem reconstruir tabelas nem alterar dados.
+
+### Fase inicial da importação
+
+O bolão pode começar numa fase (`fase_inicial`: `LAST_32`, `LAST_16`, `QUARTER_FINALS`,
+`SEMI_FINALS`, `FINAL`); fases anteriores não são importadas, nem pelo worker. A Copa do Brasil
+vem marcada com **oitavas de final** (`LAST_16`). Na Copa do Brasil a ESPN não tem estágio de
+16 avos: a fase numerada com 32 times é tratada como 16 avos (`services/competicoes.py:
+ordenador_fases`), pois o número dela muda com o regulamento (3ª fase até 2025, 5ª fase em 2026).
+
+### Escudos de times de copas e estaduais
+
+`config_escudos.py: ESCUDOS_COPAS` aponta 163 times da Libertadores, Sul-Americana, Copa do Brasil
+e Mineiro (2025-2026) para logos da ESPN salvos em `static/escudos/` (160 px), com as siglas da
+ESPN em `SIGLAS_COPAS`. Os escudos da Série A prevalecem. `guarani` fica de fora (Guarani e
+Guaraní têm o mesmo nome normalizado). Times sem escudo local usam o `crest` da tabela, quando
+houver, ou as iniciais.
 
 ## Rodadas de copa
 
@@ -128,6 +145,17 @@ compartilham uma única chamada à API (`services/sync.py: sync_competicao` /
 sincronização manual. Toda busca de jogo existente considera o `external_fonte` do provedor.
 Resultados oficiais (e pênaltis) atualizam todas as cópias do jogo.
 
+**Importação ao criar o bolão:** logo após criar o bolão, `services/criacao_bolao.py:
+importar_jogos_iniciais` importa o campeonato completo (uma requisição). Falha de rede ou provedor
+pago sem chave não desfaz o bolão: vira aviso na tela. Desligável com
+`IMPORTAR_JOGOS_AO_CRIAR=false` (desligado nos testes).
+
+**Fases novas pelo worker (só ESPN):** em campeonatos ESPN, `sync_competicao` também cria os jogos
+cujo `external_id` o campeonato ainda não tem (`services/sync.py: importar_jogos_novos`), com a
+mesma resposta, sem requisição extra. Jogos já salvos ficam fora para não criar rodadas vazias em
+bolões com nomes antigos. Campeonatos ESPN ainda vazios também entram no ciclo. football-data e
+API-Football continuam só atualizando horários e resultados.
+
 O worker (`python -m services.sync_automatico`) usa `API_FOOTBALL_KEY` nos campeonatos api-football,
 `FOOTBALL_DATA_TOKEN` nos football-data, e nenhuma chave nos ESPN; provedor pago sem chave é pulado
 com aviso no log. A sincronização manual usa o provedor do campeonato (token do formulário opcional
@@ -169,3 +197,10 @@ vez por rodada. Essas contagens descrevem a resposta recebida, não uma garantia
 A Copa do Brasil 2026 retornou cinco fases numeradas antes das oitavas; o nomeador ajustou
 as oitavas para a rodada local 6 e a final para a rodada local 9.
 O serviço é uma interface pública não oficial: disponibilidade e formato podem mudar.
+
+## Copa do Mundo (tema e seleções)
+
+- Modelo `copadomundo` (`fifa.world`, ESPN): 3 rodadas de grupos, 16 avos, oitavas, quartas, semifinal, 3º lugar e final.
+- Logo/bandeira e sigla de cada seleção: `config_selecoes.py` (CDN da ESPN; edite lá para trocar). `services/escudos.py` usa esse mapa quando o time não tem escudo local.
+- Tema visual: `services/competicoes.tema_do_campeonato` devolve `tema` nos bolões; o frontend aplica `data-tema` na `<html>` (`lib/temaCampeonato.ts`) e as paletas ficam em `index.css`. Para um novo tema: variáveis em `index.css`, entrada em `TEMAS_POR_CODIGO` e em `TEMAS` (frontend).
+

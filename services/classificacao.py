@@ -228,6 +228,17 @@ def _processar_resposta(dados_api, competicao_codigo, fonte_cache=False, horario
     # Zonas que vêm da própria API (ESPN: table[]._zona), agregadas para a legenda.
     legendas_api = {}
 
+    # A ESPN nem sempre manda a zona (note) em todos os grupos: um grupo aparece colorido e outro
+    # não. Em torneios com vários grupos a regra de classificação é a mesma, então a zona de cada
+    # posição vale para os grupos que vieram sem ela.
+    tabelas_total = [st for st in standings if st.get("type", "TOTAL") == "TOTAL"]
+    zonas_por_posicao = {}
+    if len(tabelas_total) > 1:
+        for st in tabelas_total:
+            for table_row in st.get("table", []):
+                if table_row.get("_zona"):
+                    zonas_por_posicao.setdefault(table_row.get("position", 0), table_row["_zona"])
+
     for st in standings:
         tipo = st.get("type", "TOTAL")
         # Consideramos apenas a tabela do tipo TOTAL (classificação geral da fase/grupo)
@@ -246,8 +257,9 @@ def _processar_resposta(dados_api, competicao_codigo, fonte_cache=False, horario
             team = table_row.get("team", {})
             
             zona = obter_zona(competicao_codigo, pos, st.get("stage"))
-            if table_row.get("_zona"):
-                zona = {**table_row["_zona"], "faixa": (pos, pos)}
+            zona_api = table_row.get("_zona") or zonas_por_posicao.get(pos)
+            if zona_api:
+                zona = {**zona_api, "faixa": (pos, pos)}
                 atual = legendas_api.setdefault(zona["nome"], {**zona})
                 atual["faixa"] = (min(atual["faixa"][0], pos), max(atual["faixa"][1], pos))
 

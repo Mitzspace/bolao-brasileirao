@@ -13,6 +13,7 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 from extensions import limiter
 from services import cache_publico
 from services.assets_vite import assets_da_entrada
+from services.competicoes import tema_do_campeonato
 from services import publico as dados_publicos
 
 publico = Blueprint('publico', __name__, url_prefix='/publico')
@@ -91,7 +92,8 @@ def _assets():
 def pagina(codigo):
     bolao = _bolao(codigo)
     dados = {
-        'bolao': {'nome': bolao.nome, 'campeonato': bolao.campeonato.nome, 'ano': bolao.campeonato.ano},
+        'bolao': {'nome': bolao.nome, 'campeonato': bolao.campeonato.nome, 'ano': bolao.campeonato.ano,
+                  'tema': tema_do_campeonato(bolao.campeonato.codigo_api)},
         'apiBase': url_for('publico.pagina', codigo=codigo) + '/api',
     }
     resposta = current_app.make_response(render_template('publico.html', dados=dados, assets=_assets()))

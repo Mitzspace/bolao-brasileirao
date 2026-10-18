@@ -9,6 +9,23 @@ FONTES_API = {FONTE_FOOTBALL_DATA: "football-data.org", FONTE_API_FOOTBALL: "API
 EXTERNAL_FONTE = {FONTE_FOOTBALL_DATA: "football-data.org", FONTE_API_FOOTBALL: "api-football", FONTE_ESPN: "espn"}
 
 
+# Campeonato.codigo_api (slug ESPN em minúsculas) -> tema visual da interface (frontend/src/lib/temaCampeonato.ts).
+TEMAS_POR_CODIGO = {
+    "fifa.world": "copa-do-mundo",
+    "conmebol.libertadores": "libertadores",
+    "conmebol.sudamericana": "sul-americana",
+    "bra.copa_do_brazil": "copa-do-brasil",
+    "bra.camp.mineiro": "mineiro",
+    "bsa": "brasileirao",
+    "bra.1": "brasileirao",
+}
+
+
+def tema_do_campeonato(codigo_api):
+    """Tema visual do campeonato ('copa-do-mundo', 'libertadores'...) ou None para o visual padrão."""
+    return TEMAS_POR_CODIGO.get((codigo_api or "").strip().casefold())
+
+
 def normalizar_fonte(fonte):
     return fonte if fonte in FONTES_API else FONTE_FOOTBALL_DATA
 
@@ -36,8 +53,11 @@ MODELOS_COMPETICAO = {
                      "fonte_api": FONTE_ESPN, "eliminacao": True,
                      "descricao": "Fase preliminar, fase de grupos, playoffs e mata-mata."},
     "copadobrasil": {"rotulo": "Copa do Brasil", "nome": "Copa do Brasil", "codigo_api": "bra.copa_do_brazil",
-                     "fonte_api": FONTE_ESPN, "eliminacao": True,
-                     "descricao": "Só mata-mata, da 1ª fase à final."},
+                     "fonte_api": FONTE_ESPN, "eliminacao": True, "fase_inicial": "LAST_16",
+                     "descricao": "Só mata-mata; por padrão importa das oitavas de final até a final."},
+    "copadomundo": {"rotulo": "Copa do Mundo", "nome": "Copa do Mundo", "codigo_api": "fifa.world",
+                    "fonte_api": FONTE_ESPN, "eliminacao": True, "tema": "copa-do-mundo",
+                    "descricao": "Seleções: fase de grupos, 16 avos, oitavas, quartas, semifinal, 3º lugar e final."},
     "mineiro": {"rotulo": "Campeonato Mineiro", "nome": "Campeonato Mineiro", "codigo_api": "bra.camp.mineiro",
                 "fonte_api": FONTE_ESPN, "eliminacao": True,
                 "descricao": "Primeira fase, semifinal e final."},
@@ -61,6 +81,63 @@ FASES_MATA_MATA = [
     ("FINAL", "Final"),
 ]
 ESTAGIOS_COM_RODADA = {None, "REGULAR_SEASON", "GROUP_STAGE", "LEAGUE_STAGE"}
+
+# ---------- Importar "a partir de" uma fase ----------
+
+# Posição de cada estágio na ordem da competição (grupos/pontos corridos ficam entre as fases
+# numeradas e o mata-mata). Fases numeradas (ROUND_n) valem n, abaixo de 20.
+_ORDEM_FASE = {
+    "PRELIMINARY_ROUND": 0, "GROUP_STAGE": 20, "REGULAR_SEASON": 20, "LEAGUE_STAGE": 20,
+    "PLAYOFFS": 30, "PLAYOFF_ROUND": 30, "LAST_64": 40, "LAST_32": 50, "ROUND_OF_32": 50,
+    "LAST_16": 60, "ROUND_OF_16": 60, "QUARTER_FINALS": 70, "SEMI_FINALS": 80, "THIRD_PLACE": 85, "FINAL": 90,
+}
+# Opções oferecidas ao importar (valor = estágio da primeira fase importada).
+FASES_INICIAIS = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"]
+# Ligas cujas fases numeradas (ROUND_n) incluem os 16 avos de final: a fase numerada com 32
+# times é tratada como LAST_32. O número dela muda com o regulamento (Copa do Brasil: 3ª fase
+# até 2025, 5ª fase em 2026), por isso é deduzida dos jogos e não fixada.
+LIGAS_16_AVOS_NUMERADOS = {"bra.copa_do_brazil"}
+
+
+def validar_fase_inicial(valor):
+    """None/'' = todas as fases; senão um estágio de FASES_INICIAIS. ValueError se inválido."""
+    if valor in (None, ""):
+        return None
+    if not isinstance(valor, str) or valor not in FASES_INICIAIS:
+        raise ValueError("Fase inicial inválida.")
+    return valor
+
+
+def ordenador_fases(itens=(), liga=None):
+    """Função estágio -> posição na competição; None se desconhecido (nunca é descartado)."""
+    equivalentes = {}
+    if (liga or "").strip().casefold() in LIGAS_16_AVOS_NUMERADOS:
+        times = {}
+        for i in itens:
+            if re.fullmatch(r"ROUND_\d+", i.get("estagio") or ""):
+                times.setdefault(i["estagio"], set()).update(
+                    t for t in (i.get("time_casa"), i.get("time_fora")) if t)
+        equivalentes = {e: "LAST_32" for e, t in times.items() if len(t) == 32}
+
+    def ordem(estagio):
+        estagio = equivalentes.get(estagio, estagio)
+        if estagio in _ORDEM_FASE:
+            return _ORDEM_FASE[estagio]
+        m = re.fullmatch(r"ROUND_(\d+)", estagio or "")
+        return int(m.group(1)) if m else None
+    return ordem
+
+
+def ordem_fase(estagio, liga=None, itens=()):
+    return ordenador_fases(itens, liga)(estagio)
+
+
+def filtrar_a_partir_da_fase(itens, fase_inicial, liga=None):
+    """Mantém só os jogos da fase inicial em diante; fase desconhecida é mantida."""
+    if not fase_inicial:
+        return itens
+    corte, ordem = _ORDEM_FASE[fase_inicial], ordenador_fases(itens, liga)
+    return [i for i in itens if ordem(i.get("estagio")) is None or ordem(i.get("estagio")) >= corte]
 
 
 # Formato fixo das copas conhecidas: a numeração não depende das fases já sorteadas.
@@ -167,6 +244,8 @@ FORMATO_API_FOOTBALL = {
            "mata_mata": ["LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"]},
     "629": {"preliminar": False, "fases_numeradas": 0, "rodadas": 8,  # Campeonato Mineiro
             "mata_mata": ["SEMI_FINALS", "FINAL"]},
+    "1": {"preliminar": False, "fases_numeradas": 0, "rodadas": 3,    # Copa do Mundo (48 seleções)
+          "mata_mata": ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "THIRD_PLACE", "FINAL"]},
 }
 _MATA_MATA_GENERICO = ["PLAYOFFS", "LAST_64", "LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS",
                        "THIRD_PLACE", "FINAL"]

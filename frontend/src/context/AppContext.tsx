@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { views, type Bootstrap, type BolaoResumo, type View } from '@/types';
 import { configurarApi } from '@/lib/api';
 import { useTema } from '@/lib/tema';
+import { useTemaCampeonato } from '@/lib/temaCampeonato';
 
 function hashView(): View {
   const value = window.location.hash.slice(1);
@@ -38,6 +39,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const dados = useMemo<Bootstrap>(() => ({ ...dadosIniciais, boloes }), [boloes]);
   const atualizarBoloes = useCallback<AppState['atualizarBoloes']>((ids, mudanca) =>
     setBoloes(lista => lista.map(b => ids.includes(b.id) ? { ...b, ...mudanca } : b)), []);
+  useTemaCampeonato(boloes.find(b => b.id === dadosIniciais.bolaoAtualId)?.tema);
   useEffect(() => {
     const change = () => updateView(hashView());
     window.addEventListener('hashchange', change);

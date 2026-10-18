@@ -5,6 +5,7 @@ Usada pela aba Jogos do admin (/interface/api/tabela) e pelo link público
 resposta da API no banco por 15 minutos, então as duas telas compartilham o cache.
 """
 import os
+from datetime import datetime
 
 from flask import current_app
 
@@ -21,8 +22,24 @@ def _sem_tabela(campeonato, erro):
     return {
         'sucesso': False, 'erro': erro,
         'aviso': None, 'fonteCache': False, 'horarioCache': '',
-        'competicao': campeonato.nome, 'grupos': [], 'legendas': [], 'mataMata': [],
+        'competicao': campeonato.nome, 'grupos': [], 'legendas': [], 'mataMata': [], 'confrontos': [],
     }
+
+
+def _confrontos(campeonato):
+    """Jogos já importados do campeonato, por rodada/fase (mesmo formato da aba Jogos).
+
+    Alimenta a visão "Confrontos" da tabela: fase de grupos, mata-mata e finais, com placares.
+    """
+    from routes.api_serializacao import serializar_jogo
+    from services.contexto_bolao import opcoes_rodadas
+
+    fases = []
+    for rodada, _ in opcoes_rodadas(campeonato.id):
+        jogos = sorted(rodada.jogos, key=lambda j: (j.data is None, j.data or datetime.min, j.id))
+        if jogos:
+            fases.append({'nome': rodada.nome, 'jogos': [serializar_jogo(j, campeonato.id) for j in jogos]})
+    return fases
 
 
 def dados_tabela(campeonato, publico=False):
@@ -35,6 +52,11 @@ def dados_tabela(campeonato, publico=False):
         r = buscar_classificacao(competicao=campeonato.codigo_api.strip().casefold(), temporada=temporada,
                                  campeonato_id=campeonato.id, fonte_api=FONTE_ESPN)
         if r.get('sucesso') and not r.get('grupos'):
+            # Só mata-mata (ex.: Copa do Brasil): sem grupos, mas os confrontos aparecem na tabela.
+            confrontos = _confrontos(campeonato)
+            if confrontos:
+                return {**_sem_tabela(campeonato, None), 'sucesso': True, 'competicao': campeonato.nome,
+                        'confrontos': confrontos}
             return _sem_tabela(campeonato, f'{campeonato.nome} não tem fase de classificação; '
                                            'os confrontos estão na aba Jogos.')
     elif fonte != FONTE_FOOTBALL_DATA:
@@ -54,6 +76,7 @@ def dados_tabela(campeonato, publico=False):
         'erro': r.get('erro'), 'aviso': r.get('aviso'),
         'fonteCache': bool(r.get('fonte_cache')), 'horarioCache': r.get('horario_cache') or '',
         'competicao': r.get('competicao_nome') or campeonato.nome,
+        'fonte': FONTES_API.get(fonte, ''),
         'grupos': [{
             'nome': g['nome'],
             'linhas': [{
@@ -68,4 +91,6 @@ def dados_tabela(campeonato, publico=False):
         } for g in r.get('grupos', [])],
         'legendas': [_zona(z) for z in r.get('legendas', [])],
         'mataMata': mata_mata,
+        # Jogos importados da ESPN (grupos e fases seguintes); nas outras fontes vale o mataMata da API.
+        'confrontos': _confrontos(campeonato) if fonte == FONTE_ESPN else [],
     }

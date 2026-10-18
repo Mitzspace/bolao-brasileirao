@@ -4,6 +4,8 @@ import { Drawer } from '@/components/ui/Drawer';
 import { ComoFuncionaPontuacao } from '@/components/regras/ComoFuncionaPontuacao';
 import { useRecurso } from '@/lib/useRecurso';
 import { useTema } from '@/lib/tema';
+import { useTemaCampeonato } from '@/lib/temaCampeonato';
+import { FaixaTema } from '@/components/ui/FaixaTema';
 import { Inicio } from './abas/Inicio';
 import { Jogos } from './abas/Jogos';
 import { Palpites } from './abas/Palpites';
@@ -50,10 +52,12 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
   const fecharParticipante = useCallback(() => setParticipante(null), []);
   const fecharRegras = useCallback(() => setRegrasAbertas(false), []);
   const b = dados.bolao;
+  useTemaCampeonato(b.tema);
   const botaoTopo = 'shrink-0 h-10 min-w-10 px-2.5 rounded-xl flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors';
 
   return (
     <div className="min-h-screen min-h-dvh pb-24 md:pb-10">
+      <FaixaTema />
       <header className="sticky top-0 z-30 bg-white/85 dark:bg-gray-900/85 backdrop-blur-md border-b border-gray-100 dark:border-gray-800">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
           <LogoApp />

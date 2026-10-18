@@ -21,8 +21,10 @@ from services.competicoes import (
     EXTERNAL_FONTE,
     FONTE_API_FOOTBALL, FONTE_ESPN,
     FONTE_FOOTBALL_DATA,
+    filtrar_a_partir_da_fase,
     nomeador_rodadas,
     normalizar_fonte,
+    ordenador_fases,
 )
 from services.importador_api_football import (
     buscar_jogos_api_football,
@@ -221,9 +223,11 @@ def _numero_da_rodada(nome):
 
 def sync_jogos(token, campeonato_id, competicao,
                nome_rodada=None, temporada=None, rodada_api=None,
-               data_inicio=None, data_fim=None, campeonato_completo=False, jogos_api=None, fonte_api=None):
+               data_inicio=None, data_fim=None, campeonato_completo=False, jogos_api=None, fonte_api=None,
+               fase_inicial=None):
     """
     Importa jogos da API e salva no banco de dados.
+    - fase_inicial: estágio (ex.: 'LAST_32' = 16 avos) a partir do qual importar; None = todas as fases.
     - Se campeonato_completo=True: importa todas as rodadas e cria cada uma conforme o matchday da API.
     - Se campeonato_completo=False: importa a rodada informada (ou rodada_api).
     - Salva data/hora em horário de Brasília.
@@ -251,6 +255,7 @@ def sync_jogos(token, campeonato_id, competicao,
             data_inicio=data_inicio,
             data_fim=data_fim,
         )
+    jogos_api = filtrar_a_partir_da_fase(jogos_api, fase_inicial, competicao)
 
     criados = 0
     atualizados = 0
@@ -482,8 +487,9 @@ def sync_informacoes_jogos(token, campeonato_id, competicao,
     }
 
 
-def campeonatos_da_competicao(competicao, temporada, fonte_api=None):
-    """Campeonatos (um por bolão) do mesmo provedor, competição e temporada que já têm rodadas."""
+def campeonatos_da_competicao(competicao, temporada, fonte_api=None, incluir_sem_rodadas=False):
+    """Campeonatos (um por bolão) do mesmo provedor, competição e temporada que já têm rodadas
+    (incluir_sem_rodadas=True também traz os ainda vazios)."""
     from models import Campeonato
     from sqlalchemy import func
     fonte = normalizar_fonte(fonte_api)
@@ -491,7 +497,32 @@ def campeonatos_da_competicao(competicao, temporada, fonte_api=None):
                 func.upper(func.trim(Campeonato.codigo_api)) == (competicao or "").strip().upper(),
                 Campeonato.ano == temporada,
                 func.coalesce(Campeonato.fonte_api, FONTE_FOOTBALL_DATA) == fonte).all()
-            if c.rodadas]
+            if incluir_sem_rodadas or c.rodadas]
+
+
+def importar_jogos_novos(token, campeonato_id, competicao, temporada, jogos_api, fonte_api):
+    """Cria só os jogos da resposta que o campeonato ainda não tem (ex.: fase recém-sorteada).
+
+    Os já cadastrados ficam fora para não criar rodadas vazias quando o nome calculado hoje
+    difere do salvo; horários e resultados deles são atualizados por sync_informacoes_jogos.
+    """
+    from models import Jogo, Rodada
+    fonte = normalizar_fonte(fonte_api)
+    existentes = {j.external_id for j in Jogo.query.join(Rodada, Rodada.id == Jogo.rodada_id).filter(
+        Rodada.campeonato_id == campeonato_id, Jogo.external_fonte == EXTERNAL_FONTE[fonte])}
+    novos = [i for i in jogos_api if i["external_id"] not in existentes]
+    # Respeita a fase inicial escolhida na importação: fases anteriores à mais antiga já
+    # cadastrada (ex.: 1ª a 2ª fase da Copa do Brasil, importada só dos 16 avos) não voltam.
+    ordem = ordenador_fases(jogos_api, competicao)
+    ordens = [o for i in jogos_api if i["external_id"] in existentes
+              for o in [ordem(i.get("estagio"))] if o is not None]
+    if ordens:
+        novos = [i for i in novos if ordem(i.get("estagio")) is None or ordem(i.get("estagio")) >= min(ordens)]
+    if not novos:
+        return {"criados": 0, "rodadas_criadas": 0}
+    r = sync_jogos(token, campeonato_id, competicao, temporada=temporada, campeonato_completo=True,
+                   jogos_api=novos, fonte_api=fonte)
+    return {"criados": r["criados"], "rodadas_criadas": r["rodadas_criadas"]}
 
 
 def sync_competicao(token, competicao, temporada, data_inicio=None, data_fim=None, fonte_api=None):
@@ -506,11 +537,20 @@ def sync_competicao(token, competicao, temporada, data_inicio=None, data_fim=Non
     jogos_api = buscar_jogos(fonte, token, competicao, temporada=temporada,
                              data_inicio=data_inicio, data_fim=data_fim)
     resultados = {}
-    for campeonato_id in [c.id for c in campeonatos_da_competicao(competicao, temporada, fonte)]:
+    # ESPN é gratuita e não informa fases futuras antes do sorteio: o worker também cria os
+    # jogos novos (inclusive em campeonato ainda vazio, se a importação na criação falhou).
+    cria_jogos = fonte == FONTE_ESPN
+    for campeonato_id in [c.id for c in campeonatos_da_competicao(competicao, temporada, fonte,
+                                                                   incluir_sem_rodadas=cria_jogos)]:
         try:
+            novos = (importar_jogos_novos(token, campeonato_id, competicao, temporada, jogos_api, fonte)
+                     if cria_jogos else None)
             resultados[campeonato_id] = sync_informacoes_jogos(
                 token, campeonato_id, competicao, temporada=temporada, jogos_api=jogos_api,
                 fonte_api=fonte)
+            if novos:
+                resultados[campeonato_id] = {**resultados[campeonato_id], "criados": novos["criados"],
+                                             "rodadas_criadas": novos["rodadas_criadas"]}
         except Exception:
             db.session.rollback()
             logging.getLogger(__name__).exception(

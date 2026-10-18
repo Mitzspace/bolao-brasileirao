@@ -120,6 +120,8 @@ class Config:
     # Token da API football-data.org (opcional: pode informar via interface admin também)
     API_FOOTBALL_KEY = os.environ.get("API_FOOTBALL_KEY")
     FOOTBALL_DATA_TOKEN = os.environ.get("FOOTBALL_DATA_TOKEN", "")
+    # Importa os jogos do campeonato logo ao criar o bolão (desligado nos testes: sem rede).
+    IMPORTAR_JOGOS_AO_CRIAR = os.environ.get("IMPORTAR_JOGOS_AO_CRIAR", "true").lower() == "true"
 
     # Rate limiting
     # Aceita o nome antigo durante a transição, mas expõe a chave da extensão.
@@ -167,6 +169,7 @@ class TestingConfig(Config):
     # Desativa rate limiting durante testes para não interferir
     RATELIMIT_ENABLED = False
     SECRET_KEY = "test-secret-key-not-for-production"
+    IMPORTAR_JOGOS_AO_CRIAR = False
 
 
 config = {

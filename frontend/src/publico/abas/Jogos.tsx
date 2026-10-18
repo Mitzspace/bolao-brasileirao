@@ -1,21 +1,25 @@
 import { useState } from 'react';
-import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
-import { AgendaRodada, SeletorVisaoJogos, type VisaoJogos } from '@/components/jogos/AgendaRodada';
+import { TabelaConteudo } from '@/components/campeonatos/TabelaOficial';
+import { AgendaRodada, SeletorVisaoJogos, opcoesDaCompeticao, type VisaoJogos } from '@/components/jogos/AgendaRodada';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { useRecurso } from '@/lib/useRecurso';
 import { rodadasDoSeletor } from '../comum';
+import type { TabelaApi } from '@/types';
 import type { JogosApi } from '../tipos';
 
 /** Mesma aba Jogos da gestão (rodada, horários e jogos atrasados) + tabela do campeonato. */
 export function Jogos({ rotuloTabela }: { rotuloTabela: string }) {
-  const [visao, setVisao] = useState<VisaoJogos>('jogos');
+  const [escolhida, setVisao] = useState<VisaoJogos>('jogos');
+  const tabela = useRecurso<TabelaApi>('/tabela');
+  const opcoes = opcoesDaCompeticao(tabela.dados);
+  const visao = opcoes.includes(escolhida) ? escolhida : 'jogos';
   const [numero, setNumero] = useState<number | null>(null);
   const { dados, carregando, erro, recarregar } = useRecurso<JogosApi>(numero ? `/jogos?rodada=${numero}` : '/jogos');
   const r = dados?.rodada;
   return (
     <div className="space-y-6">
-      <SeletorVisaoJogos visao={visao} onMudar={setVisao} rotuloTabela={rotuloTabela} />
-      {visao === 'tabela' && <TabelaOficial />}
+      <SeletorVisaoJogos visao={visao} onMudar={setVisao} rotuloTabela={rotuloTabela} opcoes={opcoes} />
+      {visao !== 'jogos' && <TabelaConteudo recurso={tabela} visao={visao} />}
       {visao === 'jogos' && erro && !dados && <ErroCarga mensagem={erro} onTentar={recarregar} />}
       {visao === 'jogos' && !dados && !erro && <Carregando linhas={5} />}
       {visao === 'jogos' && dados && r && (

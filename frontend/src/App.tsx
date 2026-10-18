@@ -3,6 +3,7 @@ import { AppProvider, useApp } from '@/context/AppContext';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { FaixaTema } from '@/components/ui/FaixaTema';
 import { BarraProgresso } from '@/components/layout/BarraProgresso';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { BoloesScreen } from '@/screens/BoloesScreen';
@@ -48,6 +49,7 @@ function AppContent() {
     <div className="flex h-screen h-dvh overflow-hidden">
       <Sidebar />
       <main id="conteudo" className="flex-1 min-w-0 overflow-y-auto scrollbar-thin">
+        <FaixaTema />
         <CurrentScreen />
       </main>
       <BottomNav />

@@ -106,5 +106,66 @@ def criar_bolao(usuario, nome, campeonato_nome, campeonato_ano, codigo_api, pess
     return novo
 
 
+def verificar_temporada(campeonato_nome, ano, codigo_api, fonte_api):
+    """Impede criar bolão de temporada que a fonte não possui (ValueError, antes de gravar nada).
+
+    Só bloqueia quando a fonte responde sem jogos; falha de rede, falta de chave ou restrição de
+    plano não impedem a criação (a importação inicial avisa depois)."""
+    from urllib.error import HTTPError
+    from flask import current_app
+    from services.sync import buscar_jogos, chave_api
+
+    if not current_app.config.get('IMPORTAR_JOGOS_AO_CRIAR', True) or not codigo_api:
+        return
+    token = chave_api(fonte_api)
+    if fonte_api != FONTE_ESPN and not token:
+        return
+    inexistente = ValueError(f'A temporada {ano} de {campeonato_nome} não existe na {FONTES_API[fonte_api]} '
+                             f'(código {codigo_api}). Confira o código e a temporada.')
+    try:
+        jogos = buscar_jogos(fonte_api, token, codigo_api, temporada=str(ano))
+    except HTTPError as e:
+        if e.code in (400, 404):
+            raise inexistente from e
+        return
+    except Exception:  # rede, plano, resposta inesperada: não bloqueia
+        return
+    if not jogos:
+        raise inexistente
+
+
 def mensagem_criacao(selecionados):
     return f'Bolão criado com {len(selecionados)} participantes copiados, além do responsável.'
+
+
+def importar_jogos_iniciais(campeonato, fase_inicial=None):
+    """Importa o campeonato logo após criar o bolão (a partir de fase_inicial, se informada; ex.:
+    'LAST_32' = dos 16 avos em diante). Nunca lança erro: a falha não desfaz o bolão (já gravado)
+    e vira aviso. Retorna (categoria, mensagem) ou None."""
+    from urllib.error import HTTPError, URLError
+    from flask import current_app
+    from services.importador_api_football import ErroApiFootball
+    from services.importador_espn import ErroEspn
+    from services.sync import chave_api, sync_jogos
+
+    if not current_app.config.get('IMPORTAR_JOGOS_AO_CRIAR', True):
+        return None
+    if not campeonato.codigo_api or not campeonato.ano:
+        return None
+    fonte = campeonato.fonte_api
+    manual = 'Importe em Configurações › Campeonatos › Sincronizar.'
+    token = chave_api(fonte)
+    if fonte != FONTE_ESPN and not token:
+        return 'warning', f'Jogos não importados: o servidor não tem chave da {FONTES_API[fonte]}. {manual}'
+    try:
+        r = sync_jogos(token, campeonato.id, campeonato.codigo_api, temporada=str(campeonato.ano),
+                       campeonato_completo=True, fonte_api=fonte, fase_inicial=fase_inicial)
+    except (ErroApiFootball, ErroEspn, HTTPError, URLError, TimeoutError, OSError, ValueError) as e:
+        db.session.rollback()
+        detalhe = str(e) if isinstance(e, (ErroApiFootball, ErroEspn)) else 'falha ao consultar a API.'
+        automatico = ' A sincronização automática tentará de novo.' if fonte == FONTE_ESPN else ''
+        return 'warning', f'Bolão criado, mas os jogos não foram importados ({detalhe}).{automatico} {manual}'
+    if not r['criados']:
+        return 'warning', (f'A {FONTES_API[fonte]} não retornou jogos de {campeonato.nome} {campeonato.ano}. '
+                           f'Confira o código e a temporada. {manual}')
+    return 'success', f"{r['criados']} jogos importados em {r['rodadas_criadas']} rodadas."

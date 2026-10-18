@@ -166,5 +166,7 @@ def test_escudo_de_time_estrangeiro_vem_do_cache_espn(app):
         g.pop("_escudos_cache", None)
         escudo = escudo_time("Liga de Quito", campeonato_id=camp.id)
         medellin = escudo_time("Independiente Medellín", campeonato_id=camp.id)
-    assert escudo["fontes"] == ["https://a.espncdn.com/i/teamlogos/soccer/500/2.png"]
-    assert medellin["fontes"] == ["https://a.espncdn.com/i/teamlogos/soccer/500/5.png"]
+    # Escudo local (config_escudos.ESCUDOS_COPAS) vem primeiro; o crest da ESPN fica de reserva.
+    assert escudo["fontes"] == ["/static/escudos/liga-de-quito.png",
+                                "https://a.espncdn.com/i/teamlogos/soccer/500/2.png"]
+    assert medellin["fontes"][-1] == "https://a.espncdn.com/i/teamlogos/soccer/500/5.png"

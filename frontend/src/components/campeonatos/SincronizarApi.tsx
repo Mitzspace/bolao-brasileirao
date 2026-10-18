@@ -4,6 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input, Select, Switch } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import { DICA_FASE_INICIAL, FASES_INICIAIS } from '@/lib/fases';
 import type { FonteApi } from '@/types';
 
 type Acao = 'jogos' | 'informacoes' | 'resultados';
@@ -30,7 +31,7 @@ export function SincronizarApi({ aberto, onClose, codigoApi, ano, fonteApi = 'fo
   const temporadaInteira = apiFootball || espn;
   const showToast = useToast();
   const [acao, setAcao] = useState<Acao>('jogos');
-  const [form, setForm] = useState({ completo: temporadaInteira, rodadaApi: '', nomeRodada: '', token: '', competicao: '', temporada: '' });
+  const [form, setForm] = useState({ completo: temporadaInteira, rodadaApi: '', nomeRodada: '', faseInicial: '', token: '', competicao: '', temporada: '' });
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState('');
 
@@ -41,6 +42,7 @@ export function SincronizarApi({ aberto, onClose, codigoApi, ano, fonteApi = 'fo
         acao, ...(!espn ? { token: form.token.trim() } : {}),
         competicao: espn ? form.competicao.trim().toLowerCase() : form.competicao.trim().toUpperCase(), temporada: form.temporada,
         campeonatoCompleto: form.completo, rodadaApi: form.rodadaApi, nomeRodada: form.nomeRodada,
+        ...(espn && acao === 'jogos' && form.completo && form.faseInicial ? { faseInicial: form.faseInicial } : {}),
       });
       setResultado(r.mensagem); showToast(r.mensagem); onConcluido();
     } catch (e) {
@@ -71,6 +73,14 @@ export function SincronizarApi({ aberto, onClose, codigoApi, ano, fonteApi = 'fo
           <div className="space-y-3">
             <Switch checked={form.completo} onChange={v => setForm({ ...form, completo: v })} label="Campeonato completo"
               description={temporadaInteira ? 'Importa os jogos disponíveis da temporada, organizados por rodadas e fases (1ª fase, oitavas de final…).' : 'Todas as rodadas de uma vez, com o nome da API (Rodada 1, Rodada 2…)'} />
+            {espn && form.completo && (
+              <div className="space-y-1">
+                <Select label="Importar a partir de" value={form.faseInicial} onChange={e => setForm({ ...form, faseInicial: e.target.value })}>
+                  {FASES_INICIAIS.map(f => <option key={f.valor} value={f.valor}>{f.rotulo}</option>)}
+                </Select>
+                <p className="text-xs text-gray-400">{DICA_FASE_INICIAL}</p>
+              </div>
+            )}
             {!form.completo && (
               <div className="grid grid-cols-2 gap-3">
                 <Input label={temporadaInteira ? 'Número da rodada' : 'Rodada na API'} inputMode="numeric" placeholder={temporadaInteira ? 'Ex.: 10' : 'Ex.: 31'} value={form.rodadaApi} onChange={e => setForm({ ...form, rodadaApi: e.target.value.replace(/\D/g, '') })} />

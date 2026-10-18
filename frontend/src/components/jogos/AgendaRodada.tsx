@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { AlarmClock, CalendarClock, CheckCircle2, History, ListOrdered, Table2 } from 'lucide-react';
+import { AlarmClock, CalendarClock, CheckCircle2, GitFork, History, ListOrdered, Table2, Users } from 'lucide-react';
 import { JogoLinha } from '@/components/jogos/JogoLinha';
 import { SeletorRodadas } from '@/components/rodadas/SeletorRodadas';
-import type { JogoBase, RodadaResumo } from '@/types';
+import { fasesDaChave } from '@/lib/chaveamento';
+import type { JogoBase, RodadaResumo, TabelaApi } from '@/types';
 
 /** Datas chegam no horário de Brasília sem fuso; a diferença usa o "agora" do servidor. */
 function lerData(valor: string) {
@@ -130,18 +131,37 @@ export function AgendaRodada({ agora, rodadas, selecionadaId, atualId, onSelecio
   );
 }
 
-export type VisaoJogos = 'jogos' | 'tabela';
+export type VisaoJogos = 'jogos' | 'tabela' | 'grupos' | 'confrontos';
 
-/** Alternância "Jogos | Tabela" da aba Jogos (gestão e página pública). */
-export function SeletorVisaoJogos({ visao, onMudar, rotuloTabela = 'Tabela agora' }: { visao: VisaoJogos; onMudar: (v: VisaoJogos) => void; rotuloTabela?: string }) {
+/** Alternância da aba Jogos (gestão e página pública): Jogos, mais Tabela ou Grupos e Confrontos conforme a competição. */
+export function SeletorVisaoJogos({ visao, onMudar, rotuloTabela = 'Tabela agora', opcoes = ['jogos', 'tabela'] }: {
+  visao: VisaoJogos; onMudar: (v: VisaoJogos) => void; rotuloTabela?: string; opcoes?: VisaoJogos[];
+}) {
+  const todas = {
+    jogos: ['Jogos', ListOrdered], tabela: [rotuloTabela, Table2], grupos: ['Grupos', Users], confrontos: ['Confrontos', GitFork],
+  } as const;
   return (
-    <div role="tablist" aria-label="Visualização" className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit max-w-full">
-      {([['jogos', 'Jogos', ListOrdered], ['tabela', rotuloTabela, Table2]] as const).map(([id, label, Icon]) => (
-        <button key={id} role="tab" aria-selected={visao === id} onClick={() => onMudar(id)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${visao === id ? 'bg-white dark:bg-gray-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-          <Icon className="w-4 h-4" />{label}
-        </button>
-      ))}
+    <div role="tablist" aria-label="Visualização" className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit max-w-full overflow-x-auto scrollbar-thin">
+      {opcoes.map(id => {
+        const [label, Icon] = todas[id];
+        return (
+          <button key={id} role="tab" aria-selected={visao === id} onClick={() => onMudar(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${visao === id ? 'bg-white dark:bg-gray-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+            <Icon className="w-4 h-4" />{label}
+          </button>
+        );
+      })}
     </div>
   );
+}
+
+/** Abas disponíveis conforme a competição: "Grupos" se há mais de um grupo, "Confrontos" se há mata-mata. */
+export function opcoesDaCompeticao(dados: TabelaApi | null): VisaoJogos[] {
+  if (!dados) return ['jogos', 'tabela'];
+  const chave = fasesDaChave(dados).fases.length > 0;
+  const opcoes: VisaoJogos[] = ['jogos'];
+  if (dados.grupos.length > 1) opcoes.push('grupos');
+  else if (dados.grupos.length === 1 || !chave) opcoes.push('tabela');
+  if (chave) opcoes.push('confrontos');
+  return opcoes;
 }

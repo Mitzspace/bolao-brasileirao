@@ -15,6 +15,7 @@ from werkzeug.exceptions import HTTPException
 
 from extensions import limiter
 from services.acesso import pode_acessar_gestao
+from services.competicoes import tema_do_campeonato
 from services.contexto_bolao import bolao_atual, responsavel_atual
 from services.edicao_bolao import editavel, mensagem_bloqueio
 
@@ -106,6 +107,7 @@ def serializar_bolao(bolao):
         'id': bolao.id, 'nome': bolao.nome, 'chave': bolao.chave,
         'campeonato': bolao.campeonato.nome, 'ano': bolao.campeonato.ano,
         'campeonatoId': bolao.campeonato_id,
+        'tema': tema_do_campeonato(bolao.campeonato.codigo_api),
     }
 
 

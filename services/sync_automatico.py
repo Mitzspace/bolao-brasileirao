@@ -23,12 +23,13 @@ def _intervalo_api_football():
 
 
 def _grupos():
-    """(fonte, código, ano) distintos dos campeonatos com rodadas; uma chamada por grupo."""
+    """(fonte, código, ano) distintos dos campeonatos com rodadas (na ESPN, também os vazios,
+    pois o worker cria os jogos); uma chamada por grupo."""
     grupos = set()
     for c in Campeonato.query.all():
-        if not (c.codigo_api and c.codigo_api.strip() and c.rodadas):
-            continue
         fonte = normalizar_fonte(c.fonte_api)
+        if not (c.codigo_api and c.codigo_api.strip() and (c.rodadas or fonte == FONTE_ESPN)):
+            continue
         codigo = normalizar_codigo_api(c.codigo_api)
         grupos.add((fonte, codigo, c.ano))
     return sorted(grupos, key=lambda g: (g[0] != FONTE_FOOTBALL_DATA, g[0], g[1], g[2] or 0))

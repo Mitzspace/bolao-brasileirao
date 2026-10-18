@@ -8,14 +8,14 @@ import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Input, Select } from '@/components/ui/Form';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import { TabelaOficial } from '@/components/campeonatos/TabelaOficial';
+import { TabelaConteudo } from '@/components/campeonatos/TabelaOficial';
 import { EstadoRodadaBadge } from '@/components/rodadas/EstadoRodada';
 import { GradeModal } from '@/components/palpites/GradeModal';
 import { SincronizarApi } from '@/components/campeonatos/SincronizarApi';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/lib/api';
 import { useRecurso } from '@/lib/useRecurso';
-import type { CampeonatoApi, FonteApi, RodadaGestao } from '@/types';
+import type { CampeonatoApi, FonteApi, RodadaGestao, TabelaApi } from '@/types';
 
 type Aba = 'rodadas' | 'tabela';
 const NOMES_FONTE: Record<FonteApi, string> = {
@@ -30,6 +30,10 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
   const showToast = useToast();
   const [aba, setAba] = useState<Aba>('rodadas');
   const { dados, carregando, erro, recarregar } = useRecurso<CampeonatoApi>('/campeonato');
+  // A tabela é buscada junto com a tela: a aba só aparece quando se sabe que o campeonato tem tabela.
+  const tabela = useRecurso<TabelaApi>('/tabela');
+  const temTabela = !!tabela.dados?.sucesso && (tabela.dados.grupos.length > 0 || tabela.dados.confrontos.length > 0 || tabela.dados.mataMata.length > 0);
+  const abaAtiva: Aba = aba === 'tabela' && temTabela ? 'tabela' : 'rodadas';
   const [menuAberto, setMenuAberto] = useState(false);
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState<{ nome: string; ano: string; codigoApi: string; fonteApi: FonteApi }>({ nome: '', ano: '', codigoApi: '', fonteApi: 'football-data' });
@@ -81,7 +85,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
       <Header
         title={titulo}
         subtitle={subtitulo}
-        actions={aba === 'rodadas' && dados ? (
+        actions={abaAtiva === 'rodadas' && dados ? (
           <button onClick={() => setNovaRodada({ nome: '', aberta: true })}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors">
             <Plus className="w-4 h-4" /><span className="hidden sm:inline">Nova rodada</span>
@@ -156,16 +160,16 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
             </div>
 
             {/* Abas */}
-            <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+            {temTabela && <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
               {([['rodadas', 'Rodadas', Calendar], ['tabela', 'Tabela oficial', Target]] as const).map(([id, label, Icon]) => (
                 <button key={id} onClick={() => setAba(id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${aba === id ? 'bg-white dark:bg-gray-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${abaAtiva === id ? 'bg-white dark:bg-gray-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
                   <Icon className="w-4 h-4" />{label}
                 </button>
               ))}
-            </div>
+            </div>}
 
-            {aba === 'tabela' ? <TabelaOficial /> : dados.rodadas.length === 0 ? (
+            {abaAtiva === 'tabela' ? <TabelaConteudo recurso={tabela} /> : dados.rodadas.length === 0 ? (
               <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
                 <EmptyState icon={<Calendar className="w-10 h-10" />} title="Nenhuma rodada cadastrada" description="Cadastre as rodadas ou sincronize com a API."
                   action={<button onClick={() => setNovaRodada({ nome: '', aberta: true })} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700"><Plus className="w-4 h-4" /> Nova rodada</button>} />
@@ -234,7 +238,7 @@ export function CampeonatosScreen({ titulo = 'Campeonatos', subtitulo = 'Campeon
               value={form.codigoApi} maxLength={40}
               onChange={e => setForm({ ...form, codigoApi: form.fonteApi === 'espn' ? e.target.value.toLowerCase() : e.target.value.toUpperCase() })}
               hint={form.fonteApi === 'api-football' ? '13 = Libertadores, 11 = Sul-Americana, 73 = Copa do Brasil, 629 = Mineiro'
-                : form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro.' : 'BSA = Brasileirão'} />
+                : form.fonteApi === 'espn' ? 'Libertadores: conmebol.libertadores; Sul-Americana: conmebol.sudamericana; Copa do Brasil: bra.copa_do_brazil; Mineiro: bra.camp.mineiro; Copa do Mundo: fifa.world.' : 'BSA = Brasileirão'} />
           </div>
           <p className="text-xs text-gray-400">{form.fonteApi === 'api-football'
             ? 'A liga e a temporada são usadas para importar jogos e resultados na API-Football (o plano gratuito só tem as temporadas 2022 a 2024).'
