@@ -332,7 +332,7 @@ export function RodadasScreen() {
                   <Input placeholder="Nome do jogador que fez o primeiro gol" value={semGols ? '' : resultado.primeiroGol} disabled={semGols}
                     autoFocus={resultado.focoGol} list="sugestoes-primeiro-gol"
                     onChange={e => setResultado({ ...resultado, primeiroGol: e.target.value })}
-                    hint={semGols ? 'Jogo sem gols (0 × 0): não há bônus de primeiro gol.' : `Quem palpitou o mesmo jogador ganha +${regras.primeiroGol} ${regras.primeiroGol === 1 ? 'ponto' : 'pontos'}. Maiúsculas e acentos não importam.`} />
+                    hint={semGols ? 'Jogo sem gols (0 × 0): não há bônus de primeiro gol.' : `Quem palpitou o mesmo jogador ganha +${regras.primeiroGol} ${regras.primeiroGol === 1 ? 'ponto' : 'pontos'}. Maiúsculas, acentos e pequenas diferenças de grafia (Kaio/Caio) não importam, mas o nome precisa estar completo (só "Kaio" não vale para "Kaio Jorge").`} />
                   <datalist id="sugestoes-primeiro-gol">
                     {resultado.jogo.sugestoesPrimeiroGol.map(s => <option key={s.nome} value={s.nome} />)}
                   </datalist>

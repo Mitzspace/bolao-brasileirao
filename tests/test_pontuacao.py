@@ -106,6 +106,34 @@ class TestCalcularPontos:
         pontos = calcular_pontos(palpite, resultado, especial=True)
         assert pontos == 7  # Bônus deve funcionar mesmo com normalização
 
+    @pytest.mark.parametrize("palpitado", [
+        "Kaio Jorge", "kaio jorge", "Caio Jorge", "Kayo Jorge", "Kaio Jorje",
+        "K. Jorge", "Kaio-Jorge", "Kaiojorge", "Kaio Jorgee",
+    ])
+    def test_bonus_primeiro_gol_tolera_grafia(self, palpitado):
+        palpite = Palpite(gols_casa=2, gols_fora=1, primeiro_gol=palpitado)
+        resultado = Resultado(gols_casa_real=2, gols_fora_real=1, primeiro_gol_real="Kaio Jorge")
+
+        assert calcular_pontos(palpite, resultado, especial=True) == 7
+
+    @pytest.mark.parametrize("palpitado, oficial", [
+        ("Kaio César", "Kaio Jorge"), ("K.", "Kaio Jorge"), ("Matheus Pereira", "Matheus Henrique"),
+        ("Gabriel", "Gabigol"), ("Luiz Araújo", "Luiz Henrique"),
+        ("Kaio", "Kaio Jorge"), ("Jorge", "Kaio Jorge"), ("Gabriel", "Gabriel Barbosa"),
+        ("K. J.", "Kaio Jorge"), ("Kaio Jorge", "Kaio"),
+    ])
+    def test_bonus_primeiro_gol_outro_jogador(self, palpitado, oficial):
+        palpite = Palpite(gols_casa=2, gols_fora=1, primeiro_gol=palpitado)
+        resultado = Resultado(gols_casa_real=2, gols_fora_real=1, primeiro_gol_real=oficial)
+
+        assert calcular_pontos(palpite, resultado, especial=True) == 5
+
+    def test_bonus_primeiro_gol_ignora_particulas(self):
+        palpite = Palpite(gols_casa=2, gols_fora=1, primeiro_gol="Luis Henrique Souza")
+        resultado = Resultado(gols_casa_real=2, gols_fora_real=1, primeiro_gol_real="Luiz Henrique de Souza")
+
+        assert calcular_pontos(palpite, resultado, especial=True) == 7
+
     def test_bonus_primeiro_gol_errado(self):
         palpite = Palpite(gols_casa=2, gols_fora=1, primeiro_gol="João Silva")
         resultado = Resultado(gols_casa_real=2, gols_fora_real=1, primeiro_gol_real="Maria Santos")

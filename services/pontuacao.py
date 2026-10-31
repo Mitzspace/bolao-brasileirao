@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from dataclasses import dataclass
 from services.regras_pontuacao import REGRAS_PONTUACAO, regras_do_palpite
@@ -10,6 +11,61 @@ def normalizar_nome_jogador(valor):
     sem_acentos = unicodedata.normalize("NFKD", valor)
     sem_acentos = "".join(c for c in sem_acentos if not unicodedata.combining(c))
     return " ".join(sem_acentos.casefold().split())
+
+
+_PARTICULAS = {"de", "da", "do", "das", "dos", "e"}
+
+
+def _som(palavra):
+    """Grafia simplificada para comparar: Kaio/Caio, Jorge/Jorje, Luiz/Luis, Matheus/Mateus."""
+    palavra = palavra.replace("ph", "f").replace("th", "t").replace("k", "c").replace("y", "i").replace("w", "v")
+    palavra = re.sub(r"g(?=[ei])", "j", palavra)
+    palavra = re.sub(r"z$", "s", palavra)
+    palavra = "junior" if palavra == "jr" else palavra
+    return re.sub(r"(.)\1+", r"\1", palavra)
+
+
+def _palavras_jogador(valor):
+    texto = re.sub(r"[^a-z0-9 ]", " ", normalizar_nome_jogador(valor))
+    return [_som(p) for p in texto.split() if p not in _PARTICULAS]
+
+
+def chave_jogador(valor):
+    """Chave que agrupa grafias do mesmo nome completo (ex.: "Kaio Jorge" e "caio jorge")."""
+    return " ".join(_palavras_jogador(valor))
+
+
+def _distancia_ate_1(a, b):
+    """True se a e b diferem em no máximo uma letra (troca, sobra ou falta)."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    i = 0
+    while i < min(len(a), len(b)) and a[i] == b[i]:
+        i += 1
+    return a[i + 1:] == b[i + 1:] or a[i + 1:] == b[i:] or a[i:] == b[i + 1:]
+
+
+def _mesma_palavra(a, b):
+    if len(a) == 1 or len(b) == 1:  # inicial: "K. Jorge"
+        return a[0] == b[0]
+    return a == b or (min(len(a), len(b)) >= 5 and _distancia_ate_1(a, b))
+
+
+def mesmo_jogador(previsto, oficial):
+    """Compara o primeiro gol palpitado com o oficial tolerando a grafia.
+
+    Ignora acentos, maiúsculas, pontuação e "de/da/do"; aceita variações de som
+    (Kaio/Caio), um erro de digitação em nomes de 5+ letras e iniciais ("K. Jorge").
+    Exige o nome completo, palavra por palavra: "Kaio" ou "Jorge" não valem para "Kaio Jorge".
+    """
+    a, b = _palavras_jogador(previsto), _palavras_jogador(oficial)
+    if not a or not b:
+        return False
+    if "".join(a) == "".join(b):  # "Kaiojorge"
+        return True
+    return (len(a) == len(b)
+            and any(len(p) > 1 for p in a) and any(len(q) > 1 for q in b)
+            and all(_mesma_palavra(p, q) for p, q in zip(a, b)))
 
 
 @dataclass(frozen=True)
@@ -73,8 +129,7 @@ def calcular_pontuacao(palpite, jogo, resultado, regras=None):
     modo = "classico" if jogo.classico else "comum"
     placar = regras[f"{modo}_exato"] if exato else (
         regras[f"{modo}_resultado"] if acerto else 0)
-    previsto = normalizar_nome_jogador(palpite.primeiro_gol)
-    oficial = normalizar_nome_jogador(jogo.primeiro_marcador)
-    bonus = regras["primeiro_gol"] if gc + gf > 0 and previsto and oficial and previsto == oficial else 0
+    acertou_gol = mesmo_jogador(palpite.primeiro_gol, jogo.primeiro_marcador)
+    bonus = regras["primeiro_gol"] if gc + gf > 0 and acertou_gol else 0
     penaltis, pen_exato, pen_vencedor = pontuar_penaltis(palpite, resultado, regras)
     return Pontuacao(placar, bonus, exato, acerto, penaltis, pen_exato, pen_vencedor)

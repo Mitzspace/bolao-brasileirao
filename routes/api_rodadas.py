@@ -10,7 +10,7 @@ from routes.api import api, erro, requer_gestao
 from routes.api_serializacao import serializar_item_ranking, serializar_jogo, serializar_regras
 from services.contexto_bolao import bolao_atual, opcoes_rodadas, validar_rodada
 from services.elegibilidade import participa_na_rodada
-from services.pontuacao import normalizar_nome_jogador
+from services.pontuacao import chave_jogador
 from services.estado_rodadas import estados_das_rodadas
 from services.gestao_jogos import criar_jogo, definir_encerrado, editar_jogo, excluir_jogo, lancar_resultado
 from services.ranking import calcular_ranking
@@ -30,12 +30,12 @@ def _rodada_do_bolao(id):
 
 
 def sugestoes_primeiro_gol(jogo, bolao_id):
-    """Nomes de primeiro gol palpitados no clássico (agrupados como a pontuação compara)."""
+    """Nomes de primeiro gol palpitados no clássico (grafias do mesmo nome agrupadas)."""
     grupos = {}
     for p in jogo.palpites:
         if p.participacao.bolao_id != bolao_id or p.excluido_por_desistencia or not (p.primeiro_gol or '').strip():
             continue
-        chave = normalizar_nome_jogador(p.primeiro_gol)
+        chave = chave_jogador(p.primeiro_gol)
         nome, total = grupos.get(chave, (p.primeiro_gol.strip(), 0))
         grupos[chave] = (nome, total + 1)
     return [{'nome': nome, 'palpites': total} for nome, total in sorted(grupos.values(), key=lambda x: (-x[1], x[0]))]
