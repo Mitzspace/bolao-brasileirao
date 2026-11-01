@@ -132,3 +132,4 @@ from routes import api_participantes  # noqa: E402,F401
 from routes import api_boloes  # noqa: E402,F401
 from routes import api_configuracoes  # noqa: E402,F401
 from routes import api_eliminacao  # noqa: E402,F401
+from routes import api_estatisticas  # noqa: E402,F401

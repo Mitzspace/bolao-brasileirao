@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, Check, Info, ListOrdered, Plus, Trophy } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
@@ -10,7 +10,7 @@ import { useRecurso } from '@/lib/useRecurso';
 import type { BoloesApi, StatusBolao, View } from '@/types';
 
 const NOMES_ABAS: Partial<Record<View, string>> = {
-  dashboard: 'Dashboard', jogos: 'Jogos', palpites: 'Lançar palpites', rodadas: 'Rodadas',
+  dashboard: 'Dashboard', tabela: 'Tabela de pontuação', estatisticas: 'Estatísticas', jogos: 'Jogos', palpites: 'Lançar palpites', rodadas: 'Rodadas',
   participantes: 'Participantes', configuracoes: 'Configurações', campeonatos: 'Configurações',
 };
 
@@ -27,6 +27,9 @@ const FILTROS: { id: Filtro; rotulo: string }[] = [
 export function BoloesScreen({ destino }: { destino?: View } = {}) {
   const { dados, parametros } = useApp();
   const [detalheId, setDetalheId] = useState<number | null>(parametros.bolaoId || null);
+  // Cada clique na navegação traz parâmetros novos. Sem isto, tocar em "Bolões" com um bolão aberto
+  // não fazia nada: a aba já era a mesma, então a tela não remontava e o detalhe continuava aberto.
+  useEffect(() => { setDetalheId(parametros.bolaoId || null); }, [parametros]);
   const [novo, setNovo] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('ativo');
   const { dados: resumo } = useRecurso<BoloesApi>('/boloes');
@@ -72,7 +75,7 @@ export function BoloesScreen({ destino }: { destino?: View } = {}) {
               <strong className="font-semibold">Escolha qual bolão você quer gerenciar.</strong>{' '}
               {destino && NOMES_ABAS[destino]
                 ? <>Depois de tocar em <em>Gerenciar</em>, a aba <strong>{NOMES_ABAS[destino]}</strong> abre automaticamente.</>
-                : <>As abas Dashboard, Jogos, Palpites, Rodadas, Participantes e Configurações ficam disponíveis depois de escolher.</>}
+                : <>As abas Dashboard, Tabela, Estatísticas, Jogos, Palpites, Rodadas, Participantes e Configurações ficam disponíveis depois de escolher.</>}
             </p>
           </div>
         )}

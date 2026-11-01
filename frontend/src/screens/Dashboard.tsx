@@ -22,7 +22,7 @@ export function Dashboard() {
 }
 
 function Conteudo({ dados }: { dados: DashboardApi }) {
-  const { setView, dados: { bolaoAtualId } } = useApp();
+  const { setView } = useApp();
   const { rodada } = dados;
   const indicadores: IndicadorDashboard[] = [
     { label: 'Participantes ativos', value: dados.participantesAtivos, icon: Users, color: 'gold' },
@@ -48,7 +48,7 @@ function Conteudo({ dados }: { dados: DashboardApi }) {
       top5={dados.top5.map(p => ({ chave: p.participacaoId, avatarId: p.participacaoId, nome: p.nome, posicao: p.posicao,
         cravadas: p.cravadas, pontos: p.pontos, variacao: p.variacao }))}
       notaVariacao={dados.variacaoReferencia ? `Variação em relação à classificação antes da ${dados.variacaoReferencia}` : null}
-      onVerClassificacao={() => setView('boloes', { bolaoId: bolaoAtualId ?? 0 })}
+      onVerClassificacao={() => setView('tabela')}
       jogos={dados.jogos}
       extra={rodada && dados.pendentes.length > 0 ? (
         <section className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">

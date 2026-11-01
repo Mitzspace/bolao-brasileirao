@@ -1,4 +1,4 @@
-export const views = ['dashboard', 'jogos', 'palpites', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'] as const;
+export const views = ['dashboard', 'tabela', 'estatisticas', 'jogos', 'palpites', 'campeonatos', 'rodadas', 'participantes', 'boloes', 'configuracoes'] as const;
 export type View = typeof views[number];
 
 export interface Usuario { nome: string; email: string }
@@ -102,6 +102,45 @@ export interface DashboardApi {
   jogosEncerrados: number;
   top5: ItemRanking[];
   variacaoReferencia: string | null;
+}
+
+/** Linha de services/estatisticas.possiveis_ganhadores. */
+export interface LinhaEstatisticas {
+  participacaoId: number;
+  nome: string;
+  /** Posição entre quem ainda disputa. */
+  posicao: number;
+  pontos: number;
+  cravadas: number;
+  acertos: number;
+  distanciaLider: number;
+  pontosMaximos: number;
+  /** Mesmo gabaritando tudo, não alcança mais o líder. */
+  semChance: boolean;
+  /** Chances em %; null quando não há o que estimar. */
+  probabilidade: number | null;
+  chancePodio: number | null;
+  pontosProjetados: number | null;
+  desempenho: {
+    jogos: number; aproveitamento: number | null; mediaPorJogo: number | null; mediaRecente: number | null;
+    melhorRodada: { nome: string; pontos: number } | null;
+  };
+}
+
+/** GET /interface/api/estatisticas */
+export interface EstatisticasApi {
+  bolao: { id: number; nome: string; campeonato: string; ano: number | null; status: StatusBolao };
+  situacao: 'simulada' | 'encerrado' | 'desistido' | 'sem_resultados' | 'sem_jogos' | 'sem_participantes';
+  /** Tem mata-mata ou cortes: a tela explica como eles entram na estimativa. */
+  copa: boolean;
+  simulacoes: number;
+  jogosEncerrados: number;
+  jogosRestantes: number;
+  rodadasRestantes: number;
+  poucosDados: boolean;
+  eliminados: number;
+  desistentes: number;
+  participantes: LinhaEstatisticas[];
 }
 
 export interface JogoAtrasado extends JogoApi {

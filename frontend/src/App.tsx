@@ -8,6 +8,8 @@ import { BarraProgresso } from '@/components/layout/BarraProgresso';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { BoloesScreen } from '@/screens/BoloesScreen';
 import { Dashboard } from '@/screens/Dashboard';
+import { TabelaScreen } from '@/screens/TabelaScreen';
+import { EstatisticasScreen } from '@/screens/EstatisticasScreen';
 import { JogosScreen } from '@/screens/JogosScreen';
 import { ConfiguracoesScreen } from '@/screens/ConfiguracoesScreen';
 import { RodadasScreen } from '@/screens/RodadasScreen';
@@ -22,6 +24,10 @@ function CurrentScreen() {
   switch (view) {
     case 'dashboard':
       return <Dashboard />;
+    case 'tabela':
+      return <TabelaScreen />;
+    case 'estatisticas':
+      return <EstatisticasScreen />;
     case 'jogos':
       return <JogosScreen />;
     case 'palpites':

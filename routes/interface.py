@@ -8,7 +8,7 @@ from services.competicoes import tema_do_campeonato
 from services.contexto_bolao import bolao_atual, lembrar_bolao
 
 interface = Blueprint('interface', __name__, url_prefix='/interface')
-VIEWS = {'dashboard', 'jogos', 'palpites', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
+VIEWS = {'dashboard', 'tabela', 'estatisticas', 'jogos', 'palpites', 'rodadas', 'participantes', 'boloes', 'configuracoes'}
 
 
 def assets_interface():
