@@ -89,6 +89,12 @@ export function DesistenciaModal({ pessoa, acao, dados, onClose, onConcluido }: 
               <strong className="text-gray-700 dark:text-gray-200">{dados.regraDesistencia}.</strong> As rodadas anteriores continuam valendo; a partir da desistência,
               a pessoa sai do lançamento, das pendências e do ranking da rodada. O ranking geral mantém os pontos anteriores.
             </p>
+            {dados.desistenciaAteMetade && dados.rodadaLimiteDesistencia && (
+              <p className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-800 dark:text-blue-200">
+                Desistência até a metade do campeonato: até a <strong>{dados.rodadaLimiteDesistencia.nome}</strong> a pessoa sai da tabela.
+                Depois disso, mesmo desistindo, ela continua na tabela com os pontos que já tinha.
+              </p>
+            )}
             {pedeRodada ? (
               <>
                 <Select label={dados.regraDesistencia} value={rodadaId} onChange={e => setRodadaId(e.target.value)}>
@@ -108,6 +114,7 @@ export function DesistenciaModal({ pessoa, acao, dados, onClose, onConcluido }: 
             <div className="p-3 rounded-xl bg-gold-50 dark:bg-gold-900/20 text-sm text-gold-800 dark:text-gold-200">
               Nenhuma alteração foi gravada. {p.acao === 'reativar' ? 'A participação será reativada.' : p.rodada && pedeRodada ? `Desistência a partir de ${p.rodada}.` : 'Revise os palpites que podem voltar a valer.'}
               {p.motivo && <span className="block mt-1"><strong>Motivo:</strong> {p.motivo}</span>}
+              {p.mantidoNaTabela && <span className="block mt-1">Desistência depois da metade do campeonato ({p.rodadaLimite}): a pessoa <strong>continua na tabela</strong> com os pontos que já tinha.</span>}
             </div>
             {p.posteriores.length > 0 && (
               <div className="space-y-2">

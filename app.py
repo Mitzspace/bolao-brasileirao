@@ -203,6 +203,8 @@ def create_app(config_name=None, database_uri=None, initialize_database=False):
             if ('eliminacao_participantes' not in {c['name'] for c in inspector.get_columns('bolao')}
                     or 'corte_eliminacao' not in inspector.get_table_names()):
                 raise RuntimeError('Migração pendente: execute python -m migrations.eliminacao CAMINHO_DO_BANCO. Consulte docs/COPAS_ELIMINACAO.md.')
+            if 'desistencia_ate_metade' not in {c['name'] for c in inspector.get_columns('bolao')}:
+                raise RuntimeError('Migração pendente: execute python -m migrations.desistencia_metade CAMINHO_DO_BANCO. Consulte docs/DESISTENCIA_METADE.md.')
             if ('pode_penaltis' not in {c['name'] for c in inspector.get_columns('jogo')}
                     or 'fonte_api' not in {c['name'] for c in inspector.get_columns('campeonato')}):
                 raise RuntimeError('Migração pendente: execute python -m migrations.penaltis CAMINHO_DO_BANCO. Consulte docs/COPAS_ELIMINACAO.md.')

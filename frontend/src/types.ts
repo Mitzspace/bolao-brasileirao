@@ -332,6 +332,8 @@ export interface ParticipanteApi {
   rodadaEntrada: { id: number; nome: string } | null;
   rodadaDesistencia: { id: number; nome: string } | null;
   motivoDesistencia: string;
+  /** Desistiu depois da metade do campeonato com a regra ligada: continua na tabela. */
+  mantidoNaTabela: boolean;
   pontos: number;
   palpites: number;
   cravadas: number;
@@ -347,6 +349,9 @@ export interface ParticipantesApi {
   rodadaPadraoId: number | null;
   politicaEntrada: 'zero' | 'fora_da_conta' | string;
   regraDesistencia: string;
+  /** Desistência só tira da tabela até a metade do campeonato. */
+  desistenciaAteMetade: boolean;
+  rodadaLimiteDesistencia: { id: number; nome: string } | null;
   variacaoReferencia: string | null;
 }
 
@@ -370,7 +375,7 @@ export interface DesempenhoParticipanteApi {
 
 export type AcaoDesistencia = 'registrar' | 'corrigir' | 'reativar' | 'restaurar';
 export interface PreviaDesistencia {
-  previa: { acao: AcaoDesistencia; rodada: string | null; motivo: string; posteriores: PalpiteGuardado[]; restauraveis: PalpiteGuardado[] };
+  previa: { acao: AcaoDesistencia; rodada: string | null; motivo: string; mantidoNaTabela: boolean; rodadaLimite: string | null; posteriores: PalpiteGuardado[]; restauraveis: PalpiteGuardado[] };
   token: string;
 }
 
@@ -393,6 +398,8 @@ export interface ClassificacaoBolaoApi {
   variacaoReferencia: string | null;
   ranking: ItemRanking[];
   textoWhatsapp: string;
+  /** Cores do texto compartilhado, proporcionais ao número de participantes. */
+  legendaWhatsapp: { marcador: string; faixa: string }[];
   regras: Regras & { politicaEntrada: 'zero' | 'fora_da_conta' };
 }
 

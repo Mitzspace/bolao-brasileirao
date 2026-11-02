@@ -20,7 +20,8 @@ from sqlalchemy.orm import joinedload
 from models import Bolao, Jogo, Palpite, Participacao, ordem_dos_jogos
 from routes.api_serializacao import serializar_regras, texto_data
 from services.contexto_bolao import opcoes_rodadas, ordem_rodada
-from services.elegibilidade import entra_no_ranking_da_rodada, palpite_elegivel
+from services.elegibilidade import (entra_no_ranking_da_rodada, palpite_elegivel, rodada_limite_desistencia,
+                                   sai_da_tabela)
 from services.eliminacao import eliminados_no_ranking
 from services.escudos import escudo_time
 from services.evolucao_ranking import evolucao, rotulo_curto
@@ -309,6 +310,7 @@ def palpites(bolao, numero=None):
                 mapa[(p.participacao_id, p.jogo_id)] = p
 
     ids_revelados = {j.id for j in revelados}
+    limite = rodada_limite_desistencia(bolao)
     lista_jogos = []
     for numero_jogo, jogo in enumerate(jogos_rodada, 1):
         item = jogo_publico(jogo, bolao.campeonato_id, agora, numero_jogo)
@@ -317,7 +319,8 @@ def palpites(bolao, numero=None):
             linhas = []
             for pessoa in pessoas:
                 p = mapa.get((pessoa.id, jogo.id))
-                linha = {'nome': pessoa.nome_exibicao, 'status': pessoa.status, 'ref': referencia(bolao, pessoa)}
+                linha = {'nome': pessoa.nome_exibicao, 'status': pessoa.status, 'ref': referencia(bolao, pessoa),
+                         'naTabela': not sai_da_tabela(pessoa, limite)}
                 if p is None:
                     linha['situacao'] = 'sem_palpite'
                 elif p.situacao != 'valido':
@@ -349,16 +352,18 @@ def participantes(bolao):
                                          Participacao.status.in_(STATUS_VISIVEIS))
                .order_by(Participacao.nome_exibicao, Participacao.id).all())
     posicoes = {}
+    limite = rodada_limite_desistencia(bolao)
     if ctx.liberada_ate is not None:
         todos = carregar_participantes(bolao)
         geral = ranking_liberado(ctx, ocultar_desistentes=False, todos=todos)
         pontos = {item['participante'].id: item for item in geral}
-        sem_desistentes = [item for item in geral if item['participante'].status != 'desistente']
+        sem_desistentes = [item for item in geral if not sai_da_tabela(item['participante'], limite)]
         ordem = {item['participante'].id: i for i, item in enumerate(sem_desistentes, 1)}
         posicoes = {pid: (ordem.get(pid), item) for pid, item in pontos.items()}
     lista = []
     for p in pessoas:
-        linha = {'nome': p.nome_exibicao, 'status': p.status, 'ref': referencia(bolao, p)}
+        linha = {'nome': p.nome_exibicao, 'status': p.status, 'ref': referencia(bolao, p),
+                 'naTabela': not sai_da_tabela(p, limite)}
         if p.id in posicoes:
             posicao, item = posicoes[p.id]
             linha.update({'posicao': posicao, 'pontos': item['pontos'], 'cravadas': item['cravadas']})
@@ -383,11 +388,12 @@ def participante(bolao, ref):
     if ctx.liberada_ate is None:
         return {**base, 'liberada': False}
 
-    desistente = pessoa.status == 'desistente'
+    limite = rodada_limite_desistencia(bolao)
+    desistente = sai_da_tabela(pessoa, limite)
     geral = ranking_liberado(ctx, ocultar_desistentes=not desistente, todos=todos)
     posicao, item = next(((i, it) for i, it in enumerate(geral, 1) if it['participante'].id == pessoa.id),
                          (None, None))
-    universo = todos if desistente else [p for p in todos if p.status != 'desistente']
+    universo = todos if desistente else [p for p in todos if not sai_da_tabela(p, limite)]
     linhas = [l for l in evolucao(bolao, universo).get(pessoa.id, [])
               if ctx.numero.get(l['rodada'].id, ctx.liberada_ate + 1) <= ctx.liberada_ate]
     return {

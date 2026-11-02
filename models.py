@@ -69,6 +69,9 @@ class Bolao(db.Model):
     rodada_publica_id = db.Column(db.Integer, db.ForeignKey("rodada.id"), nullable=True)
     # Corte por fase: quem fica fora dos classificados sai do ranking.
     eliminacao_participantes = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
+    # Desistência só tira a pessoa da tabela até a metade do campeonato; depois disso,
+    # quem desiste continua na classificação (com os pontos que já tinha).
+    desistencia_ate_metade = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
     __table_args__ = (db.CheckConstraint(
         "politica_entrada_tardia IN ('zero', 'fora_da_conta')", name="bolao_entrada_tardia"),)
     campeonato = db.relationship("Campeonato", backref="boloes")

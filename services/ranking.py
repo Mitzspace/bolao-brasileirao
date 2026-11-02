@@ -12,7 +12,8 @@ from sqlalchemy.orm import joinedload, selectinload
 from database import db
 from models import Bolao, BonusRodada, Jogo, Palpite, Participante, Participacao, Resultado, Rodada
 from services.contexto_bolao import ordem_rodada
-from services.elegibilidade import dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel
+from services.elegibilidade import (dentro_do_periodo, entra_no_ranking_da_rodada, palpite_elegivel,
+                                   rodada_limite_desistencia, sai_da_tabela)
 from services.pontuacao import calcular_pontuacao
 from services.regras_pontuacao import regras_do_bolao
 
@@ -114,9 +115,11 @@ def _calcular_ranking_sem_eliminacao(bolao, rodada=None, ocultar_desistentes=Fal
             consideradas[chave] = _considerar(rodada_item)
         return consideradas[chave]
 
+    # Com a regra "desistência até a metade", quem desistiu depois da metade fica na tabela.
+    limite_desistencia = rodada_limite_desistencia(bolao) if bolao and ocultar_desistentes else None
     resultado = []
     for p in todos:
-        if bolao and (ocultar_desistentes and p.status == 'desistente'
+        if bolao and (ocultar_desistentes and sai_da_tabela(p, limite_desistencia)
                       or rodada and not entra_no_ranking_da_rodada(p, rodada)):
             continue
         total_palpites = cravadas = acertos_vencedor = bonus_primeiro_gol = 0

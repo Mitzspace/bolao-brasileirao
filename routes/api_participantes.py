@@ -6,9 +6,9 @@ from sqlalchemy.orm import joinedload
 from database import db
 from models import Jogo, Palpite, Participacao, ParticipacaoLog
 from routes.api import api, erro, requer_gestao
-from services.contexto_bolao import bolao_atual, opcoes_rodadas
+from services.contexto_bolao import bolao_atual, opcoes_rodadas, ordem_rodada
 from services.desistencias import aplicar, historico_visivel, preparar
-from services.elegibilidade import REGRA_DESISTENCIA
+from services.elegibilidade import REGRA_DESISTENCIA, desistente_mantido, rodada_limite_desistencia
 from services.evolucao_ranking import evolucao, rotulo_curto
 from services.gestao_participantes import normalizar_nome, totais_participantes
 from services.participacoes import (alterar_status, confirmacao_valida, criar, editar,
@@ -56,6 +56,7 @@ def listar_participantes():
     duplicados = {id for ids in nomes.values() if len(ids) > 1 for id in ids}
     rodadas = [r for r, _ in opcoes_rodadas(bolao.campeonato_id)]
     padrao = _rodada_padrao(bolao, rodadas)
+    limite = rodada_limite_desistencia(bolao)
 
     def serializar(p):
         rank = posicoes.get(p.id, {})
@@ -66,6 +67,7 @@ def listar_participantes():
             'rodadaDesistencia': ({'id': p.rodada_desistencia.id, 'nome': p.rodada_desistencia.nome}
                                   if p.rodada_desistencia else None),
             'motivoDesistencia': p.motivo_desistencia or '',
+            'mantidoNaTabela': desistente_mantido(p, limite),
             'pontos': totais[p.id]['pontos'], 'palpites': totais[p.id]['palpites'],
             'cravadas': rank.get('cravadas', 0), 'posicao': rank.get('posicao'), 'variacao': rank.get('variacao'),
             'duplicado': p.id in duplicados, 'souEu': p.usuario_id == current_user.id,
@@ -79,8 +81,34 @@ def listar_participantes():
         'rodadaPadraoId': padrao.id if padrao else None,
         'politicaEntrada': bolao.politica_entrada_tardia,
         'regraDesistencia': REGRA_DESISTENCIA,
+        'desistenciaAteMetade': bool(bolao.desistencia_ate_metade),
+        'rodadaLimiteDesistencia': _limite_desistencia(bolao, rodadas),
         'variacaoReferencia': ultima.nome if ultima else None,
     })
+
+
+def _limite_desistencia(bolao, rodadas):
+    """Última rodada da primeira metade (mostrada mesmo com a regra desligada, para explicar a opção)."""
+    if not rodadas:
+        return None
+    r = rodadas[(len(rodadas) + 1) // 2 - 1]
+    return {'id': r.id, 'nome': r.nome}
+
+
+@api.put('/participantes/regra-desistencia')
+@requer_gestao()
+def salvar_regra_desistencia():
+    """Liga/desliga "desistência só até a metade do campeonato"; nenhum palpite é alterado."""
+    dados = request.get_json(silent=True)
+    if not isinstance(dados, dict) or not isinstance(dados.get('desistenciaAteMetade'), bool):
+        return erro(400, 'Informe se a regra de desistência até a metade está ligada ou desligada.')
+    bolao = bolao_atual()
+    bloquear_bolao(bolao.id)
+    bolao.desistencia_ate_metade = dados['desistenciaAteMetade']
+    db.session.commit()
+    return jsonify({'mensagem': ('Regra salva: após a metade do campeonato, quem desistir continua na tabela.'
+                                 if bolao.desistencia_ate_metade else
+                                 'Regra desligada: desistentes podem ser ocultados da tabela em qualquer rodada.')})
 
 
 @api.get('/participantes/<int:id>')
@@ -185,8 +213,12 @@ def desistencia_participante(id):
                                     'pelas regras e resultados oficiais.',
                         'logout': pessoa.usuario_id == current_user.id and pessoa.status != 'ativo'})
     token = gerar_confirmacao(plano, current_user.id)
+    limite = rodada_limite_desistencia(bolao)
     previa = {
         'acao': acao, 'rodada': plano.rodada.nome if plano.rodada else None, 'motivo': motivo,
+        'mantidoNaTabela': bool(acao in {'registrar', 'corrigir'} and limite is not None and plano.rodada
+                                and ordem_rodada(plano.rodada) > ordem_rodada(limite)),
+        'rodadaLimite': limite.nome if limite else None,
         'posteriores': [_serializar_palpite(p) for p in plano.posteriores],
         'restauraveis': [_serializar_palpite(p) for p in plano.restauraveis],
     }

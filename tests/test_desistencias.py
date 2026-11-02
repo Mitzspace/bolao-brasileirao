@@ -137,3 +137,61 @@ def test_validacao_entrada_permissao_e_importacao(ciclo):
     comum = Participacao.query.filter_by(nome_exibicao='comum').one().usuario_id
     sessao(ciclo[1], comum)
     assert ciclo[1].post(url, json={'acao': 'registrar'}).status_code == 403
+
+
+# ── Desistência só até a metade do campeonato ────────────────────────────────
+
+def ligar_regra_metade(ciclo, valor=True):
+    resposta = ciclo[1].put('/interface/api/participantes/regra-desistencia', json={'desistenciaAteMetade': valor})
+    assert resposta.status_code == 200, resposta.text
+    assert db.session.get(Bolao, ciclo[2]).desistencia_ate_metade is valor
+
+
+def test_regra_metade_desligada_mantem_comportamento_atual(ciclo):
+    app, client, bolao, pessoa, rodadas = ciclo
+    confirmar(ciclo, indice=2)  # desistência depois da metade, mas a regra está desligada
+    assert pessoa not in [r['participante'].id for r in ranking(bolao, ocultar=True)]
+    lista = client.get('/interface/api/participantes').get_json()
+    assert lista['desistenciaAteMetade'] is False
+    assert lista['rodadaLimiteDesistencia']['id'] == rodadas[1]  # 3 rodadas: metade = Rodada 2
+    assert next(p for p in lista['participantes'] if p['id'] == pessoa)['mantidoNaTabela'] is False
+
+
+def test_desistencia_ate_a_metade_tira_da_tabela(ciclo):
+    app, client, bolao, pessoa, rodadas = ciclo
+    ligar_regra_metade(ciclo)
+    url, dados = previa(ciclo, indice=1)  # Rodada 2 = última da primeira metade
+    assert client.post(url, json={k: v for k, v in dados.items() if k not in {'confirmar', 'token'}}) \
+        .get_json()['previa']['mantidoNaTabela'] is False
+    dados['restaurar'] = 'sim'
+    assert client.post(url, json=dados).status_code == 200
+    assert pessoa not in [r['participante'].id for r in ranking(bolao, ocultar=True)]
+
+
+def test_desistencia_depois_da_metade_continua_na_tabela(ciclo):
+    app, client, bolao, pessoa, rodadas = ciclo
+    ligar_regra_metade(ciclo)
+    url, dados = previa(ciclo, indice=2)
+    corpo = client.post(url, json={k: v for k, v in dados.items() if k not in {'confirmar', 'token'}}).get_json()
+    assert corpo['previa']['mantidoNaTabela'] is True and corpo['previa']['rodadaLimite'] == 'Rodada 2'
+    dados['restaurar'] = 'sim'
+    assert client.post(url, json=dados).status_code == 200
+    part = db.session.get(Participacao, pessoa)
+    assert part.status == 'desistente'
+    # Continua na tabela (mesmo ocultando desistentes) com os pontos das rodadas 1 e 2.
+    item = next(r for r in ranking(bolao, ocultar=True) if r['participante'].id == pessoa)
+    assert item['pontos'] == 6
+    # Não pontua nem é cobrado a partir da desistência.
+    assert pessoa not in [r['participante'].id for r in ranking(bolao, rodadas[2])]
+    assert not participa_na_rodada(part, db.session.get(Rodada, rodadas[2]))
+    lista = client.get('/interface/api/participantes').get_json()
+    assert next(p for p in lista['participantes'] if p['id'] == pessoa)['mantidoNaTabela'] is True
+    # Desligar a regra volta ao comportamento anterior.
+    ligar_regra_metade(ciclo, False)
+    assert pessoa not in [r['participante'].id for r in ranking(bolao, ocultar=True)]
+
+
+def test_regra_metade_valida_entrada(ciclo):
+    client = ciclo[1]
+    assert client.put('/interface/api/participantes/regra-desistencia', json={'desistenciaAteMetade': 'sim'}).status_code == 400
+    assert client.put('/interface/api/participantes/regra-desistencia', json=None).status_code == 400

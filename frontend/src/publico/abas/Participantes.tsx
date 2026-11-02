@@ -17,7 +17,7 @@ export function Participantes({ onAbrirParticipante }: { onAbrirParticipante: Ab
   if (!dados) return <Carregando linhas={6} />;
   const termo = busca.trim().toLocaleLowerCase('pt-BR');
   const lista = dados.participantes.filter(p =>
-    (!ocultar || p.status !== 'desistente') && (!termo || p.nome.toLocaleLowerCase('pt-BR').includes(termo)));
+    (!ocultar || p.status !== 'desistente' || !!p.naTabela) && (!termo || p.nome.toLocaleLowerCase('pt-BR').includes(termo)));
   return (
     <section className={`${cartao} overflow-hidden`}>
       <Titulo icone={<Users className="w-5 h-5" />} titulo={`Participantes (${lista.length})`}

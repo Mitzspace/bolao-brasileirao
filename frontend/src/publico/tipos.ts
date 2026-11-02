@@ -53,7 +53,7 @@ export interface JogosApi {
 }
 
 export interface PalpitePublico {
-  nome: string; ref: string; status: string;
+  nome: string; ref: string; status: string; naTabela?: boolean;
   situacao: 'valido' | 'sem_palpite' | 'nao_enviado' | 'fora_prazo';
   casa?: number; fora?: number; primeiroGol?: string; pontos?: number;
   penaltisCasa?: number; penaltisFora?: number;
@@ -66,7 +66,7 @@ export interface PalpitesApi {
 
 export interface ParticipantesApi {
   tabela: TabelaLiberada | null;
-  participantes: { nome: string; ref: string; status: string; posicao?: number | null; pontos?: number; cravadas?: number }[];
+  participantes: { nome: string; ref: string; status: string; naTabela?: boolean; posicao?: number | null; pontos?: number; cravadas?: number }[];
 }
 
 export interface EvolucaoPublica {

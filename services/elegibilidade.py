@@ -37,3 +37,33 @@ def entra_no_ranking_da_rodada(participacao, rodada):
 def palpite_elegivel(palpite):
     return (not palpite.excluido_por_desistencia
             and dentro_do_periodo(palpite.participacao, palpite.jogo.rodada))
+
+
+# ── Desistência só até a metade do campeonato ────────────────────────────────
+
+def rodada_limite_desistencia(bolao):
+    """Última rodada da primeira metade do campeonato (ou None se a regra está desligada).
+
+    Com a regra ligada, quem desiste até esta rodada (inclusive) sai da tabela como hoje;
+    quem desiste depois continua na classificação com os pontos que já tinha.
+    Com número ímpar de rodadas a metade arredonda para cima (19 rodadas → 10ª).
+    """
+    if not bolao or not getattr(bolao, 'desistencia_ate_metade', False):
+        return None
+    from models import Rodada
+    rodadas = sorted(Rodada.query.filter_by(campeonato_id=bolao.campeonato_id).all(), key=ordem_rodada)
+    if not rodadas:
+        return None
+    return rodadas[(len(rodadas) + 1) // 2 - 1]
+
+
+def desistente_mantido(participacao, limite):
+    """Desistiu depois da metade do campeonato: continua na tabela (`limite` de rodada_limite_desistencia)."""
+    saida = participacao.rodada_desistencia
+    return (limite is not None and participacao.status == 'desistente' and saida is not None
+            and ordem_rodada(saida) > ordem_rodada(limite))
+
+
+def sai_da_tabela(participacao, limite):
+    """Desistente que some da tabela quando os desistentes são ocultados."""
+    return participacao.status == 'desistente' and not desistente_mantido(participacao, limite)

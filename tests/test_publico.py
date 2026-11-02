@@ -97,7 +97,7 @@ def test_jogo_com_resultado_mostra_palpites(client, cenario):
     por_nome = {p['nome']: p for p in fla['palpites']}
     ana = dict(por_nome['Ana Souza'])
     assert re.fullmatch(r'[0-9a-f]{16}', ana.pop('ref'))
-    assert ana == {'nome': 'Ana Souza', 'status': 'ativo', 'situacao': 'valido',
+    assert ana == {'nome': 'Ana Souza', 'status': 'ativo', 'naTabela': True, 'situacao': 'valido',
                    'casa': 2, 'fora': 1, 'primeiroGol': 'Pedro', 'pontos': 5}
     assert por_nome['Bia']['casa'] == 0
 

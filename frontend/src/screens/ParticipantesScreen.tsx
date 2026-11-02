@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Switch } from '@/components/ui/Form';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { useToast } from '@/components/ui/Toast';
 import { Variacao } from '@/components/ui/Variacao';
@@ -65,6 +66,16 @@ export function ParticipantesScreen() {
     }
   };
 
+  const salvarRegraDesistencia = async (valor: boolean) => {
+    try {
+      const r = await api.put<{ mensagem: string }>('/participantes/regra-desistencia', { desistenciaAteMetade: valor });
+      showToast(r.mensagem);
+      void atualizar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível salvar a regra de desistência.', 'error');
+    }
+  };
+
   const lancar = (p: ParticipanteApi) => setView('palpites', { participacaoId: p.id });
 
   const filtros: { id: Filtro; label: string }[] = [
@@ -105,6 +116,14 @@ export function ParticipantesScreen() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
+              <Switch checked={dados.desistenciaAteMetade} onChange={v => void salvarRegraDesistencia(v)}
+                label="Desistência só até a metade do campeonato"
+                description={dados.rodadaLimiteDesistencia
+                  ? `Até a ${dados.rodadaLimiteDesistencia.nome}, quem desiste sai da tabela. Depois disso, quem desistir continua na tabela com os pontos que já tinha.`
+                  : 'Cadastre as rodadas do campeonato para definir a metade.'} />
             </div>
 
             {lista.length === 0 ? (
@@ -152,7 +171,12 @@ export function ParticipantesScreen() {
                           <td className="py-3 px-3 text-center">
                             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300">{p.posicao ? `${p.posicao}º` : '—'} <Variacao valor={p.variacao} /></span>
                           </td>
-                          <td className="py-3 px-3 text-center"><StatusBadge status={p.status} /></td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <StatusBadge status={p.status} />
+                              {p.mantidoNaTabela && <Badge color="blue" size="sm">Na tabela</Badge>}
+                            </div>
+                          </td>
                           <td className="py-3 px-5">
                             <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                               {p.status === 'ativo' && (
@@ -185,6 +209,7 @@ export function ParticipantesScreen() {
                           <p className="text-xs text-gray-400 mt-0.5 truncate">{p.email || (p.rodadaEntrada ? `Entrou na ${p.rodadaEntrada.nome}` : '')}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <StatusBadge status={p.status} />
+                            {p.mantidoNaTabela && <Badge color="blue" size="sm">Na tabela</Badge>}
                             <Badge color="green" size="sm">{p.pontos} pts</Badge>
                             {p.duplicado && <Badge color="yellow" size="sm">Registro {p.id}</Badge>}
                           </div>

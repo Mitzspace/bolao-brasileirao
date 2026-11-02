@@ -73,7 +73,7 @@ export function Palpites({ onAbrirParticipante }: { onAbrirParticipante: AbrirPa
   const { dados, carregando, erro, recarregar } = useRecurso<PalpitesApi>(numero ? `/palpites?rodada=${numero}` : '/palpites');
   const termo = busca.trim().toLocaleLowerCase('pt-BR');
   const filtro = useMemo(() => (p: PalpitePublico) =>
-    (!ocultar || p.status !== 'desistente') && (!termo || p.nome.toLocaleLowerCase('pt-BR').includes(termo)), [ocultar, termo]);
+    (!ocultar || p.status !== 'desistente' || !!p.naTabela) && (!termo || p.nome.toLocaleLowerCase('pt-BR').includes(termo)), [ocultar, termo]);
 
   if (erro && !dados) return <ErroCarga mensagem={erro} onTentar={recarregar} />;
   if (!dados) return <Carregando linhas={5} />;
