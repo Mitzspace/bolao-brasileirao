@@ -86,13 +86,21 @@ export function PreviaWhatsapp({ participacaoId, rodadaId, nome, rodadaNome, onA
       {aberto && (
         <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-4 animate-fade-in">
           <p className="text-xs text-gray-500 dark:text-gray-400">Participante: <strong>{nome}</strong> · {rodadaNome}. A prévia não grava palpites.</p>
+          {/* Ações no topo: não é preciso descer a tela para gerar/confirmar a prévia */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={gerar} disabled={lendo || !texto.trim()} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">
+              <Wand2 className="w-4 h-4" /> {lendo ? 'Lendo…' : 'Gerar prévia'}
+            </button>
+            {previa && (
+              <button onClick={aplicar} disabled={!validacao.valido} className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-50">
+                Confirmar prévia e preencher formulário
+              </button>
+            )}
+          </div>
+          {status && <p role="status" className="text-sm text-gray-600 dark:text-gray-300">{status}</p>}
           <textarea value={texto} onChange={e => { setTexto(e.target.value); setPrevia(null); }} rows={5} maxLength={20000}
             placeholder={'Flamengo 2x1 Vasco ★ Pedro\nSantos 0x0 Bahia'} aria-label="Mensagem original"
             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-          <button onClick={gerar} disabled={lendo || !texto.trim()} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">
-            <Wand2 className="w-4 h-4" /> Gerar prévia
-          </button>
-          {status && <p role="status" className="text-sm text-gray-600 dark:text-gray-300">{status}</p>}
           {previa && (
             <>
               <div className="space-y-2">
