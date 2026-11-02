@@ -11,20 +11,64 @@ def cabecalho(bolao, titulo):
             f'{linha(bolao.campeonato.nome)} · Temporada {bolao.campeonato.ano or "não informada"}', '']
 
 
-# Faixas do texto de classificação para o WhatsApp (modelo do bolão):
-# 1º–4º verde, 5º amarelo, 6º–10º azul, últimos 4 vermelho e o restante branco.
-FAIXAS_COMPARTILHAR = ((1, 4, '🟩'), (5, 5, '🟨'), (6, 10, '🟦'))
-ULTIMOS_VERMELHOS = 4
-ULTIMA_POSICAO_PROTEGIDA = 10  # as faixas do topo têm prioridade sobre o vermelho
+# Faixas do texto de classificação para o WhatsApp, proporcionais ao número de participantes
+# (modelo do bolão com 20 pessoas: 4 verdes, 1 amarelo, 5 azuis, os demais brancos e 4 vermelhos).
+PROPORCAO_VERDE = 0.20
+PROPORCAO_AMARELO = 0.05
+PROPORCAO_AZUL = 0.25
+PROPORCAO_VERMELHO = 0.20
+
+
+def _arredondar(valor):
+    return int(valor + 0.5)  # meio para cima (round() do Python arredonda 2,5 para 2)
+
+
+def faixas_compartilhar(total):
+    """Quantidade de posições de cada cor: (verdes, amarelos, azuis, vermelhos).
+
+    Verde e amarelo têm ao menos uma posição; as faixas do topo têm prioridade
+    sobre o vermelho quando há poucos participantes.
+    """
+    if total <= 0:
+        return 0, 0, 0, 0
+    verdes = min(total, max(1, _arredondar(total * PROPORCAO_VERDE)))
+    amarelos = min(total - verdes, max(1, _arredondar(total * PROPORCAO_AMARELO)))
+    azuis = min(total - verdes - amarelos, _arredondar(total * PROPORCAO_AZUL))
+    vermelhos = min(total - verdes - amarelos - azuis, _arredondar(total * PROPORCAO_VERMELHO))
+    return verdes, amarelos, azuis, vermelhos
 
 
 def marcador_posicao(posicao, total):
-    for inicio, fim, marcador in FAIXAS_COMPARTILHAR:
-        if inicio <= posicao <= fim:
-            return marcador
-    if posicao > ULTIMA_POSICAO_PROTEGIDA and posicao > total - ULTIMOS_VERMELHOS:
+    verdes, amarelos, azuis, vermelhos = faixas_compartilhar(total)
+    if posicao <= verdes:
+        return '🟩'
+    if posicao <= verdes + amarelos:
+        return '🟨'
+    if posicao <= verdes + amarelos + azuis:
+        return '🟦'
+    if posicao > total - vermelhos:
         return '🟥'
     return '⬜'
+
+
+def _faixa(inicio, fim):
+    return f'{inicio}º' if inicio == fim else f'{inicio}º ao {fim}º'
+
+
+def legenda_compartilhar(total):
+    """Legenda das cores para o total de participantes: [(marcador, faixa), ...] só das cores usadas."""
+    verdes, amarelos, azuis, vermelhos = faixas_compartilhar(total)
+    legenda, inicio = [], 1
+    for marcador, quantidade in (('🟩', verdes), ('🟨', amarelos), ('🟦', azuis)):
+        if quantidade:
+            legenda.append((marcador, _faixa(inicio, inicio + quantidade - 1)))
+            inicio += quantidade
+    fim_brancos = total - vermelhos
+    if fim_brancos >= inicio:
+        legenda.append(('⬜', _faixa(inicio, fim_brancos)))
+    if vermelhos:
+        legenda.append(('🟥', _faixa(fim_brancos + 1, total)))
+    return legenda
 
 
 def texto_classificacao_compartilhar(bolao, ranking, rodada=None):

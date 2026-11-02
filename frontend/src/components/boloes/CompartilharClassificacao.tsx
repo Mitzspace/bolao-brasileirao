@@ -11,10 +11,6 @@ export function Formatado({ texto }: { texto: string }) {
       ? <strong key={i}>{parte.slice(1, -1)}</strong> : <Fragment key={i}>{parte}</Fragment>)}</>;
 }
 
-const LEGENDA = [
-  ['🟩', '1º ao 4º'], ['🟨', '5º'], ['🟦', '6º ao 10º'], ['⬜', 'meio da tabela'], ['🟥', 'últimos 4'],
-];
-
 /** Prévia da mensagem do grupo (balão do WhatsApp) e botão de copiar. */
 export function CompartilharClassificacao({ dados, aberto, onClose }: { dados: ClassificacaoBolaoApi; aberto: boolean; onClose: () => void }) {
   const showToast = useToast();
@@ -47,7 +43,7 @@ export function CompartilharClassificacao({ dados, aberto, onClose }: { dados: C
           </div>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          {LEGENDA.map(([cor, faixa]) => <span key={faixa}>{cor} {faixa}</span>)}
+          {(dados.legendaWhatsapp ?? []).map(({ marcador, faixa }) => <span key={marcador}>{marcador} {faixa}</span>)}
         </div>
       </div>
     </Modal>

@@ -17,7 +17,7 @@ from services.ranking import calcular_ranking, carregar_participantes, ranking_c
 from services.regras_pontuacao import aplicar_regras, regras_do_bolao, validar_regras
 from services.responsaveis import bloquear_bolao
 from services.resumo_boloes import resumos_boloes
-from services.textos_whatsapp import texto_classificacao_compartilhar
+from services.textos_whatsapp import legenda_compartilhar, texto_classificacao_compartilhar
 from services.link_publico import configuracao_publica, definir_tabela_publica, gerar_link, desativar_link
 
 
@@ -159,6 +159,7 @@ def classificacao_bolao(id):
         'variacaoReferencia': referencia,
         'ranking': [serializar_item_ranking(i) for i in ranking],
         'textoWhatsapp': texto_classificacao_compartilhar(bolao, ranking, rodada),
+        'legendaWhatsapp': [{'marcador': m, 'faixa': f} for m, f in legenda_compartilhar(len(ranking))],
         'regras': {**serializar_regras(bolao), 'politicaEntrada': bolao.politica_entrada_tardia},
     })
 

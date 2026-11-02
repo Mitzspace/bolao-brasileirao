@@ -48,6 +48,7 @@ def test_classificacao_geral_e_por_rodada_igual_ao_ranking(client, gestao):
     ana_item = next(i for i in geral['ranking'] if i['nome'] == 'Ana')
     assert ana_item['variacao'] == 0  # liderava após a rodada 1 e continua
     assert geral['textoWhatsapp'].splitlines()[:3] == ['*🏆Amigos A*', '', '🟩 1. Ana – 3 pontos']
+    assert geral['legendaWhatsapp'][0] == {'marcador': '🟩', 'faixa': '1º'}
     assert geral['regras']['classicoExato'] == 5
     rodada = client.get(f'/interface/api/boloes/{bolao.id}/classificacao?rodada_id={r2.id}').get_json()
     assert rodada['ranking'][0]['nome'] == 'Bia' and rodada['ranking'][0]['pontos'] == 3
@@ -100,11 +101,20 @@ def test_criar_bolao_exige_csrf(client, gestao, app):
 
 
 def test_faixas_do_texto_compartilhado():
-    from services.textos_whatsapp import marcador_posicao
-    assert [marcador_posicao(p, 18) for p in (1, 4, 5, 6, 10, 11, 14, 15, 18)] == \
-        ['🟩', '🟩', '🟨', '🟦', '🟦', '⬜', '⬜', '🟥', '🟥']
+    from services.textos_whatsapp import legenda_compartilhar, marcador_posicao
+    # 20 participantes: 4 verdes, 1 amarelo, 5 azuis, 6 brancos e 4 vermelhos.
+    assert [marcador_posicao(p, 20) for p in range(1, 21)] == \
+        ['🟩'] * 4 + ['🟨'] + ['🟦'] * 5 + ['⬜'] * 6 + ['🟥'] * 4
+    assert legenda_compartilhar(20) == [('🟩', '1º ao 4º'), ('🟨', '5º'), ('🟦', '6º ao 10º'),
+                                        ('⬜', '11º ao 16º'), ('🟥', '17º ao 20º')]
+    # Proporcional: com 40 são 8 verdes, 2 amarelos, 10 azuis, 12 brancos e 8 vermelhos.
+    assert [marcador_posicao(p, 40) for p in range(1, 41)] == \
+        ['🟩'] * 8 + ['🟨'] * 2 + ['🟦'] * 10 + ['⬜'] * 12 + ['🟥'] * 8
+    assert [marcador_posicao(p, 10) for p in range(1, 11)] == \
+        ['🟩'] * 2 + ['🟨'] + ['🟦'] * 3 + ['⬜'] * 2 + ['🟥'] * 2
     # Com poucos participantes, as faixas do topo têm prioridade sobre o vermelho.
-    assert [marcador_posicao(p, 8) for p in range(1, 9)] == ['🟩'] * 4 + ['🟨'] + ['🟦'] * 3
+    assert [marcador_posicao(p, 3) for p in range(1, 4)] == ['🟩', '🟨', '🟦']
+    assert legenda_compartilhar(0) == []
 
 
 def test_desempenho_do_participante_pela_classificacao(client, gestao):
