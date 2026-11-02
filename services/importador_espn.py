@@ -42,13 +42,20 @@ class ErroEspn(Exception):
 def _requisitar(liga, temporada):
     if not temporada:
         raise ErroEspn("Informe a temporada para sincronizar com a ESPN.")
+    if not re.fullmatch(r"[0-9]{4}", str(temporada)):
+        raise ErroEspn("Informe a temporada ESPN com quatro dígitos.")
+    return consultar_scoreboard(liga, temporada)
+
+
+def consultar_scoreboard(liga, datas):
+    """Scoreboard da liga para um ano (AAAA) ou um dia (AAAAMMDD), já decodificado."""
     liga = str(liga or "").strip().casefold()
     if not re.fullmatch(r"[a-z0-9_]+(?:[.][a-z0-9_]+)+", liga):
         raise ErroEspn("Informe um código de liga ESPN válido.")
-    if not re.fullmatch(r"[0-9]{4}", str(temporada)):
-        raise ErroEspn("Informe a temporada ESPN com quatro dígitos.")
+    if not re.fullmatch(r"[0-9]{4}|[0-9]{8}", str(datas)):
+        raise ErroEspn("Informe a data ESPN como AAAA ou AAAAMMDD.")
     url = f"{BASE_URL}/{liga}/scoreboard?" + urlencode({
-        "dates": temporada, "limit": 1000, "lang": "pt", "region": "br"})
+        "dates": datas, "limit": 1000, "lang": "pt", "region": "br"})
     req = Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "gzip"})
     try:
         with urlopen(req, timeout=60) as resposta:
@@ -96,6 +103,25 @@ STATUS_ESPECIAIS = {
     "STATUS_HALFTIME": "PAUSED", "STATUS_AWARDED": "AWARDED",
 }
 STATUS_FINAIS = {"STATUS_FULL_TIME", "STATUS_FINAL", "STATUS_FINAL_AET", "STATUS_FINAL_PEN"}
+
+
+def primeiro_gol_dos_detalhes(competicao):
+    """Autor do primeiro gol do jogo (gol contra inclusive), pelos lances da ESPN.
+
+    Os lances vêm em ordem cronológica; cobranças da disputa de pênaltis não contam.
+    Se o primeiro gol vier sem jogador, devolve None em vez de arriscar o segundo.
+    """
+    for lance in (competicao or {}).get("details") or []:
+        if not isinstance(lance, dict) or lance.get("scoringPlay") is not True or lance.get("shootout"):
+            continue
+        for atleta in lance.get("athletesInvolved") or []:
+            if isinstance(atleta, dict):
+                nome = " ".join(str(atleta.get("displayName") or atleta.get("fullName")
+                                    or atleta.get("shortName") or "").split())
+                if nome:
+                    return nome[:100]
+        return None
+    return None
 
 
 def converter_eventos(dados):
@@ -157,6 +183,7 @@ def converter_eventos(dados):
                 "status": status, "status_api": status_api, "finalizado": finalizado,
                 "gols_casa_real": gols[0], "gols_fora_real": gols[1],
                 "penaltis_casa_real": pens[0], "penaltis_fora_real": pens[1],
+                "primeiro_marcador": primeiro_gol_dos_detalhes(comp) if finalizado else None,
             })
         except (KeyError, IndexError, TypeError, AttributeError, ValueError) as exc:
             raise ErroEspn("ESPN: evento inválido na resposta.") from exc

@@ -182,6 +182,8 @@ def _gravar_resultado(db, Resultado, jogo, item):
     if item.get("penaltis_casa_real") is not None and item.get("penaltis_fora_real") is not None:
         resultado.penaltis_casa_real = item["penaltis_casa_real"]
         resultado.penaltis_fora_real = item["penaltis_fora_real"]
+    from services.primeiro_gol import gravar_primeiro_marcador
+    gravar_primeiro_marcador(jogo, resultado, item.get("primeiro_marcador"))
     jogo.encerrado = True
 
 
@@ -555,6 +557,14 @@ def sync_competicao(token, competicao, temporada, data_inicio=None, data_fim=Non
             db.session.rollback()
             logging.getLogger(__name__).exception(
                 "Falha ao aplicar %s/%s/%s no campeonato %s", fonte, competicao, temporada, campeonato_id)
+    # Primeiro marcador dos clássicos recentes que ficaram sem ele (consulta a ESPN só se houver).
+    try:
+        from services.primeiro_gol import completar_primeiros_marcadores
+        completar_primeiros_marcadores(campeonatos_da_competicao(competicao, temporada, fonte))
+    except Exception:
+        db.session.rollback()
+        logging.getLogger(__name__).exception(
+            "Falha ao buscar o primeiro marcador de %s/%s/%s na ESPN", fonte, competicao, temporada)
     return resultados
 
 
