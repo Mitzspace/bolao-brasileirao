@@ -44,8 +44,11 @@ def palpites_existentes(bolao, pessoa, rodada_id):
 
 def salvar_lote(bolao, pessoa, rodada, form, autor_id):
     """Grava o lote inteiro ou nada. Retorna (quantidade_salva, erros)."""
+    from services.regras_pontuacao import primeiro_gol_ativo
     existentes = palpites_existentes(bolao, pessoa, rodada.id)
     itens, erros = validar_lote(form, rodada.jogos, existentes)
+    # Bônus desligado no bolão: o palpite de primeiro gol não é lançado (o que já existia fica).
+    com_primeiro_gol = primeiro_gol_ativo(bolao)
     texto_original, jogos_texto = None, set()
     if form.get('whatsapp_token'):
         from services.texto_lancamento import ler_assinatura
@@ -70,7 +73,8 @@ def salvar_lote(bolao, pessoa, rodada, form, autor_id):
             else form.get(f'situacao_{jogo.id}', palpite.situacao or 'valido'))
         palpite.gols_casa = casa
         palpite.gols_fora = fora
-        palpite.primeiro_gol = primeiro
+        if com_primeiro_gol:
+            palpite.primeiro_gol = primeiro
         palpite.penaltis_casa, palpite.penaltis_fora = pen_casa, pen_fora
         palpite.origem = 'responsavel'
         # Origem registrada no log (services/auditoria): jogos preenchidos pela mensagem são "whatsapp".
@@ -95,6 +99,8 @@ def gerar_previa(bolao, pessoa, rodada, texto, autor_id):
     numeros = re.findall(r'\d+', rodada.nome)
     if cabecalhos and (len(numeros) != 1 or cabecalhos != {int(numeros[0])}):
         return {'erro': f'O cabeçalho informa rodada(s) {", ".join(map(str, sorted(cabecalhos)))}; a seleção é {rodada.nome}. Ajuste a rodada ou a mensagem antes de continuar.'}, 422
+    from services.regras_pontuacao import primeiro_gol_ativo
+    com_primeiro_gol = primeiro_gol_ativo(bolao)
     jogos = list(rodada.jogos)
     existentes = {p.jogo_id: p for p in Palpite.query.filter_by(participacao_id=pessoa.id).join(Jogo).filter(Jogo.rodada_id == rodada.id)}
     linhas = ler_mensagem(texto, jogos)
@@ -109,7 +115,7 @@ def gerar_previa(bolao, pessoa, rodada, texto, autor_id):
         if not rodada.aberta or jogo.encerrado or (jogo.data and jogo.data <= agora_brasilia()):
             avisos.append('Jogo iniciado ou fechado: lançamento permitido ao responsável e auditado.')
         opcoes.append({'id': jogo.id, 'nome': f'{jogo.time_casa} × {jogo.time_fora}', 'avisos': avisos,
-                       'bloqueado': bloqueado, 'primeiro_gol_permitido': bool(jogo.especial),
+                       'bloqueado': bloqueado, 'primeiro_gol_permitido': bool(jogo.especial) and com_primeiro_gol,
                        'pode_penaltis': bool(jogo.pode_penaltis)})
     return {'linhas': linhas, 'jogos': opcoes, 'reconhecido': any(i['jogo_id'] is not None for i in linhas),
             'token': assinatura(texto, autor_id, bolao.id, pessoa.id, rodada.id)}, 200

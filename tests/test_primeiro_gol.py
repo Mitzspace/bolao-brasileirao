@@ -98,6 +98,28 @@ def test_campeonato_da_football_data_busca_o_dia_na_espn_uma_vez(app):
         ("bra.1", ontem.strftime("%Y%m%d")), ("bra.1", (ontem - timedelta(days=1)).strftime("%Y%m%d"))}
 
 
+def test_bonus_desligado_em_todos_os_boloes_nao_consulta_a_espn(app):
+    camp, rodada = _campeonato("football-data", "BSA")
+    criador = Participante(nome="Admin", email="admin@x.com", admin=True)
+    db.session.add(criador)
+    db.session.flush()
+    db.session.add(Bolao(nome="Sem bônus", campeonato=camp, criador=criador, pontos_primeiro_gol=0))
+    ontem = datetime.now() - timedelta(days=1)
+    jogo = _jogo(rodada, "Corinthians", "Fluminense", placar=(1, 3), data=ontem)
+    db.session.commit()
+    dados = {"events": [evento("9", "Corinthians", "Fluminense", (1, 3), ontem.strftime("%Y-%m-%dT%H:%M:00-03:00"),
+                               [lance("Goal", "Hulk")])]}
+    primeiro_gol._ultimas_consultas.clear()
+    with patch("services.importador_espn.consultar_scoreboard", return_value=dados) as consulta:
+        assert primeiro_gol.completar_primeiros_marcadores([camp], agora=0) == 0
+        consulta.assert_not_called()
+        # Basta um bolão do campeonato com o bônus ligado para buscar o marcador.
+        db.session.add(Bolao(nome="Com bônus", campeonato=camp, criador=criador))
+        db.session.commit()
+        assert primeiro_gol.completar_primeiros_marcadores([camp], agora=0) == 1
+    assert jogo.primeiro_marcador == "Hulk"
+
+
 def test_placar_diferente_nao_preenche(app):
     camp, rodada = _campeonato("football-data", "BSA")
     ontem = datetime.now() - timedelta(days=1)

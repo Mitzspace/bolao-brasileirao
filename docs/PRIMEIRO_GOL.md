@@ -14,7 +14,8 @@ football-data/API-Football consultam o placar do dia na ESPN só quando há clá
 7 dias encerrado sem marcador (no máximo uma consulta por dia de jogo a cada hora). O
 casamento é pelos times (nomes normalizados como na sincronização) e pela data, com
 tolerância de 2 dias. A tabela `LIGAS_ESPN` em `services/primeiro_gol.py` liga os códigos
-(BSA, 71, CLI…) às ligas da ESPN.
+(BSA, 71, CLI…) às ligas da ESPN. Se todos os bolões do campeonato estão com o bônus de
+primeiro gol desligado nas regras (0 ponto), essa consulta extra não é feita.
 
 A ESPN escreve o nome como ela conhece o jogador (ex.: "José Manuel López", "Giorgian de
 Arrascaeta"). Pela regra de `mesmo_jogador`, um palpite só com parte do nome ("López") não

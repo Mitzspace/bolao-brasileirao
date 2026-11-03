@@ -169,10 +169,17 @@ def _dias_para_consultar(liga, jogos, agora):
     return dias
 
 
+def _bonus_desligado(campeonato):
+    """Campeonato com bolões e nenhum deles usando o bônus de primeiro gol."""
+    from services.regras_pontuacao import primeiro_gol_ativo
+    return bool(campeonato.boloes) and not any(primeiro_gol_ativo(b) for b in campeonato.boloes)
+
+
 def completar_primeiros_marcadores(campeonatos, agora=None):
     """Passo da sincronização: preenche o marcador dos clássicos recentes que ficaram sem ele.
 
-    Não consulta a ESPN quando não há jogo pendente. Devolve quantos jogos foram preenchidos.
+    Não consulta a ESPN quando não há jogo pendente nem quando todos os bolões do campeonato têm o
+    bônus desligado. Devolve quantos jogos foram preenchidos.
     """
     from database import db
     from services.relogio import agora_brasilia
@@ -181,7 +188,7 @@ def completar_primeiros_marcadores(campeonatos, agora=None):
     preenchidos = 0
     for campeonato in campeonatos:
         liga = liga_espn(campeonato)
-        if not liga:
+        if not liga or _bonus_desligado(campeonato):
             continue
         pendentes = jogos_sem_marcador(campeonato.id, desde=desde)
         dias = _dias_para_consultar(liga, pendentes, agora)

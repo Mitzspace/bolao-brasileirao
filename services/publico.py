@@ -292,6 +292,7 @@ def palpites(bolao, numero=None):
     liberados = ctx.palpites_liberados(rodada)
     revelados = [j for j in jogos_rodada if tem_resultado(j)] if liberados else []
     regras_bolao = regras_do_bolao(bolao)
+    com_primeiro_gol = regras_bolao['primeiro_gol'] > 0
 
     pessoas = [p for p in (Participacao.query.filter(Participacao.bolao_id == bolao.id,
                                                      Participacao.status.in_(STATUS_VISIVEIS))
@@ -329,7 +330,7 @@ def palpites(bolao, numero=None):
                     linha.update({'situacao': 'valido', 'casa': p.gols_casa, 'fora': p.gols_fora})
                     if p.penaltis_casa is not None and p.penaltis_fora is not None:
                         linha.update({'penaltisCasa': p.penaltis_casa, 'penaltisFora': p.penaltis_fora})
-                    if jogo.classico and p.primeiro_gol:
+                    if jogo.classico and p.primeiro_gol and com_primeiro_gol:
                         linha['primeiroGol'] = p.primeiro_gol
                 linha['pontos'] = calcular_pontuacao(p, jogo, jogo.resultado, regras_bolao).total if p else 0
                 linhas.append(linha)

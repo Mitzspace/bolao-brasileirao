@@ -270,6 +270,8 @@ export interface JogoLancamento extends JogoApi {
 
 /** GET /interface/api/palpites */
 export interface LancamentoApi {
+  /** Bônus de primeiro gol ligado nas regras do bolão (desligado: sem o campo do jogador). */
+  primeiroGolAtivo?: boolean;
   rodadas: RodadaResumo[];
   rodada: (RodadaResumo & { id: number }) | null;
   participantes: { id: number; nome: string; status: string; faltantes: number }[];

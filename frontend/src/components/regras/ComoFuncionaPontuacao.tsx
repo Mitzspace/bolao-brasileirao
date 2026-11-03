@@ -49,13 +49,13 @@ export function ComoFuncionaPontuacao({ aberto, onClose, regras, politicaEntrada
             </div>
           </div>
 
-          <div className="rounded-xl bg-brand-50 dark:bg-brand-900/20 p-4 flex gap-3">
+          {regras.primeiroGol > 0 && <div className="rounded-xl bg-brand-50 dark:bg-brand-900/20 p-4 flex gap-3">
             <Award className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-gray-900 dark:text-white">Bônus de primeiro gol: +{pts(regras.primeiroGol)}</p>
               <p className="mt-1">Nos clássicos, quem acerta quem marcou o primeiro gol ganha o bônus, mesmo errando o placar (vale gol contra). Não vale em jogo 0 × 0.</p>
             </div>
-          </div>
+          </div>}
 
           {regras.penaltisExato !== undefined && (
             <div className="flex gap-3">

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from database import db
 from models import Jogo, Palpite, PalpiteLog, Participacao, Rodada
+from services.relogio import agora_brasilia
 from tests.test_interface import entrar, gestao  # noqa: F401
 
 
@@ -16,7 +17,7 @@ def preparar(client, gestao):
     db.session.flush()
     # Jogos com posição da planilha: a tela segue essa ordem.
     j1 = Jogo(time_casa='Flamengo', time_fora='Vasco', rodada=r1, classico=True, ordem=1)
-    j2 = Jogo(time_casa='Santos', time_fora='Bahia', rodada=r1, data=datetime.now() - timedelta(hours=1), ordem=2)
+    j2 = Jogo(time_casa='Santos', time_fora='Bahia', rodada=r1, data=agora_brasilia() - timedelta(hours=1), ordem=2)
     ana = Participacao(bolao=bolao, nome_exibicao='Ana')
     bia = Participacao(bolao=bolao, nome_exibicao='Bia')
     tardio = Participacao(bolao=bolao, nome_exibicao='Tardio', rodada_entrada=r2)
@@ -195,3 +196,26 @@ def test_conflito_de_gravacao_responde_409_sem_erro_500(client, gestao, monkeypa
         'jogos': {str(j1.id): {'casa': '1', 'fora': '1', 'situacao': 'valido'}}})
     assert resposta.status_code == 409
     assert 'outro envio' in resposta.get_json()['erro']
+
+
+def test_bonus_de_primeiro_gol_desligado_no_bolao(client, gestao):
+    """Regra com 0 ponto = bônus desligado: sem campo na tela, sem gravar o jogador e sem bônus."""
+    bolao, r1, r2, j1, j2, ana, bia, tardio = preparar(client, gestao)
+    Palpite.query.filter_by(participacao_id=ana.id, jogo_id=j1.id).one().primeiro_gol = 'Pedro'
+    db.session.commit()
+    regras = {'comumExato': 3, 'comumResultado': 1, 'classicoExato': 5, 'classicoResultado': 3,
+              'primeiroGol': 0, 'penaltisExato': 3, 'penaltisVencedor': 1}
+    assert client.put(f'/interface/api/boloes/{bolao.id}/regras', json=regras).status_code == 200
+    tela = client.get(f'/interface/api/palpites?rodada_id={r1.id}&participacao_id={ana.id}').get_json()
+    assert tela['primeiroGolAtivo'] is False
+    previa = client.post('/interface/api/palpites/previa-whatsapp', json={
+        'participacaoId': bia.id, 'rodadaId': r1.id, 'texto': 'Flamengo 3x0 Vasco ★ Gabigol'}).get_json()
+    assert not any(j['primeiro_gol_permitido'] for j in previa['jogos'])
+    assert client.post('/interface/api/palpites', json={
+        'participacaoId': ana.id, 'rodadaId': r1.id,
+        'jogos': {str(j1.id): {'casa': '2', 'fora': '1', 'primeiroGol': 'Gabigol'}}}).status_code == 200
+    # O que já existia fica guardado (religando a regra, volta a valer); nada novo é gravado.
+    assert Palpite.query.filter_by(participacao_id=ana.id, jogo_id=j1.id).one().primeiro_gol == 'Pedro'
+    regras['primeiroGol'] = 2
+    client.put(f'/interface/api/boloes/{bolao.id}/regras', json=regras)
+    assert client.get(f'/interface/api/palpites?rodada_id={r1.id}&participacao_id={ana.id}').get_json()['primeiroGolAtivo'] is True
