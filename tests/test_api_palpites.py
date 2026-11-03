@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from database import db
 from models import Jogo, Palpite, PalpiteLog, Participacao, Rodada
+from services.relogio import agora_brasilia
 from tests.test_interface import entrar, gestao  # noqa: F401
 
 
@@ -16,7 +17,7 @@ def preparar(client, gestao):
     db.session.flush()
     # Jogos com posição da planilha: a tela segue essa ordem.
     j1 = Jogo(time_casa='Flamengo', time_fora='Vasco', rodada=r1, classico=True, ordem=1)
-    j2 = Jogo(time_casa='Santos', time_fora='Bahia', rodada=r1, data=datetime.now() - timedelta(hours=1), ordem=2)
+    j2 = Jogo(time_casa='Santos', time_fora='Bahia', rodada=r1, data=agora_brasilia() - timedelta(hours=1), ordem=2)
     ana = Participacao(bolao=bolao, nome_exibicao='Ana')
     bia = Participacao(bolao=bolao, nome_exibicao='Bia')
     tardio = Participacao(bolao=bolao, nome_exibicao='Tardio', rodada_entrada=r2)
