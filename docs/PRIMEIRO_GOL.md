@@ -37,7 +37,11 @@ python -m scripts.conferir_primeiro_gol --aplicar  # grava, após confirmação
 | Planilha confere | Recalculado = crédito | Crédito zera; o bônus passa a aparecer nos jogos. Total igual |
 | Planilha deu mais | Recalculado < crédito | Fica no crédito só a diferença. Total igual |
 | Palpites justificam mais | Recalculado > crédito | Crédito zera. **Total sobe** |
-| Sem palpite de 1º gol | Crédito numa rodada sem palpites de 1º gol no sistema | Nada muda |
+| Palpite registrado pelo crédito | Rodada sem palpite de 1º gol no sistema, mas o crédito vale acertar todos os clássicos com gol em que a pessoa palpitou (o caso comum: um clássico, 2 pontos) | O palpite de 1º gol é gravado com o marcador (log com canal `conferencia_espn`) e o crédito zera. Total igual |
+| Sem como saber qual jogo | Crédito vale menos acertos do que os clássicos com gol da rodada | Nada muda |
+| Crédito impossível | Crédito vale mais acertos do que os clássicos com gol da rodada | Nada muda (revise a planilha) |
+| Clássico sem marcador | Seria inferido, mas algum clássico ficou sem marcador | Nada muda |
+| Sem palpite de 1º gol | Crédito que não é múltiplo do bônus | Nada muda |
 | Bônus novo | Rodada sem crédito em que o marcador gera bônus | **Total sobe** |
 
 Arquivos gerados (na pasta indicada no fim da execução): `bolaoN-jogos.csv` (marcador de
