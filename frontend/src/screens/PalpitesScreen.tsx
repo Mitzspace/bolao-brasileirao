@@ -327,7 +327,7 @@ export function PalpitesScreen() {
                               ))}
                             </span>
                           )}
-                          {j.classico && (
+                          {j.classico && dados.primeiroGolAtivo !== false && (
                             <input value={v.primeiroGol} disabled={guardado || !valido} maxLength={100} onChange={e => alterar(j.id, { primeiroGol: e.target.value })}
                               placeholder="Primeiro gol (opcional)" aria-label={`Primeiro gol no jogo ${j.numero}`}
                               className="flex-1 min-w-[10rem] px-3 py-1.5 rounded-lg border border-gold-200 dark:border-gold-800/50 bg-gold-50/50 dark:bg-gold-900/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gold-400/40" />

@@ -207,7 +207,7 @@ export function RodadasScreen() {
                           <TeamCrest nome={jogo.fora} escudo={jogo.escudoFora} size="md" />
                         </div>
                       </div>
-                      {jogo.classico && (
+                      {jogo.classico && regras.primeiroGol > 0 && (
                         <div className={`mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm ${jogo.primeiroGol ? 'bg-gold-50 dark:bg-gold-900/20 text-gold-800 dark:text-gold-300' : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
                           <span className="flex items-center gap-1.5 min-w-0">
                             <Star className="w-4 h-4 shrink-0 text-gold-500 fill-gold-400" />
@@ -322,7 +322,7 @@ export function RodadasScreen() {
                 </p>
               </div>
             )}
-            {resultado.jogo.classico && (() => {
+            {resultado.jogo.classico && regras.primeiroGol > 0 && (() => {
               const semGols = resultado.casa !== '' && resultado.fora !== '' && Number(resultado.casa) + Number(resultado.fora) === 0;
               return (
                 <div className="rounded-xl border border-gold-200 dark:border-gold-800/40 bg-gold-50/60 dark:bg-gold-900/10 p-4 space-y-3">
@@ -374,7 +374,7 @@ export function RodadasScreen() {
               </Select>
               <Input label="Data e hora (Brasília)" type="datetime-local" value={formJogo.data} onChange={e => setFormJogo({ ...formJogo, data: e.target.value })} />
             </div>
-            <Switch checked={formJogo.classico} onChange={v => setFormJogo({ ...formJogo, classico: v })} label="Clássico" description={`Placar exato vale ${regras.classicoExato} e resultado ${regras.classicoResultado}; primeiro gol vale +${regras.primeiroGol}`} />
+            <Switch checked={formJogo.classico} onChange={v => setFormJogo({ ...formJogo, classico: v })} label="Clássico" description={`Placar exato vale ${regras.classicoExato} e resultado ${regras.classicoResultado}${regras.primeiroGol > 0 ? `; primeiro gol vale +${regras.primeiroGol}` : ''}`} />
             <Switch checked={formJogo.podePenaltis} onChange={v => setFormJogo({ ...formJogo, podePenaltis: v })} label="Pode ter pênaltis"
               description={`Mata-mata: palpite extra do placar dos pênaltis (exato +${regras.penaltisExato}, vencedor +${regras.penaltisVencedor}). Desmarcar apaga o placar dos pênaltis do resultado.`} />
           </div>

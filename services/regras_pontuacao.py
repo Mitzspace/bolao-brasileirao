@@ -23,6 +23,11 @@ def regras_do_bolao(bolao):
                                      else REGRAS_PONTUACAO[chave]) for chave, coluna in COLUNAS.items()})
 
 
+def primeiro_gol_ativo(bolao):
+    """Bônus de primeiro gol ligado no bolão (desligado = 0 ponto; o palpite do jogador some)."""
+    return regras_do_bolao(bolao)["primeiro_gol"] > 0
+
+
 def regras_do_palpite(palpite):
     participacao = getattr(palpite, "participacao", None)
     return regras_do_bolao(getattr(participacao, "bolao", None))

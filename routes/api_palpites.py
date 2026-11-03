@@ -16,6 +16,7 @@ from services.fluxo_lancamento import lembrar_rodada, proximo_pendente, rodada_p
 from services.lancamento_palpites import (gerar_previa, palpites_existentes, participantes_do_lancamento,
                                           pessoa_do_lancamento, salvar_lote)
 from services.pontuacao import calcular_pontuacao
+from services.regras_pontuacao import primeiro_gol_ativo
 from services.relogio import agora_brasilia
 from services.resumo_boloes import participantes_pendentes
 
@@ -84,6 +85,7 @@ def tela_palpites():
                    # Aviso discreto no topo quando algum palpite veio da mensagem do WhatsApp.
                    'whatsapp': ultimo_whatsapp(pessoa, rodada)} if pessoa else None,
         'jogos': jogos,
+        'primeiroGolAtivo': primeiro_gol_ativo(bolao),
     })
 
 
