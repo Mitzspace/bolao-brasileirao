@@ -70,7 +70,7 @@ export interface ParticipantesApi {
 }
 
 export interface EvolucaoPublica {
-  numero: number; rodada: string; curto: string; pontos: number | null; cravadas: number;
+  numero: number; rodada: string; curto: string; pontos: number | null; bonus: number; cravadas: number;
   palpites: number; acumulado: number; posicao: number; participa: boolean;
 }
 /** GET /participantes/<ref>: desempenho até a rodada liberada. */

@@ -34,7 +34,10 @@ def rodadas_com_resultado(campeonato_id):
 
 
 def evolucao(bolao, todos=None):
-    """{participacao_id: [{rodada, pontos, cravadas, palpites, acumulado, posicao, participa}]}"""
+    """{participacao_id: [{rodada, pontos, bonus, cravadas, palpites, acumulado, posicao, participa}]}
+
+    bonus: pontos de bônus da rodada (1º gol dos palpites + créditos históricos da planilha), já somados em pontos.
+    """
     if todos is None:
         todos = carregar_participantes(bolao)
     todas, rodadas = rodadas_com_resultado(bolao.campeonato_id)
@@ -43,8 +46,8 @@ def evolucao(bolao, todos=None):
     indice = {r.id: i for i, r in enumerate(todas)}
     regras = regras_do_bolao(bolao) if bolao else None
     n = len(todas)
-    # Por rodada: pontos, cravadas, acertos de vencedor e quantidade de palpites lançados.
-    por_rodada = {p.id: [[0, 0, 0, 0] for _ in range(n)] for p in todos}
+    # Por rodada: pontos, cravadas, acertos de vencedor, quantidade de palpites lançados e bônus.
+    por_rodada = {p.id: [[0, 0, 0, 0, 0] for _ in range(n)] for p in todos}
     for p in todos:
         linhas = por_rodada[p.id]
         for pal in p.palpites:
@@ -57,6 +60,7 @@ def evolucao(bolao, todos=None):
                 continue
             detalhe = pontuacao_palpite(pal, regras, None)
             linhas[i][0] += detalhe.total
+            linhas[i][4] += detalhe.pontos_bonus
             if detalhe.placar_exato:
                 linhas[i][1] += 1
             elif detalhe.acertou_resultado:
@@ -64,13 +68,14 @@ def evolucao(bolao, todos=None):
         for b in p.creditos_historicos:
             if b.rodada is not None and b.rodada.id in indice and dentro_do_periodo(p, b.rodada):
                 linhas[indice[b.rodada.id]][0] += b.pontos
+                linhas[indice[b.rodada.id]][4] += b.pontos
 
     resultado = {p.id: [] for p in todos}
     acumulado = {p.id: [0, 0, 0] for p in todos}
     for rodada in rodadas:
         i = indice[rodada.id]
         for p in todos:
-            pts, crav, acertos, _ = por_rodada[p.id][i]
+            pts, crav, acertos, _, _ = por_rodada[p.id][i]
             a = acumulado[p.id]
             a[0] += pts; a[1] += crav; a[2] += acertos
         vivos = [p for p in todos if p.id not in eliminados
@@ -79,9 +84,9 @@ def evolucao(bolao, todos=None):
                                              -acumulado[p.id][2], _chave_nome(p.nome)))
         posicoes = {p.id: pos for pos, p in enumerate(ordem, 1)}
         for p in todos:
-            pts, crav, _, qtd = por_rodada[p.id][i]
+            pts, crav, _, qtd, bonus = por_rodada[p.id][i]
             resultado[p.id].append({
-                'rodada': rodada, 'pontos': pts, 'cravadas': crav, 'palpites': qtd,
+                'rodada': rodada, 'pontos': pts, 'bonus': bonus, 'cravadas': crav, 'palpites': qtd,
                 'acumulado': acumulado[p.id][0], 'posicao': posicoes.get(p.id),
                 'participa': entra_no_ranking_da_rodada(p, rodada) and (
                     p.id not in eliminados or ordem_rodada(eliminados[p.id].rodada) >= ordem_rodada(rodada)),

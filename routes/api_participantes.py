@@ -125,7 +125,8 @@ def detalhe_participante(id):
     return jsonify({
         'evolucao': [{
             'rodadaId': l['rodada'].id, 'rodada': l['rodada'].nome, 'curto': rotulo_curto(l['rodada']),
-            'pontos': l['pontos'] if l['participa'] else None, 'cravadas': l['cravadas'],
+            'pontos': l['pontos'] if l['participa'] else None, 'bonus': l['bonus'] if l['participa'] else 0,
+            'cravadas': l['cravadas'],
             'palpites': l['palpites'], 'acumulado': l['acumulado'],
             'posicao': l['posicao'], 'participa': l['participa'],
         } for l in linhas],

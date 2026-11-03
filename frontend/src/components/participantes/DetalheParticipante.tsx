@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CalendarCheck, CalendarX, ChevronDown, History, Mail, Shield } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { useApp } from '@/context/AppContext';
 import { useRecurso } from '@/lib/useRecurso';
 import type { DetalheParticipanteApi, ParticipanteApi } from '@/types';
 import { PainelDesempenho } from './PainelDesempenho';
@@ -11,6 +12,7 @@ import { StatusBadge } from './StatusBadge';
 export function DetalheParticipante({ pessoa, versao, onRestaurar }: { pessoa: ParticipanteApi; versao: number; onRestaurar?: () => void }) {
   const { dados, carregando, erro, recarregar } = useRecurso<DetalheParticipanteApi>(`/participantes/${pessoa.id}?v=${versao}`);
   const [verHistorico, setVerHistorico] = useState(false);
+  const { setView } = useApp();
 
   return (
     <div className="space-y-6">
@@ -53,7 +55,8 @@ export function DetalheParticipante({ pessoa, versao, onRestaurar }: { pessoa: P
       <PainelDesempenho
         resumo={{ pontos: pessoa.pontos, cravadas: pessoa.cravadas, posicao: pessoa.posicao, variacao: pessoa.variacao }}
         evolucao={dados ? dados.evolucao.map(e => ({ ...e, chave: e.rodadaId })) : null}
-        carregando={carregando} erro={erro} onTentar={recarregar} />
+        carregando={carregando} erro={erro} onTentar={recarregar}
+        onAbrirRodada={p => setView('palpites', { rodadaId: Number(p.chave), participacaoId: pessoa.id })} />
 
       {dados && (
         <>
