@@ -11,7 +11,11 @@ import type { ParticipantePublicoApi } from './tipos';
  * Desempenho de um participante na página pública: pontos totais, posição, pontuação por rodada,
  * histórico e melhor rodada (o mesmo painel da gestão). Só até a rodada liberada; sem dados pessoais.
  */
-export function DetalhePublico({ refPublica, nome }: { refPublica: string; nome: string }) {
+export function DetalhePublico({ refPublica, nome, onAbrirRodada }: {
+  refPublica: string; nome: string;
+  /** Abre a aba Palpites na rodada (número público), filtrada por este participante. */
+  onAbrirRodada?: (numero: number, nome: string) => void;
+}) {
   const { dados, carregando, erro, recarregar } = useRecurso<ParticipantePublicoApi>(`/participantes/${encodeURIComponent(refPublica)}`);
   return (
     <div className="space-y-6">
@@ -41,6 +45,7 @@ export function DetalhePublico({ refPublica, nome }: { refPublica: string; nome:
           evolucao={dados.evolucao.map(e => ({ ...e, chave: e.numero }))}
           carregando={carregando}
           semDados="Ainda não há rodadas com resultado divulgadas."
+          onAbrirRodada={onAbrirRodada ? (p => onAbrirRodada(Number(p.chave), dados.nome)) : undefined}
         />
       )}
     </div>

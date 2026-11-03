@@ -359,7 +359,7 @@ export interface PalpiteGuardado { id: number; rodada: string; jogo: string; pal
 
 /** GET /interface/api/participantes/:id */
 export interface DetalheParticipanteApi {
-  evolucao: { rodadaId: number; rodada: string; curto: string; pontos: number | null; cravadas: number; palpites: number; acumulado: number; posicao: number; participa: boolean }[];
+  evolucao: { rodadaId: number; rodada: string; curto: string; pontos: number | null; bonus: number; cravadas: number; palpites: number; acumulado: number; posicao: number; participa: boolean }[];
   historico: { acao: string; autor: string; quando: string; mudancas: [string, string | null, string | null][] }[];
   guardados: PalpiteGuardado[];
 }

@@ -65,10 +65,15 @@ function CartaoJogo({ jogo, pontos, liberada, filtro, aberto, onAlternar, onAbri
 }
 
 /** Palpites da rodada: só de rodadas liberadas e jogos com resultado (o servidor nem envia os demais). */
-export function Palpites({ onAbrirParticipante }: { onAbrirParticipante: AbrirParticipante }) {
-  const [numero, setNumero] = useState<number | null>(null);
-  const [busca, setBusca] = useState('');
-  const [ocultar, setOcultar] = useState(true);
+export function Palpites({ onAbrirParticipante, inicial }: {
+  onAbrirParticipante: AbrirParticipante;
+  /** Rodada e busca ao chegar pelo histórico de um participante (desempenho). */
+  inicial?: { numero: number; busca: string };
+}) {
+  const [numero, setNumero] = useState<number | null>(inicial?.numero ?? null);
+  const [busca, setBusca] = useState(inicial?.busca ?? '');
+  // Vindo do desempenho de alguém, mostra a pessoa mesmo que tenha desistido.
+  const [ocultar, setOcultar] = useState(!inicial);
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const { dados, carregando, erro, recarregar } = useRecurso<PalpitesApi>(numero ? `/palpites?rodada=${numero}` : '/palpites');
   const termo = busca.trim().toLocaleLowerCase('pt-BR');

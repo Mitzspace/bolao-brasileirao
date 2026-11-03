@@ -1,8 +1,9 @@
 import { Avatar } from '@/components/ui/Avatar';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
+import { useApp } from '@/context/AppContext';
 import { useRecurso } from '@/lib/useRecurso';
 import type { DesempenhoParticipanteApi } from '@/types';
-import { PainelDesempenho } from './PainelDesempenho';
+import { PainelDesempenho, type PontoEvolucao } from './PainelDesempenho';
 import { StatusBadge } from './StatusBadge';
 
 /**
@@ -11,6 +12,11 @@ import { StatusBadge } from './StatusBadge';
  */
 export function DesempenhoParticipante({ bolaoId, participacaoId, nome }: { bolaoId: number; participacaoId: number; nome: string }) {
   const { dados, carregando, erro, recarregar } = useRecurso<DesempenhoParticipanteApi>(`/boloes/${bolaoId}/participantes/${participacaoId}/desempenho`);
+  const { bolao, setView } = useApp();
+  // Só abre a rodada quando o bolão é o atual: "Lançar palpites" trabalha sobre o bolão selecionado.
+  const abrirRodada = bolao?.id === bolaoId
+    ? (p: PontoEvolucao) => setView('palpites', { rodadaId: Number(p.chave), participacaoId })
+    : undefined;
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -24,7 +30,7 @@ export function DesempenhoParticipante({ bolaoId, participacaoId, nome }: { bola
       {!dados && !erro && <Carregando linhas={3} />}
       {dados && (
         <PainelDesempenho resumo={dados.resumo} evolucao={dados.evolucao.map(e => ({ ...e, chave: e.rodadaId }))}
-          carregando={carregando} erro={erro} onTentar={recarregar} />
+          carregando={carregando} erro={erro} onTentar={recarregar} onAbrirRodada={abrirRodada} />
       )}
     </div>
   );

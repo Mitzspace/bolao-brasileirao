@@ -140,3 +140,25 @@ def test_isolamento_entre_boloes(client, gestao):
     assert client.get(f'/interface/api/participantes/{alheia.id}').status_code == 404
     assert client.put(f'/interface/api/participantes/{alheia.id}', json={'nome': 'X'}).status_code == 404
     assert client.post(f'/interface/api/participantes/{alheia.id}/status', json={'acao': 'remover'}).status_code == 404
+
+
+def test_evolucao_mostra_bonus_de_cada_rodada(client, gestao):
+    """Bônus de 1º gol calculado (R2) e crédito histórico da planilha (R1) aparecem na rodada certa."""
+    from models import BonusRodada, Participante
+    bolao, rodadas, jogos, ana, bia = preparar(client, gestao)
+    jogos[1].classico = True
+    jogos[1].primeiro_marcador = 'Guilherme'
+    Palpite.query.filter_by(participacao_id=ana.id, jogo_id=jogos[1].id).one().primeiro_gol = 'Guilherme'
+    legado = Participante(nome='Bia legado', email='bia-legado@x.com')
+    db.session.add(legado)
+    db.session.flush()
+    bia.participante_legado = legado
+    db.session.add(BonusRodada(participante_id=legado.id, rodada=rodadas[0], participacao=bia, pontos=2))
+    db.session.commit()
+    ana_evol = client.get(f'/interface/api/participantes/{ana.id}').get_json()['evolucao']
+    bia_evol = client.get(f'/interface/api/participantes/{bia.id}').get_json()['evolucao']
+    assert [e['bonus'] for e in ana_evol] == [0, bolao.pontos_primeiro_gol]
+    assert [e['bonus'] for e in bia_evol] == [2, 0]
+    assert bia_evol[0]['pontos'] == 2  # o bônus já está somado nos pontos da rodada
+    desempenho = client.get(f'/interface/api/boloes/{bolao.id}/participantes/{bia.id}/desempenho').get_json()
+    assert [e['bonus'] for e in desempenho['evolucao']] == [2, 0]

@@ -35,6 +35,8 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
   const { escuro, alternar } = useTema('bolao-publico-tema', 'sistema');
   const [participante, setParticipante] = useState<{ ref: string; nome: string } | null>(null);
   const [regrasAbertas, setRegrasAbertas] = useState(false);
+  // Rodada aberta pelo histórico de desempenho: a aba Palpites abre nela, filtrada pela pessoa.
+  const [destinoPalpites, setDestinoPalpites] = useState<{ numero: number; busca: string; vez: number } | null>(null);
   // As regras vêm junto com o Início (mesma resposta em cache); só busca quando o modal abre.
   const { dados: inicio } = useRecurso<InicioApi>(regrasAbertas ? '/inicio' : null);
 
@@ -44,10 +46,18 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
     return () => window.removeEventListener('hashchange', mudar);
   }, []);
   const ir = (nova: Aba) => {
+    setDestinoPalpites(null);
     window.location.hash = nova;
     setAba(nova);
     window.scrollTo({ top: 0 });
   };
+  const abrirRodada = useCallback((numero: number, nome: string) => {
+    setParticipante(null);
+    setDestinoPalpites(d => ({ numero, busca: nome, vez: (d?.vez ?? 0) + 1 }));
+    window.location.hash = 'palpites';
+    setAba('palpites');
+    window.scrollTo({ top: 0 });
+  }, []);
   const abrir: AbrirParticipante = useCallback(p => setParticipante({ ref: p.ref, nome: p.nome }), []);
   const fecharParticipante = useCallback(() => setParticipante(null), []);
   const fecharRegras = useCallback(() => setRegrasAbertas(false), []);
@@ -92,7 +102,7 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
         {aba === 'inicio' && <Inicio onVerClassificacao={() => ir('classificacao')} onAbrirParticipante={abrir} />}
         {aba === 'classificacao' && <Tabela onAbrirParticipante={abrir} onRegras={() => setRegrasAbertas(true)} />}
         {aba === 'jogos' && <Jogos rotuloTabela="Tabela do campeonato" />}
-        {aba === 'palpites' && <Palpites onAbrirParticipante={abrir} />}
+        {aba === 'palpites' && <Palpites key={destinoPalpites?.vez ?? 0} onAbrirParticipante={abrir} inicial={destinoPalpites ?? undefined} />}
         {aba === 'participantes' && <Participantes onAbrirParticipante={abrir} />}
       </main>
 
@@ -111,7 +121,7 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
       </nav>
 
       <Drawer open={!!participante} onClose={fecharParticipante} title="Desempenho do participante" width="max-w-xl">
-        {participante && <DetalhePublico key={participante.ref} refPublica={participante.ref} nome={participante.nome} />}
+        {participante && <DetalhePublico key={participante.ref} refPublica={participante.ref} nome={participante.nome} onAbrirRodada={abrirRodada} />}
       </Drawer>
 
       <ComoFuncionaPontuacao aberto={regrasAbertas} onClose={fecharRegras}

@@ -235,6 +235,7 @@ def test_detalhe_do_participante(client, cenario):
     dados = client.get(f"{cenario['base']}/api/participantes/{ref}").get_json()
     assert dados['nome'] == 'Ana Souza' and dados['posicao'] == 1 and dados['pontos'] == 5
     assert [(e['numero'], e['pontos'], e['cravadas']) for e in dados['evolucao']] == [(1, 5, 1)]
+    assert all(isinstance(e['bonus'], int) for e in dados['evolucao'])  # bônus por rodada no histórico
     texto = json.dumps(dados)
     assert '@' not in texto and 'paga em dia' not in texto
     assert not re.search(r'"(id|participacaoId|rodadaId|usuarioId)"', texto)

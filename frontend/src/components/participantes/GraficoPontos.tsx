@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis, usePlotArea, useXAxisScale } from 'recharts';
 import { useEscuroAtual } from '@/lib/tema';
 import type { PontoEvolucao } from './PainelDesempenho';
 
-interface Ponto { chave: string; curto: string; nome: string; pontos: number | null; posicao: number; acumulado: number; cravadas: number }
+const DOURADO = 'rgb(var(--gold-500))';
+
+interface Ponto { chave: string; curto: string; nome: string; pontos: number | null; bonus: number; posicao: number; acumulado: number; cravadas: number }
 
 /**
  * Faixas de toque invisíveis, uma por rodada, ocupando toda a altura do gráfico e a largura
@@ -33,10 +35,10 @@ function FaixasDeToque({ dados, selecionado, onSelecionar }: { dados: Ponto[]; s
 }
 
 /** Pontos por rodada. Carregado sob demanda para não pesar a abertura da página. */
-export default function GraficoPontos({ evolucao }: { evolucao: PontoEvolucao[] }) {
+export default function GraficoPontos({ evolucao, onAbrirRodada }: { evolucao: PontoEvolucao[]; onAbrirRodada?: (ponto: PontoEvolucao) => void }) {
   const escuro = useEscuroAtual();
   const dados: Ponto[] = useMemo(() => evolucao.map(e => ({
-    chave: String(e.chave), curto: e.curto, nome: e.rodada, pontos: e.pontos, posicao: e.posicao,
+    chave: String(e.chave), curto: e.curto, nome: e.rodada, pontos: e.pontos, bonus: e.participa ? (e.bonus ?? 0) : 0, posicao: e.posicao,
     acumulado: e.acumulado, cravadas: e.cravadas,
   })), [evolucao]);
   const ultimoValido = useMemo(() => {
@@ -69,9 +71,11 @@ export default function GraficoPontos({ evolucao }: { evolucao: PontoEvolucao[] 
                 const { cx, cy, index } = props;
                 if (cx == null || cy == null) return <g key={`p-${index}`} />;
                 const ativo = index === selecionado;
+                // Rodadas com bônus ganham o ponto dourado, para achar no gráfico de relance.
+                const cor = index != null && dados[index]?.bonus > 0 ? DOURADO : '#059669';
                 return (
                   <circle key={`p-${index}`} cx={cx} cy={cy} r={ativo ? 7 : 4.5}
-                    fill={ativo ? '#059669' : (escuro ? '#111827' : '#fff')} stroke="#059669" strokeWidth={ativo ? 3 : 2} />
+                    style={{ fill: ativo ? cor : (escuro ? '#111827' : '#fff'), stroke: cor }} strokeWidth={ativo ? 3 : 2} />
                 );
               }} />
             <FaixasDeToque dados={dados} selecionado={selecionado} onSelecionar={setSelecionado} />
@@ -94,11 +98,25 @@ export default function GraficoPontos({ evolucao }: { evolucao: PontoEvolucao[] 
               </p>
             )}
             <p className="text-[11px] text-gray-400">{atual.acumulado} pts acumulados · {atual.cravadas} {atual.cravadas === 1 ? 'cravada' : 'cravadas'}</p>
+            {atual.bonus > 0 && (
+              <p className="text-xs font-semibold text-gold-700 dark:text-gold-300 inline-flex items-center gap-1">
+                <Star className="w-3 h-3 fill-current" aria-hidden />{atual.bonus} {atual.bonus === 1 ? 'ponto' : 'pontos'} de bônus nesta rodada
+              </p>
+            )}
+            {onAbrirRodada && (
+              <button type="button" onClick={() => onAbrirRodada(evolucao[selecionado])}
+                className="mt-1 block mx-auto text-xs font-semibold text-brand-700 dark:text-brand-300 hover:underline">
+                Ver palpites da rodada
+              </button>
+            )}
           </div>
           <button onClick={() => ir(1)} disabled={selecionado >= dados.length - 1} aria-label="Próxima rodada" className={seta}><ChevronRight className="w-5 h-5" /></button>
         </div>
       )}
-      <p className="mt-2 text-[11px] text-gray-400 text-center">Toque no gráfico ou use as setas para ver cada rodada.</p>
+      <p className="mt-2 text-[11px] text-gray-400 text-center">
+        Toque no gráfico ou use as setas para ver cada rodada.
+        {dados.some(d => d.bonus > 0) && <> Pontos <span className="text-gold-700 dark:text-gold-300 font-semibold">dourados</span> têm bônus.</>}
+      </p>
     </div>
   );
 }
