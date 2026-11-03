@@ -57,6 +57,11 @@ def imprimir_resumo(relatorio):
     print(f"Jogos especiais encerrados: {len(relatorio.jogos)}")
     for situacao, total in Counter(l["situacao"] for l in relatorio.jogos).most_common():
         print(f"  {DESCRICAO_JOGO[situacao]}: {total}")
+    for linha in relatorio.jogos:
+        if linha["situacao"] in ("digitado_diferente", "placar_diferente", "nao_encontrado"):
+            print(f"    {linha['jogo'].rodada.nome} · {_nome_jogo(linha['jogo'])}: "
+                  f"digitado {linha['marcador_atual'] or '-'} | ESPN {linha['marcador_espn'] or '-'} "
+                  f"({DESCRICAO_JOGO[linha['situacao']]})")
     print("Participações x rodadas:")
     for situacao, total in Counter(l["situacao"] for l in relatorio.pessoas).most_common():
         print(f"  {DESCRICAO_PESSOA[situacao]}: {total}")
@@ -119,12 +124,12 @@ def main(argv=None):
         if not args.sim and input("Gravar marcadores e ajustar créditos? Digite 'sim': ").strip().lower() != "sim":
             print("Cancelado: nada foi gravado.")
             return 1
-        preenchidos = ajustados = 0
+        totais = [0, 0, 0]
         for relatorio in relatorios:
-            p, a = aplicar(relatorio, f"{agora:%d/%m/%Y}")
-            preenchidos, ajustados = preenchidos + p, ajustados + a
+            totais = [t + n for t, n in zip(totais, aplicar(relatorio, f"{agora:%d/%m/%Y}"))]
         db.session.commit()
-        print(f"Gravado: {preenchidos} marcadores preenchidos, {ajustados} créditos ajustados.")
+        print(f"Gravado: {totais[0]} marcadores preenchidos, {totais[1]} palpites de 1º gol registrados, "
+              f"{totais[2]} créditos ajustados.")
     return 0
 
 

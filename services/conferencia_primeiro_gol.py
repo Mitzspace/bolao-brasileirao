@@ -9,7 +9,10 @@ foi acertado. A conferência:
    - confere: o recalculado é igual ao crédito -> o crédito vira bônus por jogo (zera);
    - planilha_maior: a planilha deu mais do que os palpites explicam -> sobra só a diferença;
    - planilha_menor: os palpites justificam mais do que a planilha deu -> o total sobe;
-   - sem_palpite_1g: crédito numa rodada sem palpite de primeiro gol no sistema -> intocado;
+   - crédito numa rodada sem palpite de primeiro gol no sistema: se o crédito equivale a acertar
+     todos os clássicos com gol em que a pessoa palpitou (o caso comum: um clássico na rodada), o
+     palpite de 1º gol é registrado com o marcador e o crédito vira bônus do jogo (inferido);
+     senão fica intocado (ambiguo, impossivel, sem_marcador ou sem_palpite_1g);
    - bonus_novo: rodada sem crédito em que o marcador preenchido gera bônus novo.
 Nada é gravado sem aplicar(); o relatório mostra antes a variação de pontos de cada pessoa.
 """
@@ -39,6 +42,10 @@ DESCRICAO_PESSOA = {
     "planilha_maior": "Planilha deu mais bônus do que os palpites explicam",
     "planilha_menor": "Palpites justificam mais bônus do que a planilha deu",
     "sem_palpite_1g": "Crédito sem palpite de 1º gol no sistema",
+    "inferido": "Palpite de 1º gol registrado pelo crédito da planilha",
+    "ambiguo": "Crédito sem como saber qual jogo foi acertado",
+    "impossivel": "Crédito maior do que os clássicos da rodada permitem",
+    "sem_marcador": "Crédito em rodada com clássico sem marcador",
     "bonus_novo": "Bônus novo pelo marcador preenchido",
 }
 
@@ -105,7 +112,7 @@ def conferir(bolao, eventos):
                      .options(selectinload(Participacao.palpites),
                               selectinload(Participacao.creditos_historicos)).all())
     for part in participacoes:
-        rodadas = defaultdict(lambda: {"atual": 0, "novo": 0, "com_palpite": False, "acertos": []})
+        rodadas = defaultdict(_dados_rodada)
         for pal in part.palpites:
             jogo = por_id.get(pal.jogo_id)
             if jogo is None or not palpite_elegivel(pal):
@@ -113,6 +120,9 @@ def conferir(bolao, eventos):
             dados = rodadas[jogo.rodada_id]
             previsto = (pal.primeiro_gol or "").strip()
             dados["com_palpite"] = dados["com_palpite"] or bool(previsto)
+            if (pal.situacao or "valido") == "valido" and (
+                    (jogo.resultado.gols_casa_real or 0) + (jogo.resultado.gols_fora_real or 0)) > 0:
+                dados["candidatos"].append((pal, jogo, marcador[jogo.id]))
             dados["atual"] += calcular_pontuacao(pal, jogo, jogo.resultado, regras).pontos_bonus
             simulado = SimpleNamespace(classico=jogo.classico, primeiro_marcador=marcador[jogo.id])
             novo = calcular_pontuacao(pal, simulado, jogo.resultado, regras).pontos_bonus
@@ -128,11 +138,17 @@ def conferir(bolao, eventos):
             credito_obj = creditos.get(rodada_id)
             if credito_obj is not None and not dentro_do_periodo(part, credito_obj.rodada):
                 continue  # fora do período: o ranking já ignora este crédito
-            dados = rodadas.get(rodada_id) or {"atual": 0, "novo": 0, "com_palpite": False, "acertos": []}
+            dados = rodadas.get(rodada_id) or _dados_rodada()
             credito = credito_obj.pontos if credito_obj else 0
+            inferidos = []
             if credito:
                 if not dados["com_palpite"] and dados["novo"] == 0:
-                    situacao, credito_novo = "sem_palpite_1g", credito
+                    situacao, inferidos = _inferir(credito, regras["primeiro_gol"], dados["candidatos"])
+                    credito_novo = 0 if inferidos else credito
+                    if inferidos:
+                        dados["novo"] = credito
+                        dados["acertos"] = [f"{j.time_casa} x {j.time_fora} ({m}, inferido)"
+                                            for _, j, m in inferidos]
                 elif dados["novo"] == credito:
                     situacao, credito_novo = "confere", 0
                 elif dados["novo"] < credito:
@@ -148,7 +164,7 @@ def conferir(bolao, eventos):
                 "participacao": part, "rodada": rodada, "credito": credito, "credito_obj": credito_obj,
                 "bonus_atual": dados["atual"], "bonus_novo": dados["novo"], "credito_novo": credito_novo,
                 "variacao": (dados["novo"] + credito_novo) - (dados["atual"] + credito),
-                "situacao": situacao, "acertos": dados["acertos"],
+                "situacao": situacao, "acertos": dados["acertos"], "inferidos": inferidos,
                 "nao_multiplo": bool(credito and regras["primeiro_gol"] and credito % regras["primeiro_gol"]),
             })
     relatorio.pessoas.sort(key=lambda p: (ordem_rodada(p["rodada"]), p["participacao"].nome_exibicao.casefold()))
@@ -159,18 +175,50 @@ def por_id_rodada(jogos, rodada_id):
     return next(j.rodada for j in jogos if j.rodada_id == rodada_id)
 
 
+def _dados_rodada():
+    return {"atual": 0, "novo": 0, "com_palpite": False, "acertos": [], "candidatos": []}
+
+
+def _inferir(credito, bonus, candidatos):
+    """Palpites de 1º gol que o crédito da planilha prova, quando não há outra possibilidade.
+
+    candidatos: (palpite, jogo, marcador) dos clássicos com gol da rodada em que a pessoa palpitou.
+    O crédito vale k acertos (k = crédito / bônus). Só há certeza quando k é igual ao número de
+    clássicos possíveis: aí ela acertou todos. Com menos acertos que jogos, não dá para saber quais.
+    """
+    if not bonus or credito % bonus:
+        return "sem_palpite_1g", []
+    acertos = credito // bonus
+    if acertos > len(candidatos):
+        return "impossivel", []
+    if acertos < len(candidatos):
+        return "ambiguo", []
+    if any(not m for _, _, m in candidatos):
+        return "sem_marcador", []
+    return "inferido", list(candidatos)
+
+
 def aplicar(relatorio, data_texto):
-    """Grava os marcadores encontrados e ajusta os créditos históricos (sem commit)."""
-    preenchidos = ajustados = 0
+    """Grava marcadores, palpites inferidos e ajusta os créditos históricos (sem commit).
+
+    Devolve (marcadores preenchidos, palpites registrados, créditos ajustados).
+    """
+    preenchidos = registrados = ajustados = 0
     for linha in relatorio.jogos:
         jogo = linha["jogo"]
         if (linha["situacao"] == "encontrado" and marcador_vazio(jogo)
                 and gravar_primeiro_marcador(jogo, jogo.resultado, linha["marcador_espn"])):
             preenchidos += 1
     for linha in relatorio.pessoas:
+        for palpite, _, marcador in linha.get("inferidos") or []:
+            if not (palpite.primeiro_gol or "").strip():
+                palpite.primeiro_gol = marcador
+                palpite._canal = "conferencia_espn"  # registrado no log do palpite
+                registrados += 1
+    for linha in relatorio.pessoas:
         credito = linha["credito_obj"]
         if credito is not None and linha["credito_novo"] != credito.pontos:
             credito.pontos = linha["credito_novo"]
             credito.motivo = f"Bônus histórico conferido em {data_texto}"[:100]
             ajustados += 1
-    return preenchidos, ajustados
+    return preenchidos, registrados, ajustados

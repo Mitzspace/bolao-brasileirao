@@ -144,7 +144,7 @@ def test_conferencia_classifica_e_aplica_sem_mexer_no_que_confere(app, tmp_path,
     situacoes = {l["participacao"].nome_exibicao: (l["situacao"], l["credito_novo"], l["variacao"])
                  for l in relatorio.pessoas}
     assert situacoes == {"Ana": ("confere", 0, 0), "Beto": ("planilha_maior", 2, 0),
-                         "Caio": ("bonus_novo", 0, 2), "Davi": ("sem_palpite_1g", 2, 0)}
+                         "Caio": ("bonus_novo", 0, 2), "Davi": ("inferido", 0, 0)}
     assert [(q["participacao"].nome_exibicao, q["palpite"]) for q in relatorio.quase] == [("Edu", "Hulk Paraíba")]
     assert jogo.primeiro_marcador is None  # simulação não grava
     from scripts.conferir_primeiro_gol import imprimir_resumo, salvar_relatorio
@@ -153,10 +153,45 @@ def test_conferencia_classifica_e_aplica_sem_mexer_no_que_confere(app, tmp_path,
     assert "Caio: +2" in capsys.readouterr().out
     assert "Hulk" in (tmp_path / f"bolao{bolao.id}-jogos.csv").read_text(encoding="utf-8-sig")
 
-    assert aplicar(relatorio, "02/11/2026") == (1, 1)
+    assert aplicar(relatorio, "02/11/2026") == (1, 1, 2)
     db.session.commit()
     assert jogo.primeiro_marcador == "Hulk"
+    davi = Palpite.query.filter_by(participacao_id=partes["Davi"].id).one()
+    assert davi.primeiro_gol == "Hulk" and "conferencia_espn" in davi.logs[-1].valores_novos
     credito_ana = BonusRodada.query.filter_by(participacao_id=partes["Ana"].id).one()
     assert credito_ana.pontos == 0 and "conferido" in credito_ana.motivo
     depois = {i["participante"].nome_exibicao: i["pontos"] for i in calcular_ranking(bolao)}
     assert {n: depois[n] - antes[n] for n in antes} == {"Ana": 0, "Beto": 0, "Caio": 2, "Davi": 0, "Edu": 0}
+
+
+def test_inferencia_so_quando_o_credito_prova_quais_jogos(app):
+    camp, rodada = _campeonato("football-data", "BSA")
+    criador = Participante(nome="Admin", email="admin@x.com", admin=True)
+    db.session.add(criador)
+    db.session.flush()
+    bolao = Bolao(nome="Bolão", campeonato=camp, criador=criador)
+    db.session.add(bolao)
+    jogos = [_jogo(rodada, "Corinthians", "Palmeiras", placar=(1, 0), marcador="Yuri Alberto"),
+             _jogo(rodada, "Flamengo", "Vasco", placar=(2, 1), marcador="Pedro"),
+             _jogo(rodada, "Grêmio", "Internacional", placar=(0, 0))]  # sem gol: não conta
+    for nome, credito in {"Ana": 2, "Beto": 4, "Caio": 6}.items():
+        pessoa = Participante(nome=nome, email=f"{nome}@x.com")
+        db.session.add(pessoa)
+        db.session.flush()
+        part = Participacao(bolao=bolao, participante_legado=pessoa, nome_exibicao=nome)
+        db.session.add(part)
+        for jogo in jogos:
+            db.session.add(Palpite(participacao=part, jogo=jogo, gols_casa=1, gols_fora=0))
+        db.session.add(BonusRodada(participante_id=pessoa.id, rodada=rodada, participacao=part, pontos=credito))
+    db.session.commit()
+    relatorio = conferir(bolao, [])
+    situacoes = {l["participacao"].nome_exibicao: (l["situacao"], l["credito_novo"], l["variacao"])
+                 for l in relatorio.pessoas}
+    assert situacoes == {"Ana": ("ambiguo", 2, 0), "Beto": ("inferido", 0, 0), "Caio": ("impossivel", 6, 0)}
+    antes = {i["participante"].nome_exibicao: i["pontos"] for i in calcular_ranking(bolao)}
+    assert aplicar(relatorio, "02/11/2026") == (0, 2, 1)
+    db.session.commit()
+    beto = Palpite.query.join(Participacao).filter(Participacao.nome_exibicao == "Beto").all()
+    assert sorted(p.primeiro_gol or "" for p in beto) == ["", "Pedro", "Yuri Alberto"]
+    depois = {i["participante"].nome_exibicao: i["pontos"] for i in calcular_ranking(bolao)}
+    assert depois == antes
