@@ -77,18 +77,21 @@
   }
 }
 
-/* Paletas (canais RGB) lidas pelo tailwind.config.js. O padrão é o visual verde de sempre; um campeonato
-   com tema (data-tema na <html>, ver lib/temaCampeonato.ts) redefine só as variáveis que quiser. */
+/* Paletas (canais RGB) lidas pelo tailwind.config.js. O padrão é o "verde-gramado" com dourado de taça e
+   cinzas azulados de noite de estádio; um campeonato com tema (data-tema na <html>, ver lib/temaCampeonato.ts)
+   redefine só as variáveis que quiser. Paleta anterior (verde-esmeralda e cinza neutro), para voltar:
+   brand 236 253 245 / 209 250 229 / 167 243 208 / 110 231 183 / 52 211 153 / 16 185 129 / 5 150 105 / 4 120 87 /
+   6 95 70 / 6 78 59 / 2 44 34; gold = âmbar do Tailwind; gray = cinza do Tailwind. */
 :root {
-  --brand-50: 236 253 245; --brand-100: 209 250 229; --brand-200: 167 243 208; --brand-300: 110 231 183;
-  --brand-400: 52 211 153; --brand-500: 16 185 129; --brand-600: 5 150 105; --brand-700: 4 120 87;
-  --brand-800: 6 95 70; --brand-900: 6 78 59; --brand-950: 2 44 34;
-  --gold-50: 255 251 235; --gold-100: 254 243 199; --gold-200: 253 230 138; --gold-300: 252 211 77;
-  --gold-400: 251 191 36; --gold-500: 245 158 11; --gold-600: 217 119 6; --gold-700: 180 83 9;
-  --gold-800: 146 64 14; --gold-900: 120 53 15;
-  --gray-50: 249 250 251; --gray-100: 243 244 246; --gray-200: 229 231 235; --gray-300: 209 213 219;
-  --gray-400: 156 163 175; --gray-500: 107 114 128; --gray-600: 75 85 99; --gray-700: 55 65 81;
-  --gray-800: 31 41 55; --gray-900: 17 24 39; --gray-950: 3 7 18;
+  --brand-50: 237 253 243; --brand-100: 211 250 224; --brand-200: 167 243 196; --brand-300: 108 230 158;
+  --brand-400: 46 208 118; --brand-500: 20 182 96; --brand-600: 11 150 78; --brand-700: 10 118 64;
+  --brand-800: 13 93 53; --brand-900: 13 76 45; --brand-950: 3 42 24;
+  --gold-50: 254 252 232; --gold-100: 254 249 195; --gold-200: 254 240 138; --gold-300: 253 224 71;
+  --gold-400: 250 204 21; --gold-500: 234 179 8; --gold-600: 202 138 4; --gold-700: 161 98 7;
+  --gold-800: 133 77 14; --gold-900: 113 63 18;
+  --gray-50: 248 250 252; --gray-100: 241 245 249; --gray-200: 226 232 240; --gray-300: 203 213 225;
+  --gray-400: 148 163 184; --gray-500: 100 116 139; --gray-600: 71 85 105; --gray-700: 51 65 85;
+  --gray-800: 30 41 59; --gray-900: 15 23 42; --gray-950: 2 6 23;
 }
 
 /* Copa do Mundo: azul-royal como cor principal, dourado de troféu, cinzas azulados (noite de estádio). */

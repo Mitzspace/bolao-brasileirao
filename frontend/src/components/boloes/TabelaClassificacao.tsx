@@ -43,8 +43,8 @@ interface Props {
   onAbrir?: (item: LinhaClassificacao) => void;
 }
 
-const th = 'py-3 px-1.5 sm:px-3 text-xs font-semibold text-gray-400 uppercase';
-const td = 'py-3 px-1.5 sm:px-3';
+const th = 'py-2.5 px-1.5 sm:px-3 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50/80 dark:bg-gray-800/40';
+const td = 'py-3.5 px-1.5 sm:px-3';
 /** No modo 'expandir', estas colunas só aparecem do tablet para cima (no celular, ao tocar na linha). */
 const SO_NA_TELA: ReadonlySet<ColunaClassificacao> = new Set(['pontos', 'bonus', 'resultados']);
 
@@ -70,7 +70,7 @@ function celula(coluna: ColunaClassificacao, p: LinhaClassificacao): ReactNode {
     case 'bonus': return bonus > 0 ? <span className="text-sm font-bold text-gold-600">+{bonus}</span> : <span className="text-sm text-gray-400">0</span>;
     case 'cravadas': return <span className="text-sm text-gray-600 dark:text-gray-400">{p.cravadas}</span>;
     case 'resultados': return <span className="text-sm text-gray-600 dark:text-gray-400">{p.acertos}</span>;
-    case 'total': return <span className="text-sm font-bold text-brand-600 dark:text-brand-400">{p.pontos}</span>;
+    case 'total': return <span className="inline-flex min-w-[2.75rem] justify-center rounded-lg bg-brand-50 dark:bg-brand-900/30 px-2 py-1 text-sm font-extrabold text-brand-700 dark:text-brand-300">{p.pontos}</span>;
     case 'variacao': return <Variacao valor={p.variacao} />;
   }
 }
@@ -92,6 +92,8 @@ export function TabelaClassificacao({ itens, geral, colunas: escolhidas = COLUNA
   const sombra = rola ? 'shadow-[6px_0_6px_-6px_rgba(0,0,0,0.15)] sm:shadow-none' : '';
   const hoverFixa = rola ? 'group-hover:bg-gray-50 dark:group-hover:bg-gray-800' : '';
   const totalColunas = 2 + colunas.length + 1;
+  // Barrinha sob o nome: quanto cada um tem em relação ao líder.
+  const maximo = Math.max(1, ...itens.map(p => p.pontos));
 
   return (
     <>
@@ -118,14 +120,16 @@ export function TabelaClassificacao({ itens, geral, colunas: escolhidas = COLUNA
               return (
                 <Fragment key={p.chave}>
                   <tr onClick={clicar} aria-expanded={modoColunas ? undefined : expandida}
-                    className={`group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${modoColunas ? (onAbrir ? 'cursor-pointer' : '') : 'cursor-pointer sm:cursor-default'} ${p.status !== 'ativo' ? 'opacity-70' : ''}`}>
+                    className={`group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${i === 0 ? 'bg-gold-50/50 dark:bg-gold-900/10' : ''} ${modoColunas ? (onAbrir ? 'cursor-pointer' : '') : 'cursor-pointer sm:cursor-default'} ${p.status !== 'ativo' ? 'opacity-70' : ''}`}>
                     <td className={`${td} text-center ${fixa} left-0 ${hoverFixa}`}>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mx-auto ${i < 3 ? 'text-white' : 'text-gray-500 bg-gray-100 dark:bg-gray-800'}`}
-                        style={i < 3 ? { backgroundColor: CORES_MEDALHA[i] } : {}}>{p.posicao ?? i + 1}</div>
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-extrabold mx-auto ${i < 3 ? 'text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800'}`}
+                        style={i < 3 ? { background: `linear-gradient(135deg, ${CORES_MEDALHA[i]}, ${['#b45309', '#64748b', '#9a3412'][i]})` } : {}}>{p.posicao ?? i + 1}</div>
                     </td>
                     <td className={`${td} ${fixa} left-11 ${rola ? 'max-w-[9.5rem] sm:max-w-none' : ''} ${sombra} ${hoverFixa}`}>
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <span className="hidden min-[400px]:block"><Avatar nome={p.nome} id={p.avatarId} /></span>
+                        <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
                         {onAbrir ? (
                           <button type="button" onClick={e => { e.stopPropagation(); onAbrir(p); }} title="Ver desempenho"
                             className={`text-left text-sm font-medium text-gray-900 dark:text-white truncate hover:underline hover:text-brand-700 dark:hover:text-brand-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 rounded ${modoColunas ? '' : 'max-w-[7.5rem] sm:max-w-none'}`}>
@@ -135,6 +139,12 @@ export function TabelaClassificacao({ itens, geral, colunas: escolhidas = COLUNA
                           <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[7.5rem] sm:max-w-none">{p.nome}</span>
                         )}
                         {p.status === 'desistente' && <Badge color="yellow" size="sm">Desistente</Badge>}
+                        </div>
+                        <div aria-hidden="true" className="mt-1.5 h-1 w-full max-w-[9rem] rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                          <div className={`h-full rounded-full ${i === 0 ? 'bg-gradient-to-r from-gold-400 to-gold-500' : 'bg-gradient-to-r from-brand-400 to-brand-600'}`}
+                            style={{ width: `${Math.max(4, Math.round((p.pontos / maximo) * 100))}%` }} />
+                        </div>
+                        </div>
                       </div>
                     </td>
                     {colunas.map(c => <td key={c} className={`${classeColuna(c)} ${td} text-center`}>{celula(c, p)}</td>)}
