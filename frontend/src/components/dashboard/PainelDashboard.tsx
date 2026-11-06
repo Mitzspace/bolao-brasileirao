@@ -45,12 +45,16 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
   return (
     <>
       {/* Boas-vindas */}
-      <div className="bg-gradient-to-r from-brand-600 to-brand-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+      <div className="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 rounded-3xl p-6 md:p-8 text-white shadow-lg shadow-brand-900/20 relative overflow-hidden animate-fade-in">
+        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-1/2 hidden sm:block linhas-campo opacity-80 [mask-image:linear-gradient(90deg,transparent,black_40%)]" />
+        <div aria-hidden="true" className="absolute -top-16 -right-10 w-56 h-56 bg-white/10 rounded-full blur-2xl" />
+        <div aria-hidden="true" className="absolute -bottom-20 left-1/3 w-56 h-56 bg-gold-400/20 rounded-full blur-3xl" />
         <div className="relative">
-          <p className="text-white/80 text-sm">{saudacao}</p>
-          <h2 className="text-2xl font-bold mt-1 break-words">{bolao.nome}</h2>
-          <p className="text-white/80 text-sm mt-2">
+          <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold-300" />{saudacao}
+          </p>
+          <h2 className="text-2xl md:text-3xl font-extrabold mt-3 break-words">{bolao.nome}</h2>
+          <p className="text-white/80 text-sm mt-1.5">
             {bolao.campeonato} {bolao.ano ?? ''}{rodadaNome ? ` — ${rodadaNome}` : ''}
           </p>
           {acao}
@@ -62,12 +66,13 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
         {indicadores.map(stat => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 animate-slide-up min-w-0">
-              <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${colorMap[stat.color]} flex items-center justify-center mb-3`}>
+            <div key={stat.label} className="relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 animate-slide-up min-w-0 cartao-elevavel">
+              <div aria-hidden="true" className={`absolute -top-8 -right-8 w-24 h-24 rounded-full bg-gradient-to-br ${colorMap[stat.color]} opacity-[0.08]`} />
+              <div className={`relative w-11 h-11 rounded-xl bg-gradient-to-br ${colorMap[stat.color]} flex items-center justify-center mb-3 shadow-md`}>
                 <Icon className="w-5 h-5" />
               </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white truncate">{stat.value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{stat.label}</p>
+              <p className="relative text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white truncate">{stat.value}</p>
+              <p className="relative text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">{stat.label}</p>
             </div>
           );
         })}
@@ -79,7 +84,7 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
         {/* Top 5 */}
         <div className="min-w-0 lg:col-span-1 bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-5 h-5 text-brand-600" />
+            <span className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center shrink-0"><TrendingUp className="w-[18px] h-[18px] text-brand-600 dark:text-brand-400" /></span>
             <h3 className="font-bold text-gray-900 dark:text-white truncate">Top 5 — {bolao.nome}</h3>
           </div>
           {notaVariacao && top5 && <p className="text-[11px] text-gray-400 mb-4">{notaVariacao}</p>}
@@ -96,7 +101,7 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
               {top5.map((p, i) => {
                 const conteudo = (
                   <>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i < 3 ? 'text-white' : 'text-gray-500 bg-gray-100 dark:bg-gray-800'}`}
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i < 3 ? 'text-white shadow-sm ring-2 ring-white dark:ring-gray-900' : 'text-gray-500 bg-gray-100 dark:bg-gray-800'}`}
                       style={i < 3 ? { backgroundColor: medalColors[i] } : {}}>
                       {p.posicao ?? i + 1}
                     </div>
@@ -111,15 +116,15 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
                 );
                 return onAbrirLider ? (
                   <button key={p.chave} onClick={() => onAbrirLider(p)}
-                    className="w-full flex items-center gap-3 py-1.5 px-1 -mx-1 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    className={`w-full flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${i === 0 ? 'bg-gold-50/70 dark:bg-gold-900/10' : ''}`}>
                     {conteudo}
                   </button>
-                ) : <div key={p.chave} className="flex items-center gap-3 py-1.5">{conteudo}</div>;
+                ) : <div key={p.chave} className={`flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-xl ${i === 0 ? 'bg-gold-50/70 dark:bg-gold-900/10' : ''}`}>{conteudo}</div>;
               })}
             </div>
           )}
           {onVerClassificacao && top5 !== null && (
-            <button onClick={onVerClassificacao} className="block w-full mt-4 text-center text-sm text-brand-600 dark:text-brand-400 font-medium hover:underline">
+            <button onClick={onVerClassificacao} className="block w-full mt-4 py-2 rounded-xl text-center text-sm text-brand-700 dark:text-brand-300 font-semibold bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors">
               Ver classificação completa
             </button>
           )}
@@ -129,7 +134,7 @@ export function PainelDashboard({ bolao, saudacao, rodadaNome, acao, indicadores
         <div className="min-w-0 lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div className="flex items-center gap-2 min-w-0">
-              <Calendar className="w-5 h-5 text-brand-600 shrink-0" />
+              <span className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center shrink-0"><Calendar className="w-[18px] h-[18px] text-brand-600 dark:text-brand-400" /></span>
               <h3 className="font-bold text-gray-900 dark:text-white truncate">Jogos{rodadaNome ? ` — ${rodadaNome}` : ''}</h3>
             </div>
             {aguardando > 0 && (

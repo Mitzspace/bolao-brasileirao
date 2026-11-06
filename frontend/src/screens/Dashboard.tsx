@@ -38,7 +38,7 @@ function Conteudo({ dados }: { dados: DashboardApi }) {
       saudacao="Bem-vindo de volta!"
       rodadaNome={rodada?.nome}
       acao={(
-        <button onClick={() => setView('palpites')} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white text-brand-700 rounded-xl font-semibold text-sm hover:bg-brand-50 transition-colors">
+        <button onClick={() => setView('palpites')} className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-white text-brand-700 rounded-xl font-semibold text-sm shadow-md hover:bg-brand-50 hover:-translate-y-0.5 transition-all">
           <Target className="w-4 h-4" />
           Lançar palpites da rodada atual
           <ArrowRight className="w-4 h-4" />

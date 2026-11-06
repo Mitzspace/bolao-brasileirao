@@ -9,6 +9,26 @@
   body {
     @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
     -webkit-font-smoothing: antialiased;
+    /* Inter com números de largura fixa: placares e pontos ficam alinhados nas tabelas. */
+    font-feature-settings: 'cv11', 'ss01';
+    font-variant-numeric: tabular-nums;
+    /* Fundo levemente iluminado nas cores do bolão (os campeonatos com tema trocam por um próprio, abaixo). */
+    background-image:
+      radial-gradient(circle at 100% 0, rgb(var(--brand-500) / 0.07), transparent 40%),
+      radial-gradient(circle at 0 100%, rgb(var(--gold-400) / 0.06), transparent 36%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
+  }
+  ::selection {
+    background: rgb(var(--brand-200));
+    color: rgb(var(--brand-950));
+  }
+  /* Contorno visível ao navegar pelo teclado (campos com anel próprio mantêm o deles). */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand-500));
+    outline-offset: 2px;
   }
   * {
     @apply transition-colors;
@@ -20,7 +40,17 @@
     @apply bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800;
   }
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/20;
+  }
+  /* Cartão que "levanta" um pouco ao passar o mouse. */
+  .cartao-elevavel {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
+  }
+  /* Linhas do gramado (círculo central e grande área) usadas como enfeite nos destaques. */
+  .linhas-campo {
+    background-image:
+      radial-gradient(circle at 50% 50%, transparent 0 46px, rgb(255 255 255 / 0.16) 46px 48px, transparent 48px),
+      linear-gradient(90deg, transparent calc(50% - 1px), rgb(255 255 255 / 0.16) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
   }
   .safe-area-bottom {
     padding-bottom: calc(0.375rem + env(safe-area-inset-bottom, 0px));

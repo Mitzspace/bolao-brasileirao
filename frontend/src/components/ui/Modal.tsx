@@ -32,8 +32,8 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
   return (
     // z-[60]: janelas sempre ficam por cima do painel lateral (Drawer, z-50).
     <div data-janela-modal className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label={title} className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-900 rounded-2xl shadow-2xl animate-scale-in max-h-[90vh] flex flex-col`}>
+      <div className="absolute inset-0 bg-gray-950/50 backdrop-blur-sm" onClick={onClose} />
+      <div role="dialog" aria-modal="true" aria-label={title} className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-900 rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 animate-scale-in max-h-[90vh] flex flex-col`}>
         {title && (
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h2>
