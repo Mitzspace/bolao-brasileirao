@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Grid3x3, H
 import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Switch } from '@/components/ui/Form';
 import { TeamCrest } from '@/components/ui/TeamCrest';
@@ -86,6 +87,24 @@ export function PalpitesScreen() {
   }, [chaveForm]);
 
   const editaveis = useMemo(() => dados?.jogos.filter(j => !j.palpite?.guardado) ?? [], [dados]);
+  // Há algo digitado e ainda não salvo? Trocar de participante ou de rodada perderia isso.
+  const alterado = !!dados && !trocando && !fechado && (naoEnviou || editaveis.some(j => {
+    const v = valores[j.id];
+    if (!v) return false;
+    const o = valorInicial(j);
+    return v.casa !== o.casa || v.fora !== o.fora || v.situacao !== o.situacao
+      || v.primeiroGol !== o.primeiroGol || v.penCasa !== o.penCasa || v.penFora !== o.penFora;
+  }));
+  const [trocaPendente, setTrocaPendente] = useState<(() => void) | null>(null);
+  /** Troca de participante/rodada pedida pela pessoa: com palpites não salvos, pergunta antes. */
+  const trocar = (acao: () => void) => { if (alterado) setTrocaPendente(() => acao); else acao(); };
+  // Fechar ou recarregar a página com palpites não salvos: o navegador pede confirmação.
+  useEffect(() => {
+    if (!alterado) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [alterado]);
   const alterar = (id: number, parcial: Partial<Valor>) => {
     setValores(v => ({ ...v, [id]: { ...v[id], ...parcial } }));
     setErros(e => { const { [String(id)]: _, ...resto } = e; return resto; });
@@ -181,6 +200,10 @@ export function PalpitesScreen() {
           </button>
         ) : undefined} />
       <GradeModal rodadaId={grade} onClose={() => setGrade(null)} />
+      <ConfirmDialog open={!!trocaPendente} onClose={() => setTrocaPendente(null)}
+        onConfirm={() => { const acao = trocaPendente; setTrocaPendente(null); acao?.(); }}
+        title="Sair sem salvar?" danger confirmLabel="Sair sem salvar" cancelLabel="Continuar editando"
+        message={<>Há palpites digitados{pessoa ? <> de <strong>{pessoa.nome}</strong></> : null} que ainda não foram salvos. Se continuar, eles serão descartados.</>} />
 
       <div className="p-4 md:p-8 pb-44 md:pb-32 space-y-4">
         {erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
@@ -191,7 +214,7 @@ export function PalpitesScreen() {
           <>
             <div className={`bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 min-w-0 ${salvando ? 'pointer-events-none opacity-60' : ''}`}>
               <SeletorRodadas rodadas={dados.rodadas} selecionadaId={rodadaId ?? dados.rodada.id} atualId={null}
-                onSelecionar={id => { setRodadaId(id); setPessoaId(null); }} />
+                onSelecionar={id => trocar(() => { setRodadaId(id); setPessoaId(null); })} />
             </div>
 
             {/* Participante */}
@@ -218,15 +241,15 @@ export function PalpitesScreen() {
               )}
               <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <button onClick={() => pessoa?.anteriorId && setPessoaId(pessoa.anteriorId)} disabled={!pessoa?.anteriorId || salvando !== null || trocando} aria-label="Participante anterior"
+                <button onClick={() => pessoa?.anteriorId && trocar(() => setPessoaId(pessoa.anteriorId))} disabled={!pessoa?.anteriorId || salvando !== null || trocando} aria-label="Participante anterior"
                   className="shrink-0 w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-800"><ChevronLeft className="w-5 h-5" /></button>
-                <select value={trocando ? (pessoaId ?? '') : (pessoa?.id ?? '')} onChange={e => setPessoaId(Number(e.target.value))} aria-label="Participante" disabled={salvando !== null}
+                <select value={trocando ? (pessoaId ?? '') : (pessoa?.id ?? '')} onChange={e => { const id = Number(e.target.value); trocar(() => setPessoaId(id)); }} aria-label="Participante" disabled={salvando !== null}
                   className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/40">
                   {dados.participantes.map(p => (
                     <option key={p.id} value={p.id}>{p.nome}{p.status === 'desistente' ? ' (desistente)' : ''} · {p.faltantes ? `${p.faltantes} faltando` : 'completo ✓'}</option>
                   ))}
                 </select>
-                <button onClick={() => pessoa?.proximaId && setPessoaId(pessoa.proximaId)} disabled={!pessoa?.proximaId || salvando !== null || trocando} aria-label="Próximo participante"
+                <button onClick={() => pessoa?.proximaId && trocar(() => setPessoaId(pessoa.proximaId))} disabled={!pessoa?.proximaId || salvando !== null || trocando} aria-label="Próximo participante"
                   className="shrink-0 w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-800"><ChevronRight className="w-5 h-5" /></button>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -238,7 +261,7 @@ export function PalpitesScreen() {
               {verPendencias && pendentes.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 animate-fade-in">
                   {pendentes.map(p => (
-                    <button key={p.id} onClick={() => setPessoaId(p.id)} disabled={salvando !== null}
+                    <button key={p.id} onClick={() => trocar(() => setPessoaId(p.id))} disabled={salvando !== null}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border ${p.id === pessoa?.id ? 'bg-brand-600 border-brand-600 text-white' : 'border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:border-red-300'}`}>
                       {p.nome} · {p.faltantes}
                     </button>
@@ -396,6 +419,7 @@ export function PalpitesScreen() {
         <div className="fixed bottom-16 md:bottom-0 left-0 md:left-64 right-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-[0_-6px_20px_-10px_rgb(16_24_40/0.18)] border-t border-gray-100 dark:border-gray-800 px-4 md:px-8 py-3 flex items-center gap-2">
           <p className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 flex-1 min-w-0">
             {fechado ? <><Lock className="w-4 h-4" /> Palpites completos · somente leitura</>
+              : alterado ? <><span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse" /> <span className="font-semibold text-gold-700 dark:text-gold-300">Alterações ainda não salvas</span></>
               : whatsapp ? <><CheckCircle2 className="w-4 h-4 text-brand-500" /> Preenchido pela mensagem do WhatsApp</> : <>Enter salva e fica · o próximo pula quem já está completo</>}
           </p>
           {fechado ? (

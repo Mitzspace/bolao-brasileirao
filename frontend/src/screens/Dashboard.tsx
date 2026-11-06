@@ -1,4 +1,5 @@
-import { Users, Calendar, Target, AlertCircle, ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Users, Calendar, Target, AlertCircle, ArrowRight, CheckCircle2, ChevronRight, Copy, MessageCircle } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 import { useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { PainelDashboard, type IndicadorDashboard } from '@/components/dashboard/PainelDashboard';
@@ -23,7 +24,27 @@ export function Dashboard() {
 
 function Conteudo({ dados }: { dados: DashboardApi }) {
   const { setView } = useApp();
+  const showToast = useToast();
   const { rodada } = dados;
+  // Lembrete pronto para o grupo do WhatsApp com quem ainda tem jogo em branco na rodada.
+  const proximoJogo = dados.jogos.find(j => j.status === 'agendado' && j.dataTexto);
+  const lembrete = rodada ? [
+    `*${dados.bolao.nome} — palpites da ${rodada.nome}*`,
+    '',
+    'Ainda faltam palpites de:',
+    ...dados.pendentes.map(p => `• ${p.nome} (${p.faltantes === p.total ? 'nenhum palpite' : `faltam ${p.faltantes} de ${p.total}`})`),
+    ...(proximoJogo ? ['', `Próximo jogo: ${proximoJogo.casa} × ${proximoJogo.fora} · ${proximoJogo.dataTexto}`] : []),
+    '',
+    'Mandem os palpites antes do início dos jogos! ⚽',
+  ].join('\n') : '';
+  const copiarLembrete = async () => {
+    try {
+      await navigator.clipboard.writeText(lembrete);
+      showToast('Lembrete copiado. É só colar no grupo do WhatsApp.');
+    } catch {
+      showToast('Não foi possível copiar automaticamente. Use o botão "Enviar no WhatsApp".', 'error');
+    }
+  };
   const indicadores: IndicadorDashboard[] = [
     { label: 'Participantes ativos', value: dados.participantesAtivos, icon: Users, color: 'gold' },
     { label: 'Rodada atual', value: rodada?.numero ? `${rodada.numero}/${rodada.total}` : '—', icon: Calendar, color: 'blue' },
@@ -56,6 +77,16 @@ function Conteudo({ dados }: { dados: DashboardApi }) {
             <AlertCircle className="w-5 h-5 text-red-500" />
             <h3 className="font-bold text-gray-900 dark:text-white">Palpites faltantes — {rodada.nome}</h3>
             <span className="text-xs text-gray-400">{dados.pendentes.length} {dados.pendentes.length === 1 ? 'participante' : 'participantes'} · {dados.jogosFaltantes} {dados.jogosFaltantes === 1 ? 'jogo em branco' : 'jogos em branco'}</span>
+            <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+              <button onClick={copiarLembrete} title="Copiar um lembrete com a lista de quem falta"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                <Copy className="w-3.5 h-3.5" /> Copiar lembrete
+              </button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(lembrete)}`} target="_blank" rel="noopener noreferrer"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] hover:bg-[#1ebe5b] px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
+                <MessageCircle className="w-3.5 h-3.5" /> Enviar no WhatsApp
+              </a>
+            </div>
           </div>
           <ul className="flex flex-wrap gap-2">
             {dados.pendentes.map(p => (
