@@ -18,20 +18,33 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-brand-50 via-white to-gold-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-20 w-72 h-72 bg-brand-200/30 dark:bg-brand-900/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-20 w-72 h-72 bg-gold-200/30 dark:bg-gold-900/20 rounded-full blur-3xl" />
+    <div className="relative min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-brand-50 via-white to-gold-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-20 w-72 h-72 bg-brand-200/40 dark:bg-brand-900/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-20 w-72 h-72 bg-gold-200/40 dark:bg-gold-900/20 rounded-full blur-3xl" />
+        {/* Linhas do gramado ao fundo: meio-campo, círculo central e as duas grandes áreas. */}
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full text-brand-600/[0.07] dark:text-brand-400/[0.06]">
+          <g fill="none" stroke="currentColor" strokeWidth="4">
+            <rect x="60" y="60" width="1080" height="680" rx="8" />
+            <line x1="600" y1="60" x2="600" y2="740" />
+            <circle cx="600" cy="400" r="110" />
+            <circle cx="600" cy="400" r="6" fill="currentColor" />
+            <rect x="60" y="230" width="170" height="340" />
+            <rect x="970" y="230" width="170" height="340" />
+            <rect x="60" y="320" width="60" height="160" />
+            <rect x="1080" y="320" width="60" height="160" />
+          </g>
+        </svg>
       </div>
 
       <div className="relative w-full max-w-md">
         <div className="flex flex-col items-center mb-8 animate-fade-in">
           <LogoApp tamanho="lg" className="shadow-lg mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestão de bolões</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Gestão de bolões</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Palpites e classificação do seu bolão</p>
         </div>
 
-        <form action={dados.links.login} method="POST" onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 md:p-8 animate-slide-up border border-gray-100 dark:border-gray-800">
+        <form action={dados.links.login} method="POST" onSubmit={handleSubmit} className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-3xl shadow-xl p-6 md:p-8 animate-slide-up border border-white dark:border-gray-800 ring-1 ring-gray-900/5 dark:ring-white/5">
           <input type="hidden" name="csrf_token" value={dados.csrfToken} />
           <input type="hidden" name="nova_interface" value="1" />
           {dados.mensagens.map((mensagem, index) => (
@@ -88,7 +101,7 @@ export function LoginScreen() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-6 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors disabled:opacity-60"
+            className="w-full mt-6 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-semibold shadow-md shadow-brand-600/25 transition-all disabled:opacity-60"
           >
             {loading ? (
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
