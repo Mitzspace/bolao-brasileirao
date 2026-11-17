@@ -31,27 +31,29 @@ export function BottomNav() {
     return () => window.removeEventListener('keydown', fechar);
   }, [mais]);
 
-  const botao = 'flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1.5 rounded-lg transition-colors';
-  const cor = (ativo: boolean) => (ativo ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400');
+  const botao = 'group flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1 rounded-xl transition-colors';
+  const cor = (ativo: boolean) => (ativo ? 'text-brand-700 dark:text-brand-300' : 'text-gray-500 dark:text-gray-400');
+  // O ícone ativo ganha uma "pílula" colorida por trás, como nos apps de celular.
+  const pilula = (ativo: boolean) => `flex items-center justify-center w-12 h-7 rounded-full transition-colors ${ativo ? 'bg-brand-100 dark:bg-brand-900/50' : 'group-hover:bg-gray-100 dark:group-hover:bg-gray-800'}`;
 
   return (
     <>
       {mais && <button aria-label="Fechar menu" tabIndex={-1} onClick={() => setMais(false)} className="md:hidden fixed inset-0 z-30 cursor-default" />}
-      <nav aria-label="Navegação principal" className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-1 py-1.5 flex items-center justify-around safe-area-bottom">
+      <nav aria-label="Navegação principal" className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 shadow-[0_-4px_16px_-8px_rgb(16_24_40/0.12)] px-1 py-1.5 flex items-center justify-around safe-area-bottom">
         {navItems.map(item => {
           const Icon = item.icon;
           const active = atual === item.id;
           return (
             <button key={item.id} onClick={() => { setMais(false); setView(item.id); }} aria-current={active ? 'page' : undefined}
               className={`${botao} ${cor(active)}`}>
-              <Icon className="w-5 h-5" />
-              <span className="text-[9px] font-medium">{item.label}</span>
+              <span className={pilula(active)}><Icon className="w-5 h-5" /></span>
+              <span className={`text-[10px] truncate max-w-full ${active ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
             </button>
           );
         })}
         <button onClick={() => setMais(!mais)} aria-expanded={mais} aria-haspopup="true" className={`${botao} ${cor(noMais || mais)}`}>
-          <MoreHorizontal className="w-5 h-5" />
-          <span className="text-[9px] font-medium">Mais</span>
+          <span className={pilula(noMais || mais)}><MoreHorizontal className="w-5 h-5" /></span>
+          <span className={`text-[10px] ${noMais || mais ? 'font-semibold' : 'font-medium'}`}>Mais</span>
         </button>
         {mais && (
           <div className="absolute bottom-full right-2 mb-2 w-52 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-xl p-1.5 animate-fade-in">

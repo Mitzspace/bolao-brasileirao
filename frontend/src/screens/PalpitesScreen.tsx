@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Grid3x3, History, Loader2, Lock, MessageCircle, Pencil, Save, SkipForward, Star, UserCheck } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Carregando, ErroCarga } from '@/components/ui/Estado';
 import { Switch } from '@/components/ui/Form';
 import { TeamCrest } from '@/components/ui/TeamCrest';
@@ -85,6 +87,24 @@ export function PalpitesScreen() {
   }, [chaveForm]);
 
   const editaveis = useMemo(() => dados?.jogos.filter(j => !j.palpite?.guardado) ?? [], [dados]);
+  // Há algo digitado e ainda não salvo? Trocar de participante ou de rodada perderia isso.
+  const alterado = !!dados && !trocando && !fechado && (naoEnviou || editaveis.some(j => {
+    const v = valores[j.id];
+    if (!v) return false;
+    const o = valorInicial(j);
+    return v.casa !== o.casa || v.fora !== o.fora || v.situacao !== o.situacao
+      || v.primeiroGol !== o.primeiroGol || v.penCasa !== o.penCasa || v.penFora !== o.penFora;
+  }));
+  const [trocaPendente, setTrocaPendente] = useState<(() => void) | null>(null);
+  /** Troca de participante/rodada pedida pela pessoa: com palpites não salvos, pergunta antes. */
+  const trocar = (acao: () => void) => { if (alterado) setTrocaPendente(() => acao); else acao(); };
+  // Fechar ou recarregar a página com palpites não salvos: o navegador pede confirmação.
+  useEffect(() => {
+    if (!alterado) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [alterado]);
   const alterar = (id: number, parcial: Partial<Valor>) => {
     setValores(v => ({ ...v, [id]: { ...v[id], ...parcial } }));
     setErros(e => { const { [String(id)]: _, ...resto } = e; return resto; });
@@ -160,6 +180,14 @@ export function PalpitesScreen() {
 
   const pessoa = dados?.pessoa;
   const pendentes = dados?.participantes.filter(p => p.faltantes > 0) ?? [];
+  // Progresso do formulário na tela (inclui o que foi digitado e ainda não salvo).
+  const totalJogos = dados?.jogos.length ?? 0;
+  const preenchidos = dados?.jogos.filter(j => {
+    const v = valores[j.id];
+    return naoEnviou || (v && (v.situacao !== 'valido' || (v.casa !== '' && v.fora !== '')));
+  }).length ?? 0;
+  const progresso = totalJogos ? Math.round((preenchidos / totalJogos) * 100) : 0;
+  const completos = (dados?.participantes.length ?? 0) - pendentes.length;
   let indiceCampo = -1;
 
   return (
@@ -172,6 +200,10 @@ export function PalpitesScreen() {
           </button>
         ) : undefined} />
       <GradeModal rodadaId={grade} onClose={() => setGrade(null)} />
+      <ConfirmDialog open={!!trocaPendente} onClose={() => setTrocaPendente(null)}
+        onConfirm={() => { const acao = trocaPendente; setTrocaPendente(null); acao?.(); }}
+        title="Sair sem salvar?" danger confirmLabel="Sair sem salvar" cancelLabel="Continuar editando"
+        message={<>Há palpites digitados{pessoa ? <> de <strong>{pessoa.nome}</strong></> : null} que ainda não foram salvos. Se continuar, eles serão descartados.</>} />
 
       <div className="p-4 md:p-8 pb-44 md:pb-32 space-y-4">
         {erro && <ErroCarga mensagem={erro} onTentar={recarregar} />}
@@ -182,21 +214,42 @@ export function PalpitesScreen() {
           <>
             <div className={`bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 min-w-0 ${salvando ? 'pointer-events-none opacity-60' : ''}`}>
               <SeletorRodadas rodadas={dados.rodadas} selecionadaId={rodadaId ?? dados.rodada.id} atualId={null}
-                onSelecionar={id => { setRodadaId(id); setPessoaId(null); }} />
+                onSelecionar={id => trocar(() => { setRodadaId(id); setPessoaId(null); })} />
             </div>
 
             {/* Participante */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 space-y-3">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+              {pessoa && (
+                <div className="relative overflow-hidden flex items-center gap-4 px-4 sm:px-5 py-4 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 text-white">
+                  <div aria-hidden="true" className="absolute inset-y-0 right-0 w-1/2 linhas-campo opacity-60 [mask-image:linear-gradient(90deg,transparent,black_50%)]" />
+                  <div className="relative rounded-full ring-4 ring-white/20"><Avatar nome={pessoa.nome} id={pessoa.id} size="lg" /></div>
+                  <div className="relative min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Lançando palpites de</p>
+                    <p className="text-lg sm:text-xl font-extrabold truncate">{pessoa.nome}</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="h-2 flex-1 max-w-xs rounded-full bg-white/20 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-gold-300 to-gold-400 transition-all duration-500" style={{ width: `${progresso}%` }} />
+                      </div>
+                      <span className="text-xs font-bold text-white/90 shrink-0">{preenchidos}/{totalJogos} jogos</span>
+                    </div>
+                  </div>
+                  <div className="relative hidden sm:flex flex-col items-end shrink-0">
+                    <span className="text-2xl font-extrabold leading-none">{completos}<span className="text-white/60 text-base">/{dados.participantes.length}</span></span>
+                    <span className="text-[11px] text-white/70 mt-1">participantes completos</span>
+                  </div>
+                </div>
+              )}
+              <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <button onClick={() => pessoa?.anteriorId && setPessoaId(pessoa.anteriorId)} disabled={!pessoa?.anteriorId || salvando !== null || trocando} aria-label="Participante anterior"
+                <button onClick={() => pessoa?.anteriorId && trocar(() => setPessoaId(pessoa.anteriorId))} disabled={!pessoa?.anteriorId || salvando !== null || trocando} aria-label="Participante anterior"
                   className="shrink-0 w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-800"><ChevronLeft className="w-5 h-5" /></button>
-                <select value={trocando ? (pessoaId ?? '') : (pessoa?.id ?? '')} onChange={e => setPessoaId(Number(e.target.value))} aria-label="Participante" disabled={salvando !== null}
+                <select value={trocando ? (pessoaId ?? '') : (pessoa?.id ?? '')} onChange={e => { const id = Number(e.target.value); trocar(() => setPessoaId(id)); }} aria-label="Participante" disabled={salvando !== null}
                   className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/40">
                   {dados.participantes.map(p => (
                     <option key={p.id} value={p.id}>{p.nome}{p.status === 'desistente' ? ' (desistente)' : ''} · {p.faltantes ? `${p.faltantes} faltando` : 'completo ✓'}</option>
                   ))}
                 </select>
-                <button onClick={() => pessoa?.proximaId && setPessoaId(pessoa.proximaId)} disabled={!pessoa?.proximaId || salvando !== null || trocando} aria-label="Próximo participante"
+                <button onClick={() => pessoa?.proximaId && trocar(() => setPessoaId(pessoa.proximaId))} disabled={!pessoa?.proximaId || salvando !== null || trocando} aria-label="Próximo participante"
                   className="shrink-0 w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-800"><ChevronRight className="w-5 h-5" /></button>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -208,13 +261,14 @@ export function PalpitesScreen() {
               {verPendencias && pendentes.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 animate-fade-in">
                   {pendentes.map(p => (
-                    <button key={p.id} onClick={() => setPessoaId(p.id)} disabled={salvando !== null}
+                    <button key={p.id} onClick={() => trocar(() => setPessoaId(p.id))} disabled={salvando !== null}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border ${p.id === pessoa?.id ? 'bg-brand-600 border-brand-600 text-white' : 'border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:border-red-300'}`}>
                       {p.nome} · {p.faltantes}
                     </button>
                   ))}
                 </div>
               )}
+              </div>
             </div>
 
             {pessoa?.whatsapp && !trocando && (
@@ -271,9 +325,11 @@ export function PalpitesScreen() {
                     const erroJogo = erros[String(j.id)];
                     const temResultado = j.golsCasa !== null && j.golsFora !== null;
                     return (
-                      <div key={j.id} className={`bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border ${erroJogo ? 'border-red-300 dark:border-red-800' : 'border-gray-100 dark:border-gray-800'}`}>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 mb-3">
-                          <span className="font-bold text-gray-500">{j.numero}</span>
+                      <div key={j.id} className={`relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-sm border transition-shadow focus-within:shadow-md ${erroJogo ? 'border-red-300 dark:border-red-800' : 'border-gray-100 dark:border-gray-800'}`}>
+                        <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${erroJogo ? 'bg-red-400' : j.classico ? 'bg-gradient-to-b from-gold-300 to-gold-500' : (v.casa !== '' && v.fora !== '') || !valido ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                        <div className="p-4 pl-5">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 mb-4">
+                          <span className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-extrabold text-gray-600 dark:text-gray-300">{j.numero}</span>
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{j.dataTexto ?? 'Horário a definir'}</span>
                           {j.classico && <Badge color="gold" icon={<Star className="w-3 h-3" />}>Clássico</Badge>}
                           {j.iniciado && <Badge color="yellow">Iniciado — lançamento auditado</Badge>}
@@ -282,29 +338,30 @@ export function PalpitesScreen() {
                         </div>
                         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
                           <div className="flex items-center justify-end gap-2 min-w-0">
-                            <span className="font-semibold text-sm text-gray-900 dark:text-white truncate text-right"><span className="hidden sm:inline">{j.casa}</span><span className="sm:hidden">{j.escudoCasa.sigla}</span></span>
-                            <TeamCrest nome={j.casa} escudo={j.escudoCasa} size="sm" />
+                            <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate text-right"><span className="hidden sm:inline">{j.casa}</span><span className="sm:hidden">{j.escudoCasa.sigla}</span></span>
+                            <TeamCrest nome={j.casa} escudo={j.escudoCasa} size="md" />
                           </div>
                           <div className="flex items-center gap-2">
                             {(['casa', 'fora'] as const).map((lado, k) => (
                               <span key={lado} className="contents">
-                                {k === 1 && <span className="text-gray-300 text-lg">×</span>}
+                                {k === 1 && <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 text-sm font-bold">×</span>}
                                 <input ref={el => { campos.current[k === 0 ? iCasa : iFora] = el; }} type="text" inputMode="numeric" autoComplete="off"
                                   value={valido ? v[lado] : ''} disabled={guardado || !valido} maxLength={10}
                                   onChange={e => alterar(j.id, { [lado]: e.target.value.replace(/\D/g, '') })} {...teclado(k === 0 ? iCasa : iFora)}
                                   onFocus={e => e.currentTarget.select()}
                                   aria-label={`Gols de ${lado === 'casa' ? j.casa : j.fora} no jogo ${j.numero}`} aria-invalid={erroJogo ? true : undefined}
-                                  className="w-14 h-14 text-2xl font-bold text-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 disabled:bg-gray-50 disabled:dark:bg-gray-800/50 disabled:text-gray-300" />
+                                  className={`w-14 h-14 sm:w-16 sm:h-16 text-2xl sm:text-3xl font-extrabold text-center rounded-2xl border-2 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 focus:bg-white dark:focus:bg-gray-800 disabled:bg-gray-50 disabled:dark:bg-gray-800/50 disabled:text-gray-300 disabled:shadow-none ${valido && v[lado] !== '' ? 'border-brand-300 dark:border-brand-700 bg-brand-50/60 dark:bg-brand-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'}`} />
                               </span>
                             ))}
                           </div>
                           <div className="flex items-center gap-2 min-w-0">
-                            <TeamCrest nome={j.fora} escudo={j.escudoFora} size="sm" />
-                            <span className="font-semibold text-sm text-gray-900 dark:text-white truncate"><span className="hidden sm:inline">{j.fora}</span><span className="sm:hidden">{j.escudoFora.sigla}</span></span>
+                            <TeamCrest nome={j.fora} escudo={j.escudoFora} size="md" />
+                            <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate"><span className="hidden sm:inline">{j.fora}</span><span className="sm:hidden">{j.escudoFora.sigla}</span></span>
                           </div>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 px-4 pl-5 py-2.5 bg-gray-50/80 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
                           <select value={v.situacao} disabled={guardado} onChange={e => alterar(j.id, { situacao: e.target.value as SituacaoPalpite })}
                             aria-label={`Situação do palpite no jogo ${j.numero}`}
                             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${valido ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300' : 'border-red-200 bg-red-50 text-red-700 dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-300'}`}>
@@ -334,12 +391,12 @@ export function PalpitesScreen() {
                           )}
                           <span className="ml-auto text-xs text-gray-500">
                             {temResultado
-                              ? <>Resultado {j.golsCasa} × {j.golsFora}{textoPenaltis(j.penaltisCasa, j.penaltisFora)}{j.palpite?.pontos != null && <> · <strong className={j.palpite.pontos > 0 ? 'text-brand-600' : 'text-gray-500'}>{j.palpite.pontos} pt</strong></>}</>
+                              ? <span className="inline-flex items-center gap-1.5">Resultado <span className="rounded-md bg-gray-900 dark:bg-gray-700 px-1.5 py-0.5 font-bold text-white">{j.golsCasa} × {j.golsFora}</span>{textoPenaltis(j.penaltisCasa, j.penaltisFora)}{j.palpite?.pontos != null && <strong className={`rounded-md px-1.5 py-0.5 ${j.palpite.pontos > 0 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>{j.palpite.pontos} pt</strong>}</span>
                               : 'Aguardando resultado'}
                           </span>
                         </div>
-                        {erroJogo && <p role="alert" className="mt-2 text-xs text-red-500">{erroJogo}</p>}
-                        {guardado && <p className="mt-2 text-xs text-gray-500">Palpite guardado após desistência. A restauração é feita no histórico do participante.</p>}
+                        {erroJogo && <p role="alert" className="px-5 pb-3 pt-2 text-xs text-red-500">{erroJogo}</p>}
+                        {guardado && <p className="px-5 pb-3 pt-2 text-xs text-gray-500">Palpite guardado após desistência. A restauração é feita no histórico do participante.</p>}
                       </div>
                     );
                   })}
@@ -359,9 +416,10 @@ export function PalpitesScreen() {
 
       {/* Barra de salvar fixa */}
       {pessoa && dados?.jogos.length ? (
-        <div className="fixed bottom-16 md:bottom-0 left-0 md:left-64 right-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-100 dark:border-gray-800 px-4 md:px-8 py-3 flex items-center gap-2">
+        <div className="fixed bottom-16 md:bottom-0 left-0 md:left-64 right-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-[0_-6px_20px_-10px_rgb(16_24_40/0.18)] border-t border-gray-100 dark:border-gray-800 px-4 md:px-8 py-3 flex items-center gap-2">
           <p className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 flex-1 min-w-0">
             {fechado ? <><Lock className="w-4 h-4" /> Palpites completos · somente leitura</>
+              : alterado ? <><span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse" /> <span className="font-semibold text-gold-700 dark:text-gold-300">Alterações ainda não salvas</span></>
               : whatsapp ? <><CheckCircle2 className="w-4 h-4 text-brand-500" /> Preenchido pela mensagem do WhatsApp</> : <>Enter salva e fica · o próximo pula quem já está completo</>}
           </p>
           {fechado ? (
@@ -373,7 +431,7 @@ export function PalpitesScreen() {
                 </button>
               )}
               <button onClick={editar} disabled={bloqueado}
-                className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-60">
+                className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white text-sm font-semibold shadow-md shadow-brand-600/25 disabled:opacity-60">
                 <Pencil className="w-4 h-4" /> Editar
               </button>
             </>
@@ -381,7 +439,7 @@ export function PalpitesScreen() {
           <button onClick={() => salvar('ficar')} disabled={bloqueado} aria-busy={salvando === 'ficar'} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed">
             {salvando === 'ficar' ? <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" /> : <Save className="w-4 h-4" />} {salvando === 'ficar' ? 'Salvando…' : 'Salvar'}
           </button>
-          <button onClick={() => salvar('proximo')} disabled={bloqueado} aria-busy={salvando === 'proximo'} className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed">
+          <button onClick={() => salvar('proximo')} disabled={bloqueado} aria-busy={salvando === 'proximo'} className="flex-[2] sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white text-sm font-semibold shadow-md shadow-brand-600/25 disabled:opacity-60 disabled:cursor-not-allowed">
             {salvando === 'proximo' ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SkipForward className="w-4 h-4" />} {salvando === 'proximo' ? 'Salvando…' : 'Salvar e próximo'}
           </button>
           </>)}

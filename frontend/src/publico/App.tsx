@@ -89,7 +89,7 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
               const ativa = aba === a.id;
               return (
                 <button key={a.id} onClick={() => ir(a.id)} aria-current={ativa ? 'page' : undefined}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${ativa ? 'border-brand-600 text-brand-700 dark:text-brand-300' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}>
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${ativa ? 'border-brand-600 text-brand-700 dark:text-brand-300' : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-gray-700'}`}>
                   <Icon className="w-4 h-4" />{a.longo}
                 </button>
               );
@@ -106,15 +106,15 @@ export function AppPublico({ dados }: { dados: DadosPagina }) {
         {aba === 'participantes' && <Participantes onAbrirParticipante={abrir} />}
       </main>
 
-      <nav aria-label="Seções" className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-1 py-1.5 flex items-center justify-around safe-area-bottom">
+      <nav aria-label="Seções" className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 shadow-[0_-4px_16px_-8px_rgb(16_24_40/0.12)] px-1 py-1.5 flex items-center justify-around safe-area-bottom">
         {ABAS.map(a => {
           const Icon = a.icon;
           const ativa = aba === a.id;
           return (
             <button key={a.id} onClick={() => ir(a.id)} aria-current={ativa ? 'page' : undefined}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1.5 rounded-lg transition-colors ${ativa ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400'}`}>
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium truncate max-w-full">{a.label}</span>
+              className={`group flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1 rounded-xl transition-colors ${ativa ? 'text-brand-700 dark:text-brand-300' : 'text-gray-500 dark:text-gray-400'}`}>
+              <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${ativa ? 'bg-brand-100 dark:bg-brand-900/50' : 'group-hover:bg-gray-100 dark:group-hover:bg-gray-800'}`}><Icon className="w-5 h-5" /></span>
+              <span className={`text-[10px] truncate max-w-full ${ativa ? 'font-semibold' : 'font-medium'}`}>{a.label}</span>
             </button>
           );
         })}

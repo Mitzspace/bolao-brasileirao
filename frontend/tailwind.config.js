@@ -48,6 +48,13 @@ export default {
           950: 'rgb(var(--gray-950) / <alpha-value>)',
         },
       },
+      // Sombras mais suaves e em camadas (o visual "flutuante" dos cartões).
+      boxShadow: {
+        sm: '0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06)',
+        md: '0 4px 8px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.05)',
+        lg: '0 12px 24px -6px rgb(16 24 40 / 0.12), 0 4px 8px -4px rgb(16 24 40 / 0.06)',
+        xl: '0 20px 32px -8px rgb(16 24 40 / 0.16), 0 8px 12px -6px rgb(16 24 40 / 0.08)',
+      },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',

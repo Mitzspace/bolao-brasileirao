@@ -23,12 +23,12 @@ export function JogoLinha({ jogo, mostrarData = false }: { jogo: JogoBase; mostr
       </span>
       <TeamCrest nome={jogo.casa} escudo={jogo.escudoCasa} size="xs" />
       {temPlacar ? (
-        <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800">
-          <span className="font-bold text-gray-900 dark:text-white">{jogo.golsCasa}</span>
+        <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-800 shadow-sm ring-1 ring-inset ring-white/5">
+          <span className="font-bold text-white">{jogo.golsCasa}</span>
           <span className="text-gray-400 text-xs">×</span>
-          <span className="font-bold text-gray-900 dark:text-white">{jogo.golsFora}</span>
+          <span className="font-bold text-white">{jogo.golsFora}</span>
           {jogo.penaltisCasa != null && jogo.penaltisFora != null && (
-            <span className="text-[10px] font-semibold text-gray-500" title="Placar dos pênaltis">({jogo.penaltisCasa}×{jogo.penaltisFora})</span>
+            <span className="text-[10px] font-semibold text-gray-300" title="Placar dos pênaltis">({jogo.penaltisCasa}×{jogo.penaltisFora})</span>
           )}
         </div>
       ) : (

@@ -60,12 +60,13 @@ export function AgendaRodada({ agora, rodadas, selecionadaId, atualId, onSelecio
       </div>
 
       {/* Destaque da rodada */}
-      <div className="bg-gradient-to-r from-brand-600 to-brand-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+      <div className="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 rounded-3xl p-6 md:p-8 text-white shadow-lg shadow-brand-900/20 relative overflow-hidden animate-fade-in">
+        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-1/2 hidden sm:block linhas-campo opacity-80 [mask-image:linear-gradient(90deg,transparent,black_40%)]" />
+        <div aria-hidden="true" className="absolute -top-16 -right-10 w-56 h-56 bg-white/10 rounded-full blur-2xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <p className="text-white/80 text-sm">{r.atual ? 'Rodada atual' : 'Rodada selecionada'}{r.numero ? ` · ${r.numero}/${r.total}` : ''}</p>
-            <h2 className="text-2xl font-bold mt-1">{r.nome}</h2>
+            <h2 className="text-2xl md:text-3xl font-extrabold mt-1">{r.nome}</h2>
             <p className="text-white/90 text-sm mt-2 flex items-center gap-2">
               <CalendarClock className="w-4 h-4 shrink-0" />
               {r.inicioTexto ? <span>Início: <strong>{r.inicioTexto}</strong>{r.fimTexto && r.fimTexto !== r.inicioTexto ? <> · último jogo: {r.fimTexto}</> : null}</span> : 'Horários ainda não divulgados'}

@@ -63,7 +63,7 @@ export function Tabela({ onAbrirParticipante, onRegras }: { onAbrirParticipante:
           <EmptyState icon={<Users className="w-10 h-10" />} title="Ninguém na classificação ainda" />
         ) : (
           <>
-            <div className="p-5 bg-gradient-to-b from-brand-50 to-transparent dark:from-brand-900/20"><Podio ranking={podio} /></div>
+            <div className="p-3 sm:p-4"><Podio ranking={podio} /></div>
             <TabelaClassificacao geral={geral} celular="colunas" colunas={['total', 'bonus', 'variacao']}
               dicaVariacao={dados.variacaoReferencia ? `Variação em relação à ${dados.variacaoReferencia}` : undefined}
               onAbrir={l => onAbrirParticipante({ ref: String(l.chave), nome: l.nome })}
