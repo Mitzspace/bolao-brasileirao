@@ -1,7 +1,8 @@
 # Publicar gratuitamente: Render Free + Neon Free
 
-> **Aviso (nov/2026):** a produção não roda mais no Render; agora fica numa VM da
-> Oracle Cloud. Este guia registra a implantação anterior no Render e serve só como
+> **Aviso (nov/2026):** a produção não roda mais no Render nem usa o Neon; aplicação
+> e banco PostgreSQL agora ficam na Oracle Cloud. Este guia registra a implantação
+> anterior (Render + Neon) e serve só como
 > referência. As partes que valem para qualquer hospedagem (migrações, backups,
 > variáveis de ambiente) continuam úteis.
 

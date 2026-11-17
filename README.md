@@ -6,9 +6,9 @@ dos participantes. Jogos, horários e resultados podem vir da API football-data.
 
 ## Publicação na nuvem
 
-> **Hospedagem atual:** a produção roda numa VM da Oracle Cloud, no lugar do Render.
-> O guia [DEPLOY.md](DEPLOY.md) e o `render.yaml` abaixo descrevem a implantação
-> anterior no Render e ficam como referência.
+> **Hospedagem atual:** a produção roda numa VM da Oracle Cloud, no lugar do Render,
+> e o banco PostgreSQL também fica na Oracle (o Neon não é mais usado). O guia [DEPLOY.md](DEPLOY.md) e o `render.yaml` abaixo descrevem a implantação
+> anterior (Render + Neon) e ficam como referência.
 
 Siga [DEPLOY.md](DEPLOY.md) para análise, custos, publicação no Render,
 transferência do banco atual, backups e atualizações. O `render.yaml` prepara

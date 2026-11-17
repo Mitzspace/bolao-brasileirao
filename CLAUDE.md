@@ -35,11 +35,11 @@ Não há linter configurado. O `pytest.ini` já injeta `-v --tb=short`.
 
 ## Hospedagem (produção)
 
-A produção **roda numa VM da Oracle Cloud, não mais no Render**. `DEPLOY.md`, `render.yaml` e as menções a "Render Free" (keep-alive, suspensão após inatividade, limiter em memória por ser processo único etc.) descrevem a implantação anterior e ficam como referência histórica; não presuma limitações do Render ao propor mudanças de infraestrutura.
+A produção **roda numa VM da Oracle Cloud, não mais no Render**, e o banco PostgreSQL de produção também fica na Oracle: **o Neon não é mais usado**. `DEPLOY.md`, `render.yaml`, `conferir_neon.py`, `.env.neon.local` e as menções a "Render Free"/Neon (keep-alive, suspensão após inatividade, limiter em memória por ser processo único etc.) descrevem a implantação anterior e ficam como referência histórica; não presuma limitações do Render nem do Neon (banco que "dorme", cota de compute) ao propor mudanças de infraestrutura.
 
 ## Banco e migrações (ponto de atenção)
 
-O app **não migra o banco sozinho**. Em `create_app`, para bancos já existentes ele inspeciona colunas/tabelas obrigatórias e lança `RuntimeError` apontando a migração faltante (`python -m migrations.<nome> CAMINHO_DO_BANCO`, com backup antes; detalhes em `docs/`). Em produção, banco vazio exige `python -m scripts.inicializar_banco`, e schema parcial falha o startup. Ao adicionar coluna: crie a migração em `migrations/` (SQLite), o SQL equivalente em `migrations/sql/` (Neon/Postgres) e inclua a checagem em `create_app`. Dev usa SQLite; produção usa PostgreSQL (Neon, `postgresql+psycopg`, TLS obrigatório — ver `normalizar_database_url` em `config.py`). Testes de Postgres usam `TEST_POSTGRES_URL` (rodam no workflow manual `deploy-check.yml`).
+O app **não migra o banco sozinho**. Em `create_app`, para bancos já existentes ele inspeciona colunas/tabelas obrigatórias e lança `RuntimeError` apontando a migração faltante (`python -m migrations.<nome> CAMINHO_DO_BANCO`, com backup antes; detalhes em `docs/`). Em produção, banco vazio exige `python -m scripts.inicializar_banco`, e schema parcial falha o startup. Ao adicionar coluna: crie a migração em `migrations/` (SQLite), o SQL equivalente em `migrations/sql/` (Postgres) e inclua a checagem em `create_app`. Dev usa SQLite; produção usa PostgreSQL na Oracle (`postgresql+psycopg`; o app exige `sslmode` require/verify-* em produção — ver `normalizar_database_url` em `config.py`). Testes de Postgres usam `TEST_POSTGRES_URL` (rodam no workflow manual `deploy-check.yml`).
 
 ## Convenções
 
