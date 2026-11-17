@@ -37,6 +37,8 @@ Não há linter configurado. O `pytest.ini` já injeta `-v --tb=short`.
 
 A produção **roda numa VM da Oracle Cloud, não mais no Render**, e o banco PostgreSQL de produção também fica na Oracle: **o Neon não é mais usado**. `DEPLOY.md`, `render.yaml`, `conferir_neon.py`, `.env.neon.local` e as menções a "Render Free"/Neon (keep-alive, suspensão após inatividade, limiter em memória por ser processo único etc.) descrevem a implantação anterior e ficam como referência histórica; não presuma limitações do Render nem do Neon (banco que "dorme", cota de compute) ao propor mudanças de infraestrutura.
 
+Detalhes em `DEPLOY_ORACLE.md`. O essencial: VM Always Free com **1 GB de RAM** (1/8 OCPU; teto medido de ~38 req/s, limitado pela CPU), Ubuntu 24.04, PostgreSQL 18 local, Caddy fazendo HTTPS na frente do gunicorn (porta 8000), serviço systemd `bolao` rodando `python -m services.servidor` com `EnvironmentFile=.env`, processo único (`RATELIMIT_STORAGE_URI=memory://` + `RATELIMIT_SINGLE_PROCESS=true`) e `SYNC_ENABLED=true`. O build do frontend é feito na própria VM, com o serviço parado por falta de memória: evite dependências de build pesadas. Backups diários com `pg_dump`.
+
 ## Banco e migrações (ponto de atenção)
 
 O app **não migra o banco sozinho**. Em `create_app`, para bancos já existentes ele inspeciona colunas/tabelas obrigatórias e lança `RuntimeError` apontando a migração faltante (`python -m migrations.<nome> CAMINHO_DO_BANCO`, com backup antes; detalhes em `docs/`). Em produção, banco vazio exige `python -m scripts.inicializar_banco`, e schema parcial falha o startup. Ao adicionar coluna: crie a migração em `migrations/` (SQLite), o SQL equivalente em `migrations/sql/` (Postgres) e inclua a checagem em `create_app`. Dev usa SQLite; produção usa PostgreSQL na Oracle (`postgresql+psycopg`; o app exige `sslmode` require/verify-* em produção — ver `normalizar_database_url` em `config.py`). Testes de Postgres usam `TEST_POSTGRES_URL` (rodam no workflow manual `deploy-check.yml`).
@@ -44,5 +46,5 @@ O app **não migra o banco sozinho**. Em `create_app`, para bancos já existente
 ## Convenções
 
 - Código, mensagens e comentários em português; nomes de times são normalizados na sincronização (`test_nomes_times.py`) — os testes esperam o nome curto (ex.: `Corinthians`).
-- Documentação de cada etapa/feature fica em `docs/` (guias de deploy: `DEPLOY.md`, `DEPLOY_REDIS.md` na raiz). Mensagens de erro de migração referenciam esses arquivos.
+- Documentação de cada etapa/feature fica em `docs/` (guia de deploy atual: `DEPLOY_ORACLE.md`; `DEPLOY.md` e `DEPLOY_REDIS.md` são históricos). Mensagens de erro de migração referenciam esses arquivos.
 - Em desenvolvimento a `SECRET_KEY` padrão é fixa (para manter sessões entre reinícios); produção exige a variável de ambiente.
