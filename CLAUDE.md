@@ -31,7 +31,11 @@ Não há linter configurado. O `pytest.ini` já injeta `-v --tb=short`.
 - **Camadas**: `routes/` (blueprints finos; `api_*.py` por aba da interface, em `/interface/api/...`) → `services/` (toda a regra de negócio: `pontuacao`, `regras_pontuacao`, `classificacao`/`ranking`, `elegibilidade`, `lancamento_*`, `sync`, parsers de planilha/WhatsApp, `publico`) → `models.py` (SQLAlchemy; `database.py` expõe `db`). Prefira pôr lógica nova em `services/`.
 - **Modelo multi-bolão**: `Campeonato` → `Rodada` → `Jogo` (+ `Resultado`); `Bolao` pertence a um campeonato e tem regras de pontuação próprias; `Participante` é a conta (login), `Participacao` liga uma pessoa a um bolão (nome de exibição, papel, status, desistência/entrada tardia); `Palpite` pertence a uma `Participacao`, com `PalpiteLog`/`ParticipacaoLog` de auditoria. Ranking e pontos dependem de elegibilidade (período de participação, desistência) — ver `services/elegibilidade.py` antes de mexer em classificação.
 - **Frontend**: `frontend/src/` com `screens/` (uma por aba) e `components/`; tipos da API em `types.ts`. `routes/interface.py` + `templates/interface.html` carregam o bundle via `services/assets_vite.py`, que lê o manifesto do Vite (duas entradas: gestão e página pública).
-- **Segurança/infra**: CSRF global (token no header `X-CSRFToken` nas gravações da API), Flask-Limiter (`extensions.py`; storage via `RATELIMIT_STORAGE_URI`, memória no Render Free), `TRUST_PROXY` para ProxyFix, `MAINTENANCE_MODE` sobe `services/manutencao.py`.
+- **Segurança/infra**: CSRF global (token no header `X-CSRFToken` nas gravações da API), Flask-Limiter (`extensions.py`; storage via `RATELIMIT_STORAGE_URI`, memória no antigo Render Free), `TRUST_PROXY` para ProxyFix, `MAINTENANCE_MODE` sobe `services/manutencao.py`.
+
+## Hospedagem (produção)
+
+A produção **roda numa VM da Oracle Cloud, não mais no Render**. `DEPLOY.md`, `render.yaml` e as menções a "Render Free" (keep-alive, suspensão após inatividade, limiter em memória por ser processo único etc.) descrevem a implantação anterior e ficam como referência histórica; não presuma limitações do Render ao propor mudanças de infraestrutura.
 
 ## Banco e migrações (ponto de atenção)
 

@@ -1,5 +1,10 @@
 # Publicar gratuitamente: Render Free + Neon Free
 
+> **Aviso (nov/2026):** a produção não roda mais no Render; agora fica numa VM da
+> Oracle Cloud. Este guia registra a implantação anterior no Render e serve só como
+> referência. As partes que valem para qualquer hospedagem (migrações, backups,
+> variáveis de ambiente) continuam úteis.
+
 Guia atualizado em 12/10/2026. A preparação não publica o sistema, não cria contas,
 não contrata serviços e não envia os dados existentes. A implantação anterior
 com disco e Redis pagos foi substituída.
