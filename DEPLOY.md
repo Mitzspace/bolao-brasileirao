@@ -1,5 +1,11 @@
 # Publicar gratuitamente: Render Free + Neon Free
 
+> **Aviso (nov/2026):** a produção não roda mais no Render nem usa o Neon; aplicação
+> e banco PostgreSQL agora ficam na Oracle Cloud. Este guia registra a implantação
+> anterior (Render + Neon) e serve só como referência; o guia atual é
+> [DEPLOY_ORACLE.md](DEPLOY_ORACLE.md). As partes que valem para qualquer hospedagem (migrações, backups,
+> variáveis de ambiente) continuam úteis.
+
 Guia atualizado em 12/10/2026. A preparação não publica o sistema, não cria contas,
 não contrata serviços e não envia os dados existentes. A implantação anterior
 com disco e Redis pagos foi substituída.
